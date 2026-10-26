@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '0.8.1';
+const STUDIO_VERSION = '0.8.2';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -431,8 +431,9 @@ class DashboardStudioHub extends HTMLElement {
       const wx = w ? `<span class="ts-wx"><ha-icon icon="${WX_ICON[w.state] || 'mdi:weather-partly-cloudy'}"></ha-icon>${w.attributes.temperature != null ? Math.round(w.attributes.temperature) + '°' : esc(cap(w.state))}</span>` : '<span></span>';
       const clock = `<span>${new Date().toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'})}</span>`;
       const op = Math.max(0, Math.min(100, Number(c.opacity ?? 0) || 0));
-      const cls = ['ts', c.touch_style === 'theme' ? 'ts-theme' : '', op < 40 ? 'clear' : '', c.full_height ? 'full' : '', c.calm ? 'calm' : '', this._ic()].filter(Boolean).join(' ');
-      this.shadowRoot.innerHTML = `<style>${STYLE}${TOUCH_STYLE}</style><ha-card class="${cls}" style="--t-op:${op}%">${top}${menu}<div class="ts-body">${body}</div><div class="ts-bottom">${clock}${wx}</div>${night}${flash}</ha-card>`;
+      const rr = Number(c.room_radius ?? 30), rad = rr >= 30 ? 99 : Math.max(0, rr);
+      const cls = ['ts', c.touch_style === 'theme' ? 'ts-theme' : '', op < 40 ? 'clear' : '', c.icon_background === false ? 'noicobg' : '', c.full_height ? 'full' : '', c.calm ? 'calm' : '', this._ic()].filter(Boolean).join(' ');
+      this.shadowRoot.innerHTML = `<style>${STYLE}${TOUCH_STYLE}</style><ha-card class="${cls}" style="--t-op:${op}%;--t-rr:${rad}px">${top}${menu}<div class="ts-body">${body}</div><div class="ts-bottom">${clock}${wx}</div>${night}${flash}</ha-card>`;
       return;
     }
     this.shadowRoot.innerHTML = `<style>${STYLE}</style><ha-card class="${[c.calm ? 'calm' : '', this._ic()].filter(Boolean).join(' ')}">${title}${chips}${body}${night}${flash}</ha-card>`;
@@ -527,6 +528,11 @@ ha-card.ts.full{min-height:calc(100vh - var(--header-height,56px) - 16px)}
 .ts-tile:hover{background:var(--s-soft2);transform:translateY(-2px)}
 .ts-ico{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:var(--s-soft2);box-shadow:inset 0 1px 0 rgba(255,255,255,.14)}
 .ts-ico ha-icon{--mdc-icon-size:28px}
+.ts-room{border-radius:var(--t-rr,99px)}
+ha-card.ts.noicobg .ts-ico{background:none;box-shadow:none;color:var(--s-muted)}
+ha-card.ts.noicobg .ts-ico ha-icon{--mdc-icon-size:36px}
+ha-card.ts.noicobg .ts-tile.on .ts-ico{background:none;box-shadow:none;color:var(--s-active);filter:drop-shadow(0 0 10px color-mix(in srgb,var(--s-active) 45%,transparent))}
+ha-card.ts.noicobg .ts-tile.warn .ts-ico{background:none;color:#ff8a7a}
 .ts-tile.on .ts-ico{background:var(--s-active);color:var(--s-active-ink);box-shadow:0 0 20px color-mix(in srgb,var(--s-active) 32%,transparent)}
 .ts-tile.warn .ts-ico{background:#ff8a7a;color:#3a0c05}
 .ts-ring{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;border:3px solid var(--s-accent);background:rgba(0,0,0,.35);color:#fff;box-shadow:0 0 16px color-mix(in srgb,var(--s-accent) 35%,transparent)}
@@ -1065,6 +1071,7 @@ button:focus-visible{outline:2px solid var(--s-accent);outline-offset:2px}
 /* visual editor for the hub card: the simple choices, with rooms filled from areas */
 const HUB_LABELS = {
   title: 'Home name', layout: 'Layout', touch_style: 'Look', opacity: 'Background strength (0 is see-through)', icon_color: 'Icon color when on',
+  icon_background: 'Circle behind icons', room_radius: 'Room button roundness (30 is fully round)',
   areas: 'Rooms to show (leave empty for every area)', weather_entity: 'Weather', good_night: 'Good night script (leave empty to let the card do it)',
   full_height: 'Fill the screen', calm: 'Turn off animations'
 };
@@ -1081,7 +1088,9 @@ class DashboardStudioHubEditor extends HTMLElement {
       {name: 'layout', selector: opt(['touchscreen', 'Touchscreen'], ['tiles', 'Tiles'])},
       ...(touch ? [
         {name: 'touch_style', selector: opt(['dark', 'Dark'], ['theme', 'Follow my theme'])},
-        {name: 'opacity', selector: {number: {min: 0, max: 100, step: 5, mode: 'slider', unit_of_measurement: '%'}}}
+        {name: 'opacity', selector: {number: {min: 0, max: 100, step: 5, mode: 'slider', unit_of_measurement: '%'}}},
+        {name: 'room_radius', selector: {number: {min: 0, max: 30, step: 2, mode: 'slider', unit_of_measurement: 'px'}}},
+        {name: 'icon_background', selector: {boolean: {}}}
       ] : []),
       {name: 'icon_color', selector: opt(['soft', 'Soft white'], ['accent', 'My theme color'], ['warm', 'Warm yellow'])},
       ...(Array.isArray(c.rooms) && c.rooms.length ? [] : [{name: 'areas', selector: {area: {multiple: true}}}]),
@@ -1112,7 +1121,7 @@ class DashboardStudioHubEditor extends HTMLElement {
       ? 'This card uses the rooms written in its code. To fill rooms from your areas instead, remove "rooms" in the code editor.'
       : 'Rooms fill in from your Home Assistant areas, and scenes from your scenes. Nothing else to set up.';
     this._form.hass = this._hass;
-    this._form.data = {layout: 'tiles', touch_style: 'dark', opacity: 0, icon_color: 'soft', ...this._config};
+    this._form.data = {layout: 'tiles', touch_style: 'dark', opacity: 0, icon_color: 'soft', room_radius: 30, icon_background: true, ...this._config};
     this._form.schema = this._schema();
   }
 }

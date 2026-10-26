@@ -559,6 +559,11 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .ts-tile:hover{background:color-mix(in srgb, var(--t-fg) 11%, transparent); transform:translateY(-2px)}
 .ts-ico{width:54px; height:54px; border-radius:50%; display:grid; place-items:center; background:color-mix(in srgb, var(--t-fg) 12%, transparent); box-shadow:inset 0 1px 0 rgba(255,255,255,.14)}
 .ts-ico svg.i{width:26px; height:26px}
+.ts-room{border-radius:var(--t-rr, 99px)}
+.ts.noicobg .ts-ico{background:none; box-shadow:none; color:var(--t-muted)}
+.ts.noicobg .ts-ico svg.i{width:34px; height:34px}
+.ts.noicobg .ts-tile.on .ts-ico{background:none; box-shadow:none; color:var(--t-on); filter:drop-shadow(0 0 10px color-mix(in srgb, var(--t-on) 45%, transparent))}
+.ts.noicobg .ts-tile.warn .ts-ico{background:none; color:#ff8a7a}
 .ts{--t-on:var(--t-fg); --t-on-ink:var(--t-ink)}
 .ts.ic-accent{--t-on:var(--d-accent); --t-on-ink:var(--d-on)}
 .ts.ic-warm{--t-on:#ffc94d; --t-on-ink:#3a2a00}
@@ -2276,6 +2281,7 @@ insp.addEventListener('input', e => {
   if (e.target.id === 'pgName') { commit('pgname'); page().name = e.target.value; renderPages(); save(); return; }
   const b = find(selected); if (!b) return;
   if (e.target.dataset.hsc) { const s = b.scenes?.[+e.target.dataset.hsc]; if (!s) return; commit('hsc' + e.target.dataset.hsc); s.name = e.target.value; renderDash(); save(); return; }
+  if (e.target.id === 'hRr') { commit('hrr'); b.roomRadius = +e.target.value; $('hRrV').textContent = rrLabel(b.roomRadius); renderDash(); save(); return; }
   if (e.target.id === 'hOp') { commit('hop'); b.opacity = +e.target.value; $('hOpV').textContent = b.opacity ? b.opacity + '%' : 'See-through'; renderDash(); save(); return; }
   if (e.target.id === 'gnTemp') { commit('gntemp'); b.gn.temp = +e.target.value; $('gnTempV').textContent = tC(b.gn.temp) + '°'; renderDash(); save(); return; }
   if (e.target.dataset.hroom) { const r = b.rooms?.[hubSel]; if (!r) return; commit('hroom' + hubSel); r.name = e.target.value; renderDash(); save(); return; }
@@ -2337,6 +2343,8 @@ insp.addEventListener('click', e => {
   }
   const hl = e.target.closest('[data-hlayout]');
   if (hl) { commit(); b.layout = hl.dataset.hlayout; b.view = null; renderDash(); renderInsp(); save(); return; }
+  const hib = e.target.closest('[data-hib]');
+  if (hib) { commit(); b.iconBg = hib.dataset.hib === 'true'; renderDash(); renderInsp(); save(); return; }
   const hic = e.target.closest('[data-hic]');
   if (hic) { commit(); b.iconColor = hic.dataset.hic; renderDash(); renderInsp(); save(); return; }
   const hts = e.target.closest('[data-hts]');
@@ -2418,7 +2426,7 @@ function cardYaml(b){
         rooms:(b.rooms || []).map(r => ({name:r.name, devices:r.devices.map(d => ({entity:hubEnt(d), name:d.name, type:d.t}))})),
         scenes:(b.scenes || []).map(s => ({name:s.name, entity:'scene.' + slug(s.name)})),
         good_night:'script.' + gnScriptId(b), icon_color:b.iconColor || 'soft', ...(state.calm ? {calm:true} : {}),
-        ...(b.layout === 'touchscreen' ? {layout:'touchscreen', touch_style:b.touchStyle || 'dark', opacity:b.opacity ?? 0, ...(state.nav === 'touch' ? {full_height:true} : {}), ...(allBlocks().find(x => x.type === 'weather') ? {weather_entity:allBlocks().find(x => x.type === 'weather').entity} : {})} : {})};
+        ...(b.layout === 'touchscreen' ? {layout:'touchscreen', touch_style:b.touchStyle || 'dark', opacity:b.opacity ?? 0, room_radius:b.roomRadius ?? 30, ...(b.iconBg === false ? {icon_background:false} : {}), ...(state.nav === 'touch' ? {full_height:true} : {}), ...(allBlocks().find(x => x.type === 'weather') ? {weather_entity:allBlocks().find(x => x.type === 'weather').entity} : {})} : {})};
       const url = dashUrl(), rooms = b.rooms || [];
       const cats = Object.keys(HUB_CATS).filter(c => rooms.some(r => r.devices.some(d => catOf(d.t) === c)));
       const quick = [{type:'button', name:'Good night', icon:'mdi:weather-night', show_state:false, tap_action:{action:'perform-action', perform_action:'script.' + gnScriptId(b)}},
@@ -2966,10 +2974,11 @@ function hubTouch(b, ri, rooms){
   }
   const w = allBlocks().find(x => x.type === 'weather'), cond = CONDS[w?.cond] || CONDS.partly;
   const flash = gnFlash.delete(b.id) ? `<div class="gn-ov" aria-hidden="true">${ic('moon')}<b>Good night</b><span>Sleep well. The house is settling in.</span></div>` : '';
-  const op = b.opacity ?? 0;
-  return `<div class="ts${b.touchStyle === 'theme' ? ' ts-theme' : ''}${op < 40 ? ' clear' : ''} ic-${b.iconColor || 'soft'}" style="--t-op:${op}%">${flash}${top}${menu}<div class="ts-body">${body}</div>
+  const op = b.opacity ?? 0, rr = b.roomRadius ?? 30;
+  return `<div class="ts${b.touchStyle === 'theme' ? ' ts-theme' : ''}${op < 40 ? ' clear' : ''}${b.iconBg === false ? ' noicobg' : ''} ic-${b.iconColor || 'soft'}" style="--t-op:${op}%; --t-rr:${rr >= 30 ? 99 : rr}px">${flash}${top}${menu}<div class="ts-body">${body}</div>
     <div class="ts-bottom"><span data-clock>${nowStr()}</span><span class="ts-wx">${ic(cond[0])}${tC(cond[2], 0)}°</span></div></div>`;
 }
+const rrLabel = v => v >= 30 ? 'Round' : v ? v + 'px' : 'Square';
 function hubEditorHTML(b){
   if (hubFor !== b.id) { hubFor = b.id; hubSel = 0; }
   const rooms = b.rooms || [], r = rooms[hubSel], dl = state.entities.length ? 'list="entList"' : '';
@@ -2977,6 +2986,8 @@ function hubEditorHTML(b){
     ${b.layout === 'touchscreen' ? `<div class="seg" role="group" aria-label="Touchscreen look">${[['dark','Dark touchscreen'], ['theme','Follow my theme']].map(([k, l]) => `<button data-hts="${k}" aria-pressed="${(b.touchStyle || 'dark') === k}">${l}</button>`).join('')}</div>
     <label class="lbl2" for="hOp">Background strength <b id="hOpV">${(b.opacity ?? 0) ? (b.opacity ?? 0) + '%' : 'See-through'}</b></label><input type="range" id="hOp" min="0" max="100" step="5" value="${b.opacity ?? 0}">
     <span class="lbl2">Icon color when on</span><div class="seg" role="group" aria-label="Icon color">${[['soft','Soft white'], ['accent','Theme color'], ['warm','Warm']].map(([k, l]) => `<button data-hic="${k}" aria-pressed="${(b.iconColor || 'soft') === k}">${l}</button>`).join('')}</div>
+    <span class="lbl2">Icon background</span><div class="seg" role="group" aria-label="Icon background">${[[true,'Circle'], [false,'None']].map(([k, l]) => `<button data-hib="${k}" aria-pressed="${(b.iconBg !== false) === k}">${l}</button>`).join('')}</div>
+    <label class="lbl2" for="hRr">Room button roundness <b id="hRrV">${rrLabel(b.roomRadius ?? 30)}</b></label><input type="range" id="hRr" min="0" max="30" step="2" value="${b.roomRadius ?? 30}">
     <p class="hint">Room name in the middle of the top bar opens the room list. To make this the only screen in Home Assistant, go to Export › Dashboard › Room switching.</p>` : ''}</div>
     <div class="field"><span class="lbl2">Rooms</span>
     <div class="hub-ed-rooms">${rooms.map((rm, i) => `<button class="pg" data-hsel="${i}" aria-pressed="${i === hubSel}">${esc(rm.name)}<small>${rm.devices.length}</small></button>`).join('')}<button class="pg add" data-hadd-room aria-label="Add a room">${ic('plus')}</button></div>

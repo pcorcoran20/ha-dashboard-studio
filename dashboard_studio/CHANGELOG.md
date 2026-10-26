@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.2
+
+- New **Room button roundness** for the touchscreen layout, from square corners to fully round. On the card it's `room_radius` (0 to 30, and 30 is fully round).
+- New **Icon background** choice: **Circle** or **None**. With no circle, icons that are on glow softly and icons that are off are dimmer. On the card it's `icon_background: false`.
+
 ## 0.8.1
 
 - Touchscreen tiles are always the same size. Long names shorten with "…" instead of making a tile taller.

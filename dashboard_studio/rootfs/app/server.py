@@ -37,7 +37,7 @@ from pathlib import Path
 import yaml
 from aiohttp import ClientSession, ClientTimeout, web
 
-VERSION = os.environ.get("STUDIO_VERSION", "0.8.1")
+VERSION = os.environ.get("STUDIO_VERSION", "0.8.2")
 def _token():
     """The Supervisor's token, from the environment or from where s6 keeps the container's environment."""
     tok = os.environ.get("SUPERVISOR_TOKEN", "")

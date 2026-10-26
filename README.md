@@ -111,6 +111,8 @@ In a Sections dashboard, make the card full width so the tiles have room.
 | `layout` | `tiles` (the default) or `touchscreen`: room name at the top center opens the room list, then Now Playing, big tiles, and the clock and weather along the bottom. |
 | `opacity` | For the touchscreen layout: how solid the background is, from `0` (see-through, the default) to `100`. |
 | `icon_color` | The icon color for tiles that are on: `soft` (soft white, the default), `accent` (your theme color) or `warm` (yellow). |
+| `room_radius` | For the touchscreen layout: how round the room button is, from `0` (square corners) to `30` (fully round, the default). |
+| `icon_background` | `false` removes the circle behind the tile icons. Icons that are on glow, and icons that are off are dimmer. |
 | `touch_style` | For the touchscreen layout: `dark` (the default) or `theme` to follow your Home Assistant theme. |
 | `full_height` | `true` makes the card fill the screen. Good in a panel view. |
 | `weather_entity` | The weather shown in the touchscreen layout's bottom bar. Leave it out to use your first weather entity. |
