@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0
+
+- New room picker in the Studio: arrows to step through rooms and pages, plus a dropdown with every room, a search box, and drag or ↑ ↓ to reorder.
+- Control hub rooms can be moved earlier or later in the right panel.
+- The hub card shows a Rooms dropdown instead of chips when there are more than 6 rooms. Set `room_picker` to `chips`, `dropdown` or `auto`.
+
 ## 0.4.0
 
 - New **Dual shade** block and card for one window with two shade motors: day/night honeycomb shades (blackout plus light filtering, like SmartWings day/night) or top down, bottom up shades. Each shade has its own controls, plus one-tap presets (Open, Day, Night or Open, Privacy, Closed).

@@ -173,6 +173,30 @@ pre.code{margin:0; background:var(--bg); border:1px solid var(--line); border-ra
 .pg[aria-pressed="true"]{background:var(--fg); color:var(--bg); border-color:var(--fg)}
 .pg.add{padding:6px 9px; display:grid; place-items:center}
 .pg.add svg.i{width:15px; height:15px}
+.pagesel{position:relative; display:flex; align-items:center; gap:6px; min-width:0}
+.pagesel > .btn.icon{padding:6px; border-radius:99px}
+.pg-menu-btn{display:flex; align-items:center; gap:8px; border:1px solid var(--line); background:var(--panel); border-radius:99px; padding:6px 10px 6px 12px; font-weight:600; min-width:0; max-width:min(320px, 52vw)}
+.pg-menu-btn:hover{border-color:var(--muted)}
+.pg-menu-btn[aria-expanded="true"]{border-color:var(--accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent)}
+.pg-menu-btn svg.i{width:16px; height:16px; color:var(--muted)}
+.pg-cur{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
+.pg-menu-btn small{color:var(--muted); font-weight:500; font-size:12px; white-space:nowrap; font-variant-numeric:tabular-nums}
+.pg-menu{position:absolute; top:calc(100% + 8px); left:0; z-index:25; width:min(340px, calc(100vw - 32px)); background:var(--panel); border:1px solid var(--line); border-radius:14px; box-shadow:0 18px 50px rgba(10,12,20,.22); padding:10px; display:flex; flex-direction:column; gap:8px}
+.pg-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; max-height:min(52vh, 420px); overflow:auto}
+.pg-item{display:grid; grid-template-columns:auto minmax(0,1fr) auto auto; align-items:center; gap:6px; padding:4px 6px; border-radius:10px; border:1px solid transparent}
+.pg-item:hover{background:var(--bg)}
+.pg-item.cur{background:color-mix(in srgb, var(--accent) 10%, transparent); border-color:color-mix(in srgb, var(--accent) 35%, transparent)}
+.pg-item.dragging{opacity:.4}
+.pg-item.drop-above{box-shadow:inset 0 3px 0 var(--accent)}
+.pg-item.drop-below{box-shadow:inset 0 -3px 0 var(--accent)}
+.grip{cursor:grab; color:var(--muted); font-size:16px; line-height:1; padding:4px 2px; user-select:none}
+.pg-go{border:0; background:none; text-align:left; padding:6px 4px; min-width:0; display:flex; flex-direction:column; gap:1px}
+.pg-go b{font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.pg-go small{color:var(--muted); font-size:11.5px}
+.pg-item .mini:disabled{opacity:.3; cursor:default}
+.pg-empty{color:var(--muted); font-size:12.5px; padding:10px 6px}
+.pg-foot{display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; border-top:1px solid var(--line); padding-top:8px}
+.pg-foot .hint{font-size:11.5px}
 .stage-meta{display:flex; align-items:center; gap:10px; color:var(--muted); font-size:calc(12px * var(--d-fs,1)); font-family:var(--f-mono)}
 .stage-meta .seg button{font-family:var(--f-body); padding:3px 9px; font-size:calc(12px * var(--d-fs,1))}
 
@@ -470,6 +494,10 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .hub-rooms::-webkit-scrollbar{display:none}
 .hub-chip{border:1px solid var(--d-border); background:color-mix(in srgb, var(--d-text) 6%, transparent); color:var(--d-text); border-radius:99px; padding:8px 15px; font-weight:600; font-size:calc(13px * var(--d-fs,1)); white-space:nowrap; flex:none}
 .hub-chip.on{background:var(--d-accent); color:var(--d-on); border-color:transparent}
+.hub-roomsel{display:flex; align-items:center; gap:8px; align-self:flex-start; max-width:100%; border:1px solid var(--d-border); background:color-mix(in srgb, var(--d-text) 6%, transparent); border-radius:99px; padding:0 12px; color:var(--d-text)}
+.hub-roomsel select{appearance:none; -webkit-appearance:none; border:0; background:transparent; color:inherit; font:inherit; font-weight:600; font-size:calc(14px * var(--d-fs,1)); padding:9px 22px 9px 0; margin-right:-22px; cursor:pointer; min-width:0}
+.hub-roomsel select option{color:#111}
+.hub-roomsel svg.i:last-child{pointer-events:none; width:16px; height:16px}
 .hub-tiles{display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:var(--d-gap)}
 .hub-tile{aspect-ratio:1; max-width:100%; border:1px solid var(--d-border); background:color-mix(in srgb, var(--d-text) 6%, transparent); color:var(--d-text); border-radius:calc(var(--d-radius) * .8); padding:16px; display:flex; flex-direction:column; align-items:flex-start; text-align:left; gap:3px; min-width:0; transition:transform .15s, background .2s}
 .hub-tile:hover{transform:translateY(-2px); background:color-mix(in srgb, var(--d-text) 11%, transparent)}
@@ -1412,6 +1440,10 @@ grid.addEventListener('click', e => {
   if (!kiosk && (was !== selected || a)) renderInsp();
 });
 grid.addEventListener('input', e => {
+  if (e.target.dataset.hubroomsel != null) {
+    const card = e.target.closest('.card'), b = find(card.dataset.id); if (!b) return;
+    b.room = +e.target.value; if (b.view && !hubDevices(b, b.view).length) b.view = null; renderDash(); save(); return;
+  }
   if (e.target.dataset.ds) {
     const card = e.target.closest('.card'), b = find(card.dataset.id); if (!b) return;
     b['pos' + e.target.dataset.ds] = +e.target.value;
@@ -1496,15 +1528,85 @@ grid.addEventListener('drop', e => {
 document.addEventListener('dragend', () => { drag = null; clearMarks(); grid.querySelectorAll('.dragging').forEach(n => n.classList.remove('dragging')); });
 
 /* ---------- pages ---------- */
+/* room and page picker: arrows to step, a dropdown to jump, search and reorder */
+let pgMenuOpen = false, pgQuery = '', pgDrag = null;
+function goPage(id){ if (!id || id === state.page) return; state.page = id; selected = null; renderDash(); renderInsp(); save(); playEnter(); }
+function pgListHTML(){
+  const q = pgQuery.trim().toLowerCase();
+  const rows = state.pages.map((p, i) => ({p, i})).filter(({p}) => !q || (p.name || '').toLowerCase().includes(q));
+  if (!rows.length) return `<li class="pg-empty">No room or page called “${esc(pgQuery)}”.</li>`;
+  return rows.map(({p, i}) => `<li class="pg-item${p.id === state.page ? ' cur' : ''}" draggable="${q ? 'false' : 'true'}" data-pid="${p.id}">
+    <span class="grip" aria-hidden="true" title="Drag to reorder">⠿</span>
+    <button class="pg-go" data-go="${p.id}" ${p.id === state.page ? 'aria-current="page"' : ''}><b>${esc(p.name || 'Untitled')}</b><small>${p.blocks.length} block${p.blocks.length === 1 ? '' : 's'}</small></button>
+    <button class="mini" data-pgmove="-1" data-pid="${p.id}" aria-label="Move ${esc(p.name)} up" ${i === 0 ? 'disabled' : ''}>↑</button>
+    <button class="mini" data-pgmove="1" data-pid="${p.id}" aria-label="Move ${esc(p.name)} down" ${i === state.pages.length - 1 ? 'disabled' : ''}>↓</button></li>`).join('');
+}
 function renderPages(){
-  $('pages').innerHTML = state.pages.map(p => `<button class="pg" data-page="${p.id}" aria-pressed="${p.id===state.page}">${esc(p.name || 'Untitled')}</button>`).join('') +
-    `<button class="pg add" id="addPage" title="Add a page" aria-label="Add a page">${ic('plus')}</button>`;
+  const i = state.pages.indexOf(page()), cur = page();
+  $('pages').innerHTML = `<div class="pagesel">
+    <button class="btn icon" data-step="-1" aria-label="Previous room or page" ${i <= 0 ? 'disabled' : ''}>${ic('left')}</button>
+    <button class="pg-menu-btn" id="pgMenuBtn" aria-haspopup="true" aria-expanded="${pgMenuOpen}" aria-controls="pgMenu">${ic('home')}<span class="pg-cur">${esc(cur.name || 'Untitled')}</span><small>${i + 1} of ${state.pages.length}</small>${ic('down')}</button>
+    <button class="btn icon" data-step="1" aria-label="Next room or page" ${i >= state.pages.length - 1 ? 'disabled' : ''}>${ic('right')}</button>
+    <div class="pg-menu" id="pgMenu" role="dialog" aria-label="Rooms and pages" ${pgMenuOpen ? '' : 'hidden'}>
+      ${state.pages.length > 5 ? `<div class="search"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="text" id="pgSearch" placeholder="Find a room or page" aria-label="Find a room or page" value="${esc(pgQuery)}"></div>` : ''}
+      <ol class="pg-list" id="pgList">${pgListHTML()}</ol>
+      <div class="pg-foot"><button class="btn" id="addPage">${ic('plus')}Add page</button><span class="hint">Drag ⠿ or use ↑ ↓ to reorder</span></div>
+    </div></div>`;
+}
+function setPgMenu(open){
+  pgMenuOpen = open; if (!open) pgQuery = '';
+  renderPages();
+  if (open) (($('pgSearch')) || $('pgList').querySelector('.cur .pg-go'))?.focus();
+}
+function movePage(id, by){
+  const i = state.pages.findIndex(p => p.id === id), j = i + by;
+  if (i < 0 || j < 0 || j >= state.pages.length) return;
+  commit(); state.pages.splice(j, 0, state.pages.splice(i, 1)[0]); save(); renderPages();
+  $('pgList').querySelector(`[data-pgmove="${by}"][data-pid="${id}"]:not(:disabled)`)?.focus();
 }
 $('pages').addEventListener('click', e => {
-  if (e.target.closest('#addPage')) { addPage('Page ' + (state.pages.length + 1), []); toast('New page added'); return; }
-  const p = e.target.closest('[data-page]'); if (!p || p.dataset.page === state.page) return;
-  state.page = p.dataset.page; selected = null; renderDash(); renderInsp(); save(); playEnter();
+  const step = e.target.closest('[data-step]');
+  if (step) { const i = state.pages.indexOf(page()) + +step.dataset.step; if (state.pages[i]) goPage(state.pages[i].id); return; }
+  if (e.target.closest('#pgMenuBtn')) { setPgMenu(!pgMenuOpen); return; }
+  if (e.target.closest('#addPage')) { pgMenuOpen = false; addPage('Page ' + (state.pages.length + 1), []); toast('New page added. Rename it in the right panel'); return; }
+  const mv = e.target.closest('[data-pgmove]');
+  if (mv) { movePage(mv.dataset.pid, +mv.dataset.pgmove); return; }
+  const go = e.target.closest('[data-go]');
+  if (go) { pgMenuOpen = false; pgQuery = ''; goPage(go.dataset.go); renderPages(); $('pgMenuBtn')?.focus(); }
 });
+$('pages').addEventListener('input', e => {
+  if (e.target.id !== 'pgSearch') return;
+  pgQuery = e.target.value; $('pgList').innerHTML = pgListHTML();
+});
+$('pages').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.id === 'pgSearch') { e.preventDefault(); const first = $('pgList').querySelector('[data-go]'); if (first) first.click(); }
+});
+document.addEventListener('pointerdown', e => { if (pgMenuOpen && !e.target.closest('.pagesel')) setPgMenu(false); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && pgMenuOpen) { e.stopImmediatePropagation(); setPgMenu(false); $('pgMenuBtn')?.focus(); } }, true);
+/* drag to reorder inside the menu; kept apart from block dragging */
+$('pages').addEventListener('dragstart', e => {
+  const li = e.target.closest('.pg-item'); if (!li) return;
+  e.stopPropagation(); pgDrag = li.dataset.pid; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'page');
+  requestAnimationFrame(() => li.classList.add('dragging'));
+});
+$('pages').addEventListener('dragover', e => {
+  if (!pgDrag) return; e.preventDefault(); e.stopPropagation();
+  $('pgList').querySelectorAll('.drop-above,.drop-below').forEach(n => n.classList.remove('drop-above','drop-below'));
+  const li = e.target.closest('.pg-item'); if (!li || li.dataset.pid === pgDrag) return;
+  const r = li.getBoundingClientRect(); li.classList.add(e.clientY < r.top + r.height/2 ? 'drop-above' : 'drop-below');
+});
+$('pages').addEventListener('drop', e => {
+  if (!pgDrag) return; e.preventDefault(); e.stopPropagation();
+  const li = e.target.closest('.pg-item'), from = state.pages.findIndex(p => p.id === pgDrag);
+  if (li && li.dataset.pid !== pgDrag && from >= 0) {
+    const r = li.getBoundingClientRect(), below = e.clientY >= r.top + r.height/2;
+    commit(); const [m] = state.pages.splice(from, 1);
+    let to = state.pages.findIndex(p => p.id === li.dataset.pid) + (below ? 1 : 0);
+    state.pages.splice(to, 0, m); save();
+  }
+  pgDrag = null; renderPages();
+});
+$('pages').addEventListener('dragend', () => { pgDrag = null; $('pgList')?.querySelectorAll('.dragging,.drop-above,.drop-below').forEach(n => n.classList.remove('dragging','drop-above','drop-below')); });
 function addPage(name, blocks){ commit(); const p = {id:uid(), name, blocks}; state.pages.push(p); state.page = p.id; selected = null; renderDash(); renderInsp(); save(); playEnter(); return p; }
 
 /* ---------- block library ---------- */
@@ -2129,6 +2231,8 @@ insp.addEventListener('click', e => {
     if (b.label2 === old.labels[1]) b.label2 = nu.labels[1];
     b.style = dss.dataset.dsstyle; renderDash(); renderInsp(); save(); return;
   }
+  const hmv = e.target.closest('[data-hmove]');
+  if (hmv) { const j = hubSel + +hmv.dataset.hmove; if (j < 0 || j >= b.rooms.length) return; commit(); b.rooms.splice(j, 0, b.rooms.splice(hubSel, 1)[0]); hubSel = j; b.room = -1; renderDash(); renderInsp(); save(); return; }
   const hsel = e.target.closest('[data-hsel]');
   if (hsel) { hubSel = +hsel.dataset.hsel; renderInsp(); return; }
   if (e.target.closest('[data-hadd-room]')) { commit(); b.rooms.push({name:'Room ' + (b.rooms.length + 1), devices:[]}); hubSel = b.rooms.length - 1; renderDash(); renderInsp(); save(); $('hr_name')?.select(); return; }
@@ -2666,7 +2770,10 @@ function hubRow(x, showRoom){
 }
 R.hub = b => {
   const rooms = b.rooms || [], ri = (b.room ?? -1) < rooms.length ? (b.room ?? -1) : -1;
-  const chips = `<div class="hub-rooms">${[[-1,'All rooms'], ...rooms.map((r, i) => [i, r.name])].map(([i, n]) => `<button class="hub-chip${ri === i ? ' on' : ''}" data-act="hub-room" data-r="${i}">${esc(n)}</button>`).join('')}</div>`;
+  const opts = [[-1,'All rooms'], ...rooms.map((r, i) => [i, r.name])];
+  const chips = rooms.length > 6
+    ? `<label class="hub-roomsel">${ic('door')}<select data-hubroomsel aria-label="Room">${opts.map(([i, n]) => `<option value="${i}" ${ri === i ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>${ic('down')}</label>`
+    : `<div class="hub-rooms">${opts.map(([i, n]) => `<button class="hub-chip${ri === i ? ' on' : ''}" data-act="hub-room" data-r="${i}">${esc(n)}</button>`).join('')}</div>`;
   if (b.view && HUB_CATS[b.view] && hubDevices(b, b.view).length) {
     const list = hubDevices(b, b.view), c = HUB_CATS[b.view];
     const all = {light:['All on','All off'], fan:['All on','All off'], switch:['All on','All off'], shade:['Open all','Close all'], lock:['Lock all','Unlock all']}[b.view];
@@ -2692,6 +2799,7 @@ function hubEditorHTML(b){
     <div class="hub-ed-rooms">${rooms.map((rm, i) => `<button class="pg" data-hsel="${i}" aria-pressed="${i === hubSel}">${esc(rm.name)}<small>${rm.devices.length}</small></button>`).join('')}<button class="pg add" data-hadd-room aria-label="Add a room">${ic('plus')}</button></div>
     ${state.entities.length ? `<button class="btn" data-hfill>${ic('sparkle')}${window.__haAreaNames ? 'Fill rooms from my HA areas' : 'Fill rooms from my entities'}</button>` : '<p class="hint">Tip: add your entity list in Smart and the studio can fill these rooms for you.</p>'}</div>
     ${r ? `<div class="fp-room"><div class="field"><label for="hr_name">Room name</label><input type="text" id="hr_name" data-hroom="1" value="${esc(r.name)}"></div>
+      <div class="btnrow"><button class="btn" data-hmove="-1" ${hubSel === 0 ? 'disabled' : ''}>${ic('left')}Move room earlier</button><button class="btn" data-hmove="1" ${hubSel === rooms.length - 1 ? 'disabled' : ''}>Move room later${ic('right')}</button></div>
       <span class="lbl2">Devices in ${esc(r.name)}</span>
       ${r.devices.map((d, i) => `<div class="hub-ed-dev">
         <select data-hdev="${i}" data-hk="t" aria-label="Device type">${Object.entries(HUB_TYPES).map(([k, t]) => `<option value="${k}" ${d.t === k ? 'selected' : ''}>${t.name}</option>`).join('')}</select>

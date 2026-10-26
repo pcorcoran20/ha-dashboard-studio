@@ -99,6 +99,7 @@ In a Sections dashboard, make the card full width so the tiles have room.
 | `scenes` | Optional list of `entity` (a `scene.` entity), with optional `name` and `icon`. |
 | `good_night` | A `script.` entity to run. Or leave it out and the card does it itself (see below). Set it to `false` to hide the button. |
 | `calm` | `true` turns off the card's animations. |
+| `room_picker` | `auto` (the default) shows room chips, or a dropdown when there are more than 6 rooms. Use `chips` or `dropdown` to always show one. |
 
 The card works out what each device is from its entity ID: `light`, `switch` and `input_boolean`, `fan`, `cover`, `climate`, `media_player`, `lock`, `camera` and `alarm_control_panel`. To override it, set `type` to one of `light`, `switch`, `fan`, `shade`, `climate`, `media`, `lock`, `camera` or `alarm`.
 

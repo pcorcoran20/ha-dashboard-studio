@@ -21,6 +21,7 @@
 
 /*
  * Dashboard Studio hub card for Home Assistant
+ * Rooms show as chips, or as a dropdown when there are more than 6 (room_picker: chips, dropdown or auto).
  * A touchscreen-style home screen: room chips, big category tiles, per-room device controls,
  * scenes, an alarm keypad and a Good night button. Works with live entity states.
  *
@@ -37,7 +38,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '0.4.0';
+const STUDIO_VERSION = '0.5.0';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -221,7 +222,9 @@ class DashboardStudioHub extends HTMLElement {
   }
 
   _onChange(e) {
-    const el = e.target; if (!el.dataset.e || !this._hass) return;
+    const el = e.target;
+    if (el.dataset.roomsel != null) { this._room = +el.value; this._view = this._view && this._devices(this._view).length ? this._view : null; this._render(); return; }
+    if (!el.dataset.e || !this._hass) return;
     const id = el.dataset.e, v = +el.value;
     if (el.dataset.k === 'bri') this._call('light', 'turn_on', {entity_id: id, brightness_pct: v});
     if (el.dataset.k === 'vol') this._call('media_player', 'volume_set', {entity_id: id, volume_level: v / 100});
@@ -326,7 +329,11 @@ class DashboardStudioHub extends HTMLElement {
     if (!this._config || !this.shadowRoot) return;
     this._pending = false;
     const c = this._config, rooms = c.rooms, ri = this._room < rooms.length ? this._room : -1;
-    const chips = `<div class="chips">${[[-1, 'All rooms'], ...rooms.map((r, i) => [i, r.name])].map(([i, n]) => `<button class="chip${ri === i ? ' on' : ''}" data-a="room" data-r="${i}">${esc(n)}</button>`).join('')}</div>`;
+    const opts = [[-1, 'All rooms'], ...rooms.map((r, i) => [i, r.name])];
+    const pick = c.room_picker === 'dropdown' || (c.room_picker !== 'chips' && rooms.length > 6);
+    const chips = pick
+      ? `<label class="roomsel"><ha-icon icon="mdi:door-open"></ha-icon><span class="vh">Room</span><select data-roomsel aria-label="Room">${opts.map(([i, n]) => `<option value="${i}" ${ri === i ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select><ha-icon icon="mdi:chevron-down"></ha-icon></label>`
+      : `<div class="chips">${opts.map(([i, n]) => `<button class="chip${ri === i ? ' on' : ''}" data-a="room" data-r="${i}">${esc(n)}</button>`).join('')}</div>`;
     let body = '';
     if (!this._hass) body = '<p class="hint">Connecting to Home Assistant…</p>';
     else if (this._view && this._devices(this._view).length) {
@@ -369,6 +376,11 @@ ha-icon{--mdc-icon-size:20px;display:inline-flex}
 .chips::-webkit-scrollbar{display:none}
 .chip{border:1px solid var(--s-line);background:var(--s-soft);border-radius:99px;padding:8px 15px;font-weight:600;font-size:13px;white-space:nowrap;flex:none}
 .chip.on{background:var(--s-accent);color:var(--s-on);border-color:transparent}
+.roomsel{position:relative;display:flex;align-items:center;gap:8px;align-self:flex-start;max-width:100%;border:1px solid var(--s-line);background:var(--s-soft);border-radius:99px;padding:0 12px}
+.roomsel select{appearance:none;-webkit-appearance:none;border:0;background:transparent;color:inherit;font:inherit;font-weight:600;font-size:14px;padding:9px 22px 9px 0;margin-right:-22px;cursor:pointer;min-width:0;max-width:60vw}
+.roomsel select option{color:#111}
+.roomsel ha-icon:last-child{pointer-events:none;--mdc-icon-size:18px}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .quick{display:flex;gap:8px;flex-wrap:wrap}
 .gn{display:flex;align-items:center;gap:10px;border:0;border-radius:calc(var(--s-r)*.8);padding:10px 16px 10px 12px;background:linear-gradient(135deg,#2b2f6b,#121433);color:#fff;text-align:left}
 .gn ha-icon{color:#ffd88a;--mdc-icon-size:22px}
