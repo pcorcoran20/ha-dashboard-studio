@@ -749,6 +749,8 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .tv-err{color:#d23b3b; font-weight:500}
 .tv-ok{display:flex; align-items:center; gap:8px; font-size:16px}
 .tv-ok svg.i{color:var(--magic)}
+.tv-credit{margin-right:auto; line-height:1.5}
+.tv-credit a{color:inherit}
 .tv-ol{margin:0; padding-left:18px; display:flex; flex-direction:column; gap:6px; font-size:13px}
 .v-paints{display:grid; grid-template-columns:1fr 1fr; gap:6px}
 .v-paints button{border:1px solid var(--line); background:var(--bg); border-radius:9px; padding:6px 8px; display:flex; align-items:center; gap:8px; font-size:12px; text-align:left}
@@ -950,6 +952,7 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
         <div class="group" id="tvGroup" hidden>
           <h3><svg class="i" viewBox="0 0 24 24"><path d="M3 16v-3l2.5-5h13L21 13v3z"/><path d="M3 13h18"/><circle cx="7.5" cy="17" r="1.8"/><circle cx="16.5" cy="17" r="1.8"/></svg>Real 3D Tesla <span class="newtag">New</span></h3>
           <p class="hint">Your car, the way the Tesla app shows it. The add-on gets the app from your phone, makes your car and sets up Tesla View.</p>
+          <p class="hint">Thanks to Koen Hendriks for <a href="https://github.com/koenhendriks/tesla-view" target="_blank" rel="noopener">Tesla View</a> and <a href="https://github.com/koenhendriks/tesla-model-extractor" target="_blank" rel="noopener">Tesla Model Extractor</a>, which make this work.</p>
           <div class="btnrow"><button class="btn magic" id="tvGroupBtn">Set up my real 3D Tesla</button></div>
         </div>
         <div class="group" id="aiGroup" hidden>
@@ -4077,7 +4080,8 @@ function openTesla(){
   if (!window.STUDIO_ADDON) { toast('This works in the Dashboard Studio add-on'); return; }
   const usb = window.isSecureContext && 'usb' in navigator;
   const carNames = allBlocks().flatMap(b => b.type === 'vehicle' ? [b] : b.type === 'hub' && b.car?.show ? [b.car] : []).map(c => (VEH_MODELS.find(m => m[0] === c.model) || [])[1]).filter(Boolean);
-  openModal({title:'Set up my real 3D Tesla', body:'<div id="tvBody"><p class="hint">Checking your Home Assistant…</p></div>', mount(){
+  openModal({title:'Set up my real 3D Tesla', body:'<div id="tvBody"><p class="hint">Checking your Home Assistant…</p></div>',
+    foot:`<span class="hint tv-credit">Made possible by <a href="https://github.com/koenhendriks/tesla-view" target="_blank" rel="noopener">Tesla View</a> and <a href="https://github.com/koenhendriks/tesla-model-extractor" target="_blank" rel="noopener">Tesla Model Extractor</a> by Koen Hendriks, and <a href="https://github.com/yume-chan/ya-webadb" target="_blank" rel="noopener">ya-webadb</a>. Thank you! 💜</span>`, mount(){
     const body = $('tvBody');
     const step = (n, t) => `<div class="tv-step"><span>${n}</span><b>${t}</b></div>`;
     /* the details stay open, and keep scrolling to the newest line, while the log updates */

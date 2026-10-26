@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.1.1';
+const STUDIO_VERSION = '1.1.2';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.2
+
+- Credits: a new [CREDITS.md](../CREDITS.md), plus credits in the README, the docs, the Magic panel and the Real 3D Tesla helper. Thank you to Koen Hendriks for Tesla View and Tesla Model Extractor, and to ya-webadb, GDRE Tools and three.js 💜
+
 ## 1.1.1
 
 - Fix: Tesla View showed the first car in the pack (like a Model S) instead of yours. The card now tells Tesla View which car to show: from your car's device model ("Model C" is the Cybertruck), or the model picked in the Studio. Set `tesla_view: {model: …}` to choose one yourself.

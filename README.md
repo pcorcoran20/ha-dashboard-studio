@@ -241,6 +241,15 @@ calm: false                  # true turns off motion. Reduced-motion settings ar
 
 If you set `layer: behind` and don't see the background, your theme or another custom card may be painting over it. Try `layer: front`.
 
+## Credits
+
+Real 3D Teslas are made possible by two projects by **Koen Hendriks**. Thank you! 💜
+
+- **[Tesla View](https://github.com/koenhendriks/tesla-view)** renders your car the way the Tesla app does. The add-on installs it for you, and the vehicle card shows it.
+- **[Tesla Model Extractor](https://github.com/koenhendriks/tesla-model-extractor)** makes the 3D car from your own copy of the Tesla app.
+
+Also thanks to [GDRE Tools](https://github.com/GDRETools/gdsdecomp), [ya-webadb](https://github.com/yume-chan/ya-webadb) (the phone over USB) and [three.js](https://threejs.org). [CREDITS.md](CREDITS.md) says how each one is used.
+
 ## License
 
-MIT
+MIT. Tesla and its car names are trademarks of Tesla, Inc. This project isn't affiliated with Tesla.

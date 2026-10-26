@@ -52,6 +52,8 @@ What you need:
 - **About 3 GB of free space** while it works. The first read of the app takes a few minutes.
 - **To get the app from your phone:** Home Assistant opened with `https://` in Chrome or Edge on a computer, and USB debugging on. The Studio shows how to turn it on. If Android Studio or `adb` runs on that computer, close it first so the browser can reach the phone.
 
+**Thanks to Koen Hendriks** for the two projects that make this work: [Tesla View](https://github.com/koenhendriks/tesla-view) and [Tesla Model Extractor](https://github.com/koenhendriks/tesla-model-extractor). Getting the app from your phone uses [ya-webadb](https://github.com/yume-chan/ya-webadb). See [CREDITS.md](https://github.com/pcorcoran20/ha-dashboard-studio/blob/main/CREDITS.md).
+
 The car is Tesla's artwork, made from your own copy of the app, so keep it for yourself and don't share it. Tesla View is installed into `custom_components/tesla_view`. To get its updates through HACS, add it there as a custom repository. HACS takes over the existing install.
 
 ## Install your dashboard
