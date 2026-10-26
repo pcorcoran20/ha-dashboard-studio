@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1
+
+- The touchscreen layout is easier to read and softer. The room menu is solid, with a dim layer behind it, and the panel is more solid in Follow my theme. Tiles are rounded and spaced apart, with round icons.
+
 ## 0.6.0
 
 - New **Touchscreen** layout for the Control hub, in the Studio and the hub card: the room name at the top center opens a room list, a Now Playing panel with volume and transport controls, big tiles (Watch, Listen, Lighting, Comfort with the temperature, Shades, Security, Cameras, Fans, Outlets, Quick buttons), and the clock and weather along the bottom. Pick a dark touchscreen look or follow your theme.

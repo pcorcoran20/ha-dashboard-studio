@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '0.6.0';
+const STUDIO_VERSION = '0.6.1';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -202,7 +202,7 @@ class DashboardStudioHub extends HTMLElement {
 
   _onClick(e) {
     const el = e.target.closest('[data-a]');
-    if (this._menu && !e.target.closest('.ts-menu, .ts-room')) { this._menu = false; if (!el) { this._render(); return; } }
+    if (this._menu && !e.target.closest('.ts-menu, .ts-room, .ts-scrim')) { this._menu = false; if (!el) { this._render(); return; } }
     if (!el || !this._hass) return;
     const a = el.dataset.a, id = el.dataset.e, x = id ? this._dev({entity: id, type: el.dataset.t}, '') : null;
     switch (a) {
@@ -385,7 +385,7 @@ class DashboardStudioHub extends HTMLElement {
       const top = `<div class="ts-top"><button class="ts-ib" data-a="${this._view ? 'back' : 'room'}" data-r="-1" aria-label="${this._view ? 'Back' : 'All rooms'}"><ha-icon icon="${this._view ? 'mdi:chevron-left' : 'mdi:home-outline'}"></ha-icon></button>
         <button class="ts-room" data-a="roommenu" aria-haspopup="listbox" aria-expanded="${!!this._menu}">${esc(name)}<ha-icon icon="mdi:chevron-down"></ha-icon></button>
         ${c.good_night !== false ? `<button class="ts-ib" data-a="goodnight" aria-label="Good night"><ha-icon icon="mdi:weather-night"></ha-icon></button>` : '<span></span>'}</div>`;
-      const menu = this._menu ? `<div class="ts-menu" role="listbox" aria-label="Rooms">${opts.map(([i, n]) => `<button class="${i === ri ? 'on' : ''}" role="option" aria-selected="${i === ri}" data-a="pickroom" data-r="${i}">${esc(n)}</button>`).join('')}</div>` : '';
+      const menu = this._menu ? `<button class="ts-scrim" data-a="roommenu" aria-label="Close the room list"></button><div class="ts-menu" role="listbox" aria-label="Rooms">${opts.map(([i, n]) => `<button class="${i === ri ? 'on' : ''}" role="option" aria-selected="${i === ri}" data-a="pickroom" data-r="${i}">${esc(n)}</button>`).join('')}</div>` : '';
       const wid = c.weather_entity || Object.keys(this._hass?.states || {}).find(k => k.startsWith('weather.')), w = wid && this._hass?.states[wid];
       const wx = w ? `<span class="ts-wx"><ha-icon icon="${WX_ICON[w.state] || 'mdi:weather-partly-cloudy'}"></ha-icon>${w.attributes.temperature != null ? Math.round(w.attributes.temperature) + '°' : esc(cap(w.state))}</span>` : '<span></span>';
       const clock = `<span>${new Date().toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'})}</span>`;
@@ -434,33 +434,36 @@ class DashboardStudioHub extends HTMLElement {
 const TOUCH_STYLE = `
 ha-card.ts{padding:0;gap:0;display:flex;flex-direction:column;min-height:460px;overflow:hidden;color:#f3f3f3;
   background:linear-gradient(180deg,#46494e 0%,#2c2e32 55%,#1d1e21 100%);--s-text:#f3f3f3;--s-muted:rgba(255,255,255,.62);--s-line:rgba(255,255,255,.09);
-  --s-soft:rgba(255,255,255,.05);--s-soft2:rgba(255,255,255,.11);--t-bar:rgba(0,0,0,.2);--t-tile:rgba(32,34,37,.72);--t-menu:#2a2c30}
-ha-card.ts.ts-theme{color:var(--primary-text-color);background:var(--ha-card-background,var(--card-background-color));--s-text:var(--primary-text-color,#1c1c1c);--s-muted:var(--secondary-text-color);
-  --s-line:var(--ha-card-border-color,var(--divider-color));--s-soft:color-mix(in srgb,var(--s-text) 5%,transparent);--s-soft2:color-mix(in srgb,var(--s-text) 10%,transparent);
-  --t-bar:color-mix(in srgb,var(--s-text) 4%,transparent);--t-tile:color-mix(in srgb,var(--s-text) 3%,transparent);--t-menu:var(--card-background-color,#fff)}
+  --s-muted:rgba(255,255,255,.72);--s-line:rgba(255,255,255,.08);--s-soft:rgba(255,255,255,.06);--s-soft2:rgba(255,255,255,.12);--t-bar:transparent;--t-tile:rgba(255,255,255,.06);--t-menu:#2b2d31}
+ha-card.ts.ts-theme{color:var(--primary-text-color);background:color-mix(in srgb,var(--primary-background-color,#fff) 86%,transparent);-webkit-backdrop-filter:blur(24px) saturate(1.3);backdrop-filter:blur(24px) saturate(1.3);
+  --s-text:var(--primary-text-color,#1c1c1c);--s-muted:color-mix(in srgb,var(--primary-text-color,#1c1c1c) 72%,transparent);--s-line:color-mix(in srgb,var(--s-text) 10%,transparent);
+  --s-soft:color-mix(in srgb,var(--s-text) 6%,transparent);--s-soft2:color-mix(in srgb,var(--s-text) 11%,transparent);--t-bar:transparent;--t-tile:color-mix(in srgb,var(--s-text) 7%,transparent);
+  --t-menu:color-mix(in srgb,var(--primary-background-color,#fff) 96%,var(--s-text) 4%)}
+ha-card.ts.ts-theme .ts-l,ha-card.ts.ts-theme .ts-room,ha-card.ts.ts-theme .ts-src b{text-shadow:0 1px 2px color-mix(in srgb,var(--primary-background-color,#fff) 60%,transparent)}
 ha-card.ts.full{min-height:calc(100vh - var(--header-height,56px) - 16px)}
-.ts-top{position:relative;display:grid;grid-template-columns:48px minmax(0,1fr) 48px;align-items:center;height:56px;padding:0 8px;background:var(--t-bar);border-bottom:1px solid var(--s-line)}
-.ts-room{justify-self:center;border:0;background:none;display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;font-size:19px;font-weight:500;max-width:100%;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ts-top{position:relative;display:grid;grid-template-columns:48px minmax(0,1fr) 48px;align-items:center;height:60px;padding:6px 10px 0;background:var(--t-bar)}
+.ts-room{justify-self:center;border:0;background:var(--s-soft2);display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:99px;font-size:18px;font-weight:600;max-width:100%;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ts-room:hover,.ts-room[aria-expanded="true"]{background:var(--s-soft2)}
 .ts-room ha-icon{--mdc-icon-size:18px;opacity:.75}
 .ts-ib{width:42px;height:42px;border-radius:50%;border:0;background:none;display:grid;place-items:center}
 .ts-ib:hover{background:var(--s-soft2)}
-.ts-menu{position:absolute;top:60px;left:50%;transform:translateX(-50%);z-index:6;width:min(300px,calc(100% - 24px));max-height:min(60%,380px);overflow:auto;background:var(--t-menu);
-  border:1px solid var(--s-line);border-radius:14px;box-shadow:0 18px 40px rgba(0,0,0,.45);padding:6px;display:flex;flex-direction:column;gap:2px}
-.ts-menu button{border:0;background:none;text-align:left;padding:13px 14px;border-radius:10px;font-size:15px}
+.ts-menu{position:absolute;top:64px;left:50%;transform:translateX(-50%);z-index:6;width:min(300px,calc(100% - 24px));max-height:min(64%,400px);overflow:auto;background:var(--t-menu);color:var(--s-text);
+  border:1px solid var(--s-line);border-radius:20px;box-shadow:0 24px 60px rgba(0,0,0,.5);padding:8px;display:flex;flex-direction:column;gap:2px;-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px)}
+.ts-menu button{border:0;background:none;text-align:left;padding:13px 16px;border-radius:14px;font-size:15px;font-weight:500}
 .ts-menu button:hover{background:var(--s-soft2)}
-.ts-menu button.on{background:var(--s-accent);color:var(--s-on)}
+.ts-menu button.on{background:var(--s-accent);color:var(--s-on);font-weight:600}
+.ts-scrim{position:absolute;inset:0;z-index:5;border:0;padding:0;background:rgba(0,0,0,.35);cursor:default}
 .ts-body{flex:1;padding:14px;display:flex;flex-direction:column;gap:14px;min-height:0}
 .ts-body .head>.ibtn:first-child{display:none}
-.ts-np{display:grid;grid-template-columns:120px minmax(0,1fr) auto;gap:16px;align-items:center;padding:14px;border-radius:calc(var(--s-r)*.7);background:var(--s-soft);border:1px solid var(--s-line)}
+.ts-np{display:grid;grid-template-columns:120px minmax(0,1fr) auto;gap:16px;align-items:center;padding:16px;border-radius:calc(var(--s-r)*.8 + 6px);background:var(--t-tile);border:1px solid var(--s-line)}
 .ts-np.off{opacity:.65}
-.ts-art{width:120px;height:92px;border-radius:12px;background:#0d0e10;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;overflow:hidden;box-shadow:0 6px 16px rgba(0,0,0,.4)}
+.ts-art{width:120px;height:92px;border-radius:16px;background:#0d0e10;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,.35)}
 .ts-art img{width:100%;height:100%;object-fit:cover}
 .ts-art ha-icon{--mdc-icon-size:36px}
 .ts-art small{font-size:11px;opacity:.7;max-width:94%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ts-npm{min-width:0;display:flex;flex-direction:column;gap:10px}
 .ts-src{display:flex;flex-direction:column;min-width:0}
-.ts-src b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ts-src b{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ts-src span{font-size:12px;color:var(--s-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ts-vol{display:flex;align-items:center;gap:10px}
 .ts-vol input{flex:1}
@@ -470,18 +473,18 @@ ha-card.ts.full{min-height:calc(100vh - var(--header-height,56px) - 16px)}
 .ts-tr button.big{width:48px;height:48px;background:var(--s-soft2)}
 .ts-tr button:hover{background:var(--s-soft2)}
 .ts-pw{align-self:end;width:42px;height:42px;border-radius:50%;border:1px solid var(--s-line);background:none;display:grid;place-items:center}
-.ts-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:0;background:var(--t-tile);border:1px solid var(--s-line);border-radius:calc(var(--s-r)*.7);overflow:hidden}
-.ts-tile{aspect-ratio:1.15;border:0;background:transparent;box-shadow:inset -1px -1px 0 var(--s-line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:10px;min-width:0}
-.ts-tile:hover{background:var(--s-soft2)}
-.ts-ico{width:58px;height:58px;border-radius:15px;display:grid;place-items:center;background:linear-gradient(180deg,rgba(255,255,255,.2),rgba(255,255,255,.04));box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 4px 10px rgba(0,0,0,.35)}
-.ts-ico ha-icon{--mdc-icon-size:30px}
-.ts-tile.on .ts-ico{background:linear-gradient(180deg,#fff7da,#ffd36b);color:#3a2a00;box-shadow:0 0 24px rgba(255,210,107,.45)}
+.ts-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:10px}
+.ts-tile{aspect-ratio:1.1;border:1px solid var(--s-line);background:var(--t-tile);border-radius:calc(var(--s-r)*.8 + 6px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px;min-width:0;transition:transform .15s ease,background .2s}
+.ts-tile:hover{background:var(--s-soft2);transform:translateY(-2px)}
+.ts-ico{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:var(--s-soft2);box-shadow:inset 0 1px 0 rgba(255,255,255,.14)}
+.ts-ico ha-icon{--mdc-icon-size:28px}
+.ts-tile.on .ts-ico{background:linear-gradient(180deg,#fff7da,#ffd36b);color:#3a2a00;box-shadow:0 0 22px rgba(255,210,107,.4)}
 .ts-tile.warn .ts-ico{background:linear-gradient(180deg,#ffc58a,#ff9f40);color:#2a1600}
-.ts-ring{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;border:3px solid var(--s-accent);background:radial-gradient(circle,#2c2e32,#18191c);color:#fff;box-shadow:0 0 16px color-mix(in srgb,var(--s-accent) 40%,transparent)}
+.ts-ring{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;border:3px solid var(--s-accent);background:rgba(0,0,0,.35);color:#fff;box-shadow:0 0 16px color-mix(in srgb,var(--s-accent) 35%,transparent)}
 .ts-ring b{font-size:20px;font-weight:600}
-.ts-l{font-size:14px;font-weight:500}
-.ts-s{font-size:11.5px;color:var(--s-muted);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ts-bottom{display:flex;justify-content:space-between;align-items:center;padding:10px 18px;background:var(--t-bar);border-top:1px solid var(--s-line);font-size:16px;font-variant-numeric:tabular-nums}
+.ts-l{font-size:14.5px;font-weight:600}
+.ts-s{font-size:12px;color:var(--s-muted);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ts-bottom{display:flex;justify-content:space-between;align-items:center;padding:12px 20px 14px;background:var(--t-bar);font-size:16px;font-weight:500;font-variant-numeric:tabular-nums}
 .ts-wx{display:flex;align-items:center;gap:6px}
 @media (max-width:520px){.ts-np{grid-template-columns:minmax(0,1fr) auto}.ts-art{display:none}}
 `;

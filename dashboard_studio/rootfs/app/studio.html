@@ -486,30 +486,33 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 
 /* touchscreen hub */
 .card:has(> .ts){padding:0; background:transparent; border-color:transparent; box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none}
-.ts{--t-bg:linear-gradient(180deg, #46494e 0%, #2c2e32 55%, #1d1e21 100%); --t-fg:#f3f3f3; --t-muted:rgba(255,255,255,.6); --t-line:rgba(255,255,255,.09); --t-bar:rgba(0,0,0,.2); --t-tile:rgba(32,34,37,.72); --t-menu:#2a2c30;
+.ts{--t-bg:linear-gradient(180deg, #46494e 0%, #2c2e32 55%, #1d1e21 100%); --t-fg:#f5f5f5; --t-muted:rgba(255,255,255,.72); --t-line:rgba(255,255,255,.08); --t-bar:transparent; --t-tile:rgba(255,255,255,.06); --t-menu:#2b2d31;
   position:relative; display:flex; flex-direction:column; min-height:440px; border-radius:var(--d-radius); overflow:hidden; background:var(--t-bg); color:var(--t-fg); box-shadow:0 14px 40px rgba(0,0,0,.35); font-family:var(--d-font)}
-.ts.ts-theme{--t-bg:var(--d-card); --t-fg:var(--d-text); --t-muted:var(--d-muted); --t-line:var(--d-border); --t-bar:color-mix(in srgb, var(--d-text) 5%, transparent); --t-tile:color-mix(in srgb, var(--d-text) 4%, transparent); --t-menu:var(--d-card);
-  -webkit-backdrop-filter:blur(var(--d-blur)); backdrop-filter:blur(var(--d-blur)); border:1px solid var(--d-border)}
+.ts.ts-theme .ts-l, .ts.ts-theme .ts-room, .ts.ts-theme .ts-src b{text-shadow:0 1px 2px color-mix(in srgb, var(--d-base) 60%, transparent)}
+.ts.ts-theme{--t-bg:color-mix(in srgb, var(--d-base) 86%, transparent); --t-fg:var(--d-text); --t-muted:color-mix(in srgb, var(--d-text) 72%, transparent); --t-line:color-mix(in srgb, var(--d-text) 10%, transparent);
+  --t-bar:transparent; --t-tile:color-mix(in srgb, var(--d-text) 7%, transparent); --t-menu:color-mix(in srgb, var(--d-base) 96%, var(--d-text) 4%);
+  -webkit-backdrop-filter:blur(24px) saturate(1.3); backdrop-filter:blur(24px) saturate(1.3); border:1px solid color-mix(in srgb, var(--d-text) 12%, transparent)}
 .ts button{color:inherit}
-.ts-top{display:grid; grid-template-columns:48px minmax(0,1fr) 48px; align-items:center; height:54px; padding:0 8px; background:var(--t-bar); border-bottom:1px solid var(--t-line)}
-.ts-room{justify-self:center; border:0; background:none; display:flex; align-items:center; gap:6px; padding:8px 14px; border-radius:10px; font-size:calc(18px * var(--d-fs,1)); font-weight:500; max-width:100%; min-width:0}
+.ts-top{display:grid; grid-template-columns:48px minmax(0,1fr) 48px; align-items:center; height:58px; padding:6px 10px 0; background:var(--t-bar)}
+.ts-room{justify-self:center; border:0; background:color-mix(in srgb, var(--t-fg) 8%, transparent); display:flex; align-items:center; gap:8px; padding:9px 18px; border-radius:99px; font-size:calc(18px * var(--d-fs,1)); font-weight:600; max-width:100%; min-width:0}
 .ts-room:hover,.ts-room[aria-expanded="true"]{background:color-mix(in srgb, var(--t-fg) 10%, transparent)}
 .ts-room svg.i{width:16px; height:16px; opacity:.75; flex:none}
 .ts-ib{width:40px; height:40px; border-radius:50%; border:0; background:none; display:grid; place-items:center}
 .ts-ib:hover{background:color-mix(in srgb, var(--t-fg) 10%, transparent)}
-.ts-menu{position:absolute; top:58px; left:50%; transform:translateX(-50%); z-index:6; width:min(280px, calc(100% - 24px)); max-height:min(60%, 360px); overflow:auto; background:var(--t-menu); border:1px solid var(--t-line); border-radius:14px; box-shadow:0 18px 40px rgba(0,0,0,.45); padding:6px; display:flex; flex-direction:column; gap:2px}
-.ts-menu button{border:0; background:none; text-align:left; padding:12px 14px; border-radius:10px; font-size:calc(15px * var(--d-fs,1))}
+.ts-menu{position:absolute; top:62px; left:50%; transform:translateX(-50%); z-index:6; width:min(300px, calc(100% - 24px)); max-height:min(64%, 380px); overflow:auto; background:var(--t-menu); color:var(--t-fg); border:1px solid var(--t-line); border-radius:20px; box-shadow:0 24px 60px rgba(0,0,0,.5); padding:8px; display:flex; flex-direction:column; gap:2px; -webkit-backdrop-filter:blur(24px); backdrop-filter:blur(24px)}
+.ts-menu button{border:0; background:none; text-align:left; padding:13px 16px; border-radius:14px; font-size:calc(15px * var(--d-fs,1)); font-weight:500}
 .ts-menu button:hover{background:color-mix(in srgb, var(--t-fg) 8%, transparent)}
-.ts-menu button.on{background:var(--d-accent); color:var(--d-on)}
+.ts-menu button.on{background:var(--d-accent); color:var(--d-on); font-weight:600}
+.ts-scrim{position:absolute; inset:0; z-index:5; border:0; padding:0; background:rgba(0,0,0,.35); cursor:default}
 .ts-body{flex:1; padding:14px; display:flex; flex-direction:column; gap:14px; min-height:0}
-.ts-np{display:grid; grid-template-columns:110px minmax(0,1fr) auto; gap:16px; align-items:center; padding:14px; border-radius:calc(var(--d-radius) * .6); background:color-mix(in srgb, var(--t-fg) 5%, transparent); border:1px solid var(--t-line)}
+.ts-np{display:grid; grid-template-columns:110px minmax(0,1fr) auto; gap:16px; align-items:center; padding:16px; border-radius:calc(var(--d-radius) * .8 + 6px); background:var(--t-tile); border:1px solid var(--t-line)}
 .ts-np.off{opacity:.65}
-.ts-art{width:110px; height:88px; border-radius:12px; background:#0d0e10; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; box-shadow:0 6px 16px rgba(0,0,0,.4)}
+.ts-art{width:110px; height:88px; border-radius:16px; background:#0d0e10; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; box-shadow:0 8px 20px rgba(0,0,0,.35)}
 .ts-art svg.i{width:34px; height:34px}
 .ts-art small{font-size:11px; opacity:.7; max-width:94%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .ts-np-main{min-width:0; display:flex; flex-direction:column; gap:10px}
 .ts-src{display:flex; flex-direction:column; min-width:0}
-.ts-src b{font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ts-src b{font-weight:700; font-size:calc(15px * var(--d-fs,1)); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .ts-src span{font-size:calc(12px * var(--d-fs,1)); color:var(--t-muted)}
 .ts-vol{display:flex; align-items:center; gap:10px}
 .ts-vol svg.i{width:16px; height:16px; opacity:.7}
@@ -519,19 +522,19 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .ts-tr button.big{width:46px; height:46px; background:color-mix(in srgb, var(--t-fg) 12%, transparent)}
 .ts-tr button:hover{background:color-mix(in srgb, var(--t-fg) 14%, transparent)}
 .ts-pw{align-self:end; width:40px; height:40px; border-radius:50%; border:1px solid var(--t-line); background:none; display:grid; place-items:center}
-.ts-tiles{display:grid; grid-template-columns:repeat(auto-fill, minmax(118px, 1fr)); gap:0; background:var(--t-tile); border:1px solid var(--t-line); border-radius:calc(var(--d-radius) * .6); overflow:hidden}
-.ts-tile{aspect-ratio:1.15; border:0; background:transparent; box-shadow:inset -1px -1px 0 var(--t-line); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; padding:10px; min-width:0}
-.ts-tile:hover{background:color-mix(in srgb, var(--t-fg) 8%, var(--t-tile))}
-.ts-ico{width:56px; height:56px; border-radius:14px; display:grid; place-items:center; background:linear-gradient(180deg, rgba(255,255,255,.2), rgba(255,255,255,.04)); box-shadow:inset 0 1px 0 rgba(255,255,255,.22), 0 4px 10px rgba(0,0,0,.35)}
-.ts-ico svg.i{width:28px; height:28px}
-.ts-tile.on .ts-ico{background:linear-gradient(180deg, #fff7da, #ffd36b); color:#3a2a00; box-shadow:0 0 24px rgba(255,210,107,.45)}
+.ts-tiles{display:grid; grid-template-columns:repeat(auto-fill, minmax(118px, 1fr)); gap:10px}
+.ts-tile{aspect-ratio:1.1; border:1px solid var(--t-line); background:var(--t-tile); border-radius:calc(var(--d-radius) * .8 + 6px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:12px; min-width:0; transition:transform .15s ease, background .2s}
+.ts-tile:hover{background:color-mix(in srgb, var(--t-fg) 11%, transparent); transform:translateY(-2px)}
+.ts-ico{width:54px; height:54px; border-radius:50%; display:grid; place-items:center; background:color-mix(in srgb, var(--t-fg) 12%, transparent); box-shadow:inset 0 1px 0 rgba(255,255,255,.14)}
+.ts-ico svg.i{width:26px; height:26px}
+.ts-tile.on .ts-ico{background:linear-gradient(180deg, #fff7da, #ffd36b); color:#3a2a00; box-shadow:0 0 22px rgba(255,210,107,.4)}
 .ts-tile.warn .ts-ico{background:linear-gradient(180deg, #ffc58a, #ff9f40); color:#2a1600}
-.ts-ring{width:56px; height:56px; border-radius:50%; display:grid; place-items:center; border:3px solid var(--d-accent); background:radial-gradient(circle, #2c2e32, #18191c); color:#fff; box-shadow:0 0 16px color-mix(in srgb, var(--d-accent) 40%, transparent)}
+.ts-ring{width:54px; height:54px; border-radius:50%; display:grid; place-items:center; border:3px solid var(--d-accent); background:color-mix(in srgb, #000 35%, transparent); color:#fff; box-shadow:0 0 16px color-mix(in srgb, var(--d-accent) 35%, transparent)}
 .ts-ring b{font-family:var(--d-display); font-size:calc(19px * var(--d-fs,1)); font-weight:600}
-.ts-l{font-size:calc(14px * var(--d-fs,1)); font-weight:500}
-.ts-s{font-size:calc(11.5px * var(--d-fs,1)); color:var(--t-muted); max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ts-l{font-size:calc(14.5px * var(--d-fs,1)); font-weight:600}
+.ts-s{font-size:calc(12px * var(--d-fs,1)); color:var(--t-muted); max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .ts-quick{display:flex; flex-wrap:wrap; gap:8px}
-.ts-bottom{display:flex; justify-content:space-between; align-items:center; padding:10px 18px; background:var(--t-bar); border-top:1px solid var(--t-line); font-size:calc(16px * var(--d-fs,1)); font-variant-numeric:tabular-nums}
+.ts-bottom{display:flex; justify-content:space-between; align-items:center; padding:12px 20px 14px; background:var(--t-bar); font-size:calc(16px * var(--d-fs,1)); font-weight:500; font-variant-numeric:tabular-nums}
 .ts-wx{display:flex; align-items:center; gap:6px}
 .ts-wx svg.i{width:20px; height:20px}
 .ts .hub-head > .d-btn:first-child{display:none}
@@ -2897,7 +2900,7 @@ function hubTouch(b, ri, rooms){
   const top = `<div class="ts-top"><button class="ts-ib" data-act="${b.view ? 'hub-back' : 'hub-room'}" data-r="-1" aria-label="${b.view ? 'Back' : 'All rooms'}">${ic(b.view ? 'left' : 'home')}</button>
     <button class="ts-room" data-act="ts-menu" aria-expanded="${open}" aria-haspopup="listbox">${esc(name)}${ic('down')}</button>
     <button class="ts-ib" data-act="hub-gn" aria-label="Good night">${ic('moon')}</button></div>`;
-  const menu = open ? `<div class="ts-menu" role="listbox" aria-label="Rooms">${[[-1, 'All rooms'], ...rooms.map((r, i) => [i, r.name])].map(([i, n]) => `<button class="${i === ri ? 'on' : ''}" role="option" aria-selected="${i === ri}" data-act="ts-pick" data-r="${i}">${esc(n)}</button>`).join('')}</div>` : '';
+  const menu = open ? `<button class="ts-scrim" data-act="ts-menu" aria-label="Close the room list"></button><div class="ts-menu" role="listbox" aria-label="Rooms">${[[-1, 'All rooms'], ...rooms.map((r, i) => [i, r.name])].map(([i, n]) => `<button class="${i === ri ? 'on' : ''}" role="option" aria-selected="${i === ri}" data-act="ts-pick" data-r="${i}">${esc(n)}</button>`).join('')}</div>` : '';
   let body;
   if (b.view === 'quick') {
     body = `<div class="hub-head"><div class="hub-title">Quick buttons</div></div><div class="ts-quick"><button class="hub-gn" data-act="hub-gn">${ic('moon')}<span><b>Good night</b><small>${esc(gnSummary(b))}</small></span></button>
