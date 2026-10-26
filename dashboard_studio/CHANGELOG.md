@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+
+- New: **Smart › Auto-build my home** makes a page for every room from your Home Assistant areas, plus an optional Home page with a Control hub that already has every room. You pick the rooms first, and choose whether to keep or replace your current pages.
+- Fix: two pages with the same name no longer clash in Home Assistant. The second one gets its own address, like home-2.
+
 ## 0.2.1
 
 - Fix: the add-on now receives its Home Assistant access token, so the Studio connects to your devices (the dot turns green) and Install works.

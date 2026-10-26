@@ -443,6 +443,9 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .btn .dotpulse{width:8px; height:8px; border-radius:50%; background:currentColor; animation:pulse 1s ease-in-out infinite}
 @media (max-width:980px){ .ha-chip{display:none} }
 
+/* auto-build */
+.ab-list{display:flex; flex-direction:column; gap:12px; max-height:min(42vh, 380px); overflow:auto; padding:2px 4px 2px 0}
+
 /* control hub */
 .w-hub{gap:14px}
 .hub-title{font-family:var(--d-display); font-weight:var(--d-hw,600); font-size:calc(24px * var(--d-fs,1) * var(--d-num,1)); letter-spacing:calc(-.02em + var(--d-ls,0em)); line-height:1.15}
@@ -668,6 +671,11 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
           <h3><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Touchscreen home <span class="newtag">New</span></h3>
           <p class="hint">A home page with big tiles for each device type, like a wall touchscreen. Tap a tile to control everything of that type, room by room.</p>
           <div class="btnrow"><button class="btn magic" id="touchBtn">Create touchscreen home</button></div>
+        </div>
+        <div class="group">
+          <h3><svg class="i" viewBox="0 0 24 24"><path d="M3 11 12 4l9 7M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>Auto-build my home <span class="newtag">New</span></h3>
+          <p class="hint" id="autoHomeHint">Makes a page for every room, filled with that room’s devices, plus a Home page with a Control hub.</p>
+          <div class="btnrow"><button class="btn magic" id="autoHomeBtn">Build a page for every room</button></div>
         </div>
         <div class="group" id="aiGroup" hidden>
           <h3><svg class="i" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>Ask Claude</h3>
@@ -2193,7 +2201,9 @@ function fxCardYaml(){
     card_effects:{float_in:!!f.enter, tilt:!!f.tilt, glowing_edges:!!f.edges, light_glow:!!f.spill}, ...(state.calm ? {calm:true} : {}), grid_options:{columns:12}}];
 }
 function dashObj(){
-  const views = state.pages.map((p, i) => ({title:p.name || 'Page ' + (i+1), path:slug(p.name || 'page' + (i+1)), type:'sections', max_columns:4,
+  const used = new Set();
+  const viewPath = (p, i) => { const base = slug(p.name || 'page' + (i+1)).replace(/_/g, '-'); let path = base, n = 2; while (used.has(path)) path = `${base}-${n++}`; used.add(path); return path; };
+  const views = state.pages.map((p, i) => ({title:p.name || 'Page ' + (i+1), path:viewPath(p, i), type:'sections', max_columns:4,
     theme: state.night.on ? undefined : themeName(state.theme),
     sections:[{type:'grid', column_span:4, cards:[...p.blocks.map(cardOut), ...fxCardYaml()]}]}));
   /* every control hub adds hidden subviews: one per device category and one per room */
@@ -2742,7 +2752,7 @@ function hubFill(b){
   state.entities.forEach(e => {
     const [dom, obj] = e.split('.'), t = DOMAIN_TYPE[dom]; if (!t || !obj) return;
     const w = ROOM_WORDS.find(x => obj.includes(x)), area = window.__haAreaNames?.[window.__haArea?.[e]];
-    const room = area || (w ? human(w) : 'Other');
+    const room = area || (w ? roomTitle(w) : 'Other');
     let name = window.__haNames?.[e];
     if (name && name.toLowerCase().startsWith(room.toLowerCase() + ' ')) name = name.slice(room.length + 1);
     name ||= human((w ? obj.replace(w, '') : obj).replace(/^_+|_+$/g, '').replace(/__+/g, '_')) || HUB_TYPES[t].name;
@@ -2816,6 +2826,110 @@ $('touchBtn').addEventListener('click', () => {
   addPage('Touchscreen', [mk('header'), mk('hub'), mk('scenes')]);
   toast('Touchscreen home added. Try Wall mode to see it full screen');
 });
+
+/* ---------- auto-build a page for every room ---------- */
+const roomTitle = w => w.split('_').map(x => x[0].toUpperCase() + x.slice(1)).join(' ');
+/* group entities into rooms: Home Assistant areas when the add-on knows them, otherwise room words in the entity ID */
+function roomGroups(){
+  const groups = new Map();
+  state.entities.forEach(e => {
+    const obj = e.split('.')[1] || '', area = window.__haAreaNames?.[window.__haArea?.[e]];
+    const w = ROOM_WORDS.find(x => obj.includes(x));
+    const room = area || (w ? roomTitle(w) : 'Other');
+    if (!groups.has(room)) groups.set(room, []);
+    groups.get(room).push(e);
+  });
+  return [...groups.entries()].map(([name, ents]) => ({name, ents})).sort((a, z) => (a.name === 'Other') - (z.name === 'Other') || a.name.localeCompare(z.name));
+}
+function shortName(e, room){
+  let n = human(e);
+  if (room !== 'Other' && n.toLowerCase().startsWith(room.toLowerCase() + ' ')) n = n.slice(room.length + 1);
+  return n ? n[0].toUpperCase() + n.slice(1) : n;
+}
+const ROOM_KINDS = [
+  ['light', e => e.startsWith('light.'), 'light', 'lights'],
+  ['climate', e => e.startsWith('climate.'), 'thermostat', 'thermostats'],
+  ['cover', e => e.startsWith('cover.') && !/garage/.test(e), 'shade', 'shades'],
+  ['garage', e => e.startsWith('cover.') && /garage/.test(e), 'garage door', 'garage doors'],
+  ['media', e => e.startsWith('media_player.'), 'TV or speaker', 'TVs and speakers'],
+  ['lock', e => e.startsWith('lock.'), 'lock', 'locks'],
+  ['alarm', e => e.startsWith('alarm_control_panel.'), 'alarm', 'alarms'],
+  ['camera', e => e.startsWith('camera.'), 'camera', 'cameras'],
+  ['vacuum', e => e.startsWith('vacuum.'), 'vacuum', 'vacuums'],
+  ['temp', e => e.startsWith('sensor.') && /temp/.test(e), 'temperature', 'temperatures'],
+  ['humid', e => e.startsWith('sensor.') && /humid/.test(e), 'humidity sensor', 'humidity sensors'],
+  ['air', e => e.startsWith('sensor.') && /co2|carbon_dioxide/.test(e), 'air sensor', 'air sensors'],
+  ['plant', e => e.startsWith('sensor.') && /moisture/.test(e), 'plant', 'plants']
+];
+const LIMITS = {light:12, climate:2, cover:4, garage:1, media:2, lock:3, alarm:1, camera:2, vacuum:1, temp:2, humid:1, air:1, plant:3};
+function roomKinds(ents){
+  const out = {};
+  ROOM_KINDS.forEach(([k, test]) => { const l = ents.filter(test).slice(0, LIMITS[k]); if (l.length) out[k] = l; });
+  return out;
+}
+function roomSummary(kinds){
+  return ROOM_KINDS.filter(([k]) => kinds[k]).map(([k, , one, many]) => `${kinds[k].length > 1 ? kinds[k].length + ' ' + many : '1 ' + one}`).join(' · ');
+}
+function roomBlocks(room, kinds){
+  const n = e => shortName(e, room), b = [];
+  (kinds.light || []).forEach(e => b.push(mk('light', {entity:e, title:n(e)})));
+  (kinds.climate || []).forEach(e => b.push(mk('climate', {entity:e, title:n(e)})));
+  (kinds.cover || []).forEach(e => b.push(mk('cover', {entity:e, title:n(e)})));
+  (kinds.garage || []).forEach(e => b.push(mk('garage', {entity:e, title:n(e)})));
+  (kinds.lock || []).forEach(e => b.push(mk('lock', {entity:e, title:n(e)})));
+  (kinds.alarm || []).forEach(e => b.push(mk('alarm', {entity:e, title:n(e)})));
+  (kinds.vacuum || []).forEach(e => b.push(mk('vacuum', {entity:e, title:n(e)})));
+  (kinds.temp || []).forEach(e => b.push(mk('sensor', {entity:e, title:n(e), unit:'°C', value:'21.5'})));
+  (kinds.humid || []).forEach(e => b.push(mk('sensor', {entity:e, title:n(e), unit:'%', value:'48'})));
+  (kinds.air || []).forEach(e => b.push(mk('air', {entity:e, title:n(e)})));
+  (kinds.plant || []).forEach(e => b.push(mk('plant', {entity:e, title:n(e).replace(/ ?moisture/i, '') || 'Plant'})));
+  (kinds.media || []).forEach(e => b.push(mk('media', {entity:e, title:n(e)})));
+  (kinds.camera || []).forEach(e => b.push(mk('camera', {entity:e, title:n(e)})));
+  return tidyList(b);
+}
+function openAutoHome(){
+  if (!state.entities.length) {
+    toast(window.STUDIO_ADDON ? 'No entities yet. Try Smart › Reload from Home Assistant' : 'Add your entities first (Smart › My entities)');
+    if (!window.STUDIO_ADDON) openEntities();
+    return;
+  }
+  const rooms = roomGroups().map(r => ({...r, kinds:roomKinds(r.ents)})).filter(r => Object.keys(r.kinds).length);
+  if (!rooms.length) { toast('None of your entities are devices the studio can put on a page yet'); return; }
+  let mode = 'add';
+  openModal({title:'Auto-build my home',
+    body:`<p class="hint">Found ${rooms.length} room${rooms.length === 1 ? '' : 's'} with devices${window.__haAreaNames ? ', from your Home Assistant areas' : ''}. Untick any you don’t want a page for.</p>
+      <div class="ab-list">${rooms.map((r, i) => `<label class="switch"><span><b>${esc(r.name)}</b><small>${esc(roomSummary(r.kinds))}</small></span><input type="checkbox" data-abroom="${i}" ${r.name === 'Other' ? '' : 'checked'}></label>`).join('')}</div>
+      <label class="switch"><span><b>Start with a Home page</b><small>Greeting, weather and a Control hub with every room filled in</small></span><input type="checkbox" id="abHome" checked></label>
+      <div class="field"><span class="lbl2">Your current pages</span><div class="seg" role="group" aria-label="Your current pages"><button data-abmode="add" aria-pressed="true">Keep them, add new ones</button><button data-abmode="replace" aria-pressed="false">Replace them</button></div>
+      <p class="hint" id="abModeHint">New pages go after your ${state.pages.length} current page${state.pages.length === 1 ? '' : 's'}.</p></div>`,
+    foot:`<span class="hint">Ctrl+Z undoes this.</span><button class="btn magic" id="abGo">${ic('sparkle')}Build my pages</button>`,
+    mount(){
+      $('mBody').querySelector('.seg').onclick = e => {
+        const b = e.target.closest('[data-abmode]'); if (!b) return; mode = b.dataset.abmode;
+        $('mBody').querySelectorAll('[data-abmode]').forEach(x => x.setAttribute('aria-pressed', x === b));
+        $('abModeHint').textContent = mode === 'add' ? `New pages go after your ${state.pages.length} current page${state.pages.length === 1 ? '' : 's'}.` : 'Your current pages are swapped for the new ones. Your theme and settings stay.';
+      };
+      const count = () => { const n = $('mBody').querySelectorAll('[data-abroom]:checked').length + ($('abHome').checked ? 1 : 0); $('abGo').disabled = !n; $('abGo').innerHTML = `${ic('sparkle')}Build ${n} page${n === 1 ? '' : 's'}`; };
+      $('mBody').addEventListener('change', count); count();
+      $('abGo').onclick = () => {
+        const picked = rooms.filter((_, i) => $('mBody').querySelector(`[data-abroom="${i}"]`).checked);
+        const pages = [];
+        if ($('abHome').checked) {
+          const hub = mk('hub', {title:state.name || 'Home', scenes:[]});
+          hubFill(hub);
+          const w = state.entities.find(e => e.startsWith('weather.'));
+          pages.push({id:uid(), name:'Home', blocks:[mk('header'), ...(w ? [mk('weather', {entity:w, size:'xl'})] : []), hub]});
+        }
+        picked.forEach(r => pages.push({id:uid(), name:r.name, blocks:roomBlocks(r.name, r.kinds)}));
+        commit();
+        state.pages = mode === 'replace' ? pages : [...state.pages, ...pages];
+        state.page = pages[0].id; selected = null;
+        closeModal(); renderDash(); renderInsp(); save(); playEnter();
+        toast(`Built ${pages.length} page${pages.length === 1 ? '' : 's'}: ${pages.map(p => p.name).slice(0, 4).join(', ')}${pages.length > 4 ? '…' : ''}`);
+      };
+    }});
+}
+$('autoHomeBtn').addEventListener('click', openAutoHome);
 
 /* ---------- temperature units ---------- */
 const CONDS = {sunny:['sun','Sunny',19,[21,11]], partly:['partly','Partly cloudy',14,[16,8]], cloudy:['cloud','Cloudy',12,[13,8]],
