@@ -5,14 +5,23 @@ This repository holds two things:
 - **The Dashboard Studio add-on** (`dashboard_studio/`): the full drag-and-drop builder, running in your Home Assistant sidebar. It reads your real entities and areas, and installs finished dashboards in one click. [Add-on docs](dashboard_studio/DOCS.md).
 - **The Dashboard Studio hub card** (`dist/`): the card described below, installable on its own through HACS.
 
-## Install the add-on
+## Install
 
-1. Go to **Settings › Add-ons › Add-on store**, then the three dots in the top right, then **Repositories**.
-2. Paste this repository's GitHub URL and select **Add**.
-3. Find **Dashboard Studio** in the store, select **Install**, then **Start**.
-4. Turn on **Show in sidebar**, then open **Dashboard Studio** from the sidebar.
+### 👉 [Step-by-step install guide](INSTALL.md)
 
-The add-on needs Home Assistant OS or a Supervised install.
+The guide shows you which install you have, has one-click buttons, and tells you what you should see after every step.
+
+**Quick start for the add-on** (Home Assistant OS or Supervised):
+
+[![Add repository to my Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fpcorcoran20%2Fha-dashboard-studio)
+
+Then select **Dashboard Studio** in the add-on store, then **Install**, turn on **Show in sidebar**, and select **Start**.
+
+**Quick start for the cards only** (needs HACS):
+
+[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=pcorcoran20&repository=ha-dashboard-studio&category=plugin)
+
+Stuck? The guide has an [If something goes wrong](INSTALL.md#if-something-goes-wrong) section.
 
 ---
 
@@ -34,7 +43,9 @@ It is the live version of the **Control hub** block from Dashboard Studio, the w
 
 The card follows your Home Assistant theme, including Dashboard Studio themes and card-mod styles.
 
-## Install
+## Install the card on its own
+
+The [install guide](INSTALL.md#path-b-the-card-only) walks through this step by step, with a check after each step. In short:
 
 ### With HACS (recommended)
 

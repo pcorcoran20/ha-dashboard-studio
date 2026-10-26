@@ -2,6 +2,8 @@
 
 Design a dashboard by dragging blocks onto a canvas, pick a theme, and install it in one click. Everything happens inside Home Assistant.
 
+New here? The [step-by-step install guide](https://github.com/pcorcoran20/ha-dashboard-studio/blob/main/INSTALL.md) has a check after every step and a fix-it section.
+
 ## Open it
 
 After you start the add-on, select **Dashboard Studio** in the sidebar. If you don't see it, open the add-on page and turn on **Show in sidebar**.
