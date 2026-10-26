@@ -113,7 +113,7 @@ In a Sections dashboard, make the card full width so the tiles have room.
 | `icon_color` | The icon color for tiles that are on: `soft` (soft white, the default), `accent` (your theme color) or `warm` (yellow). |
 | `room_radius` | For the touchscreen layout: how round the room button is, from `0` (square corners) to `30` (fully round, the default). |
 | `icon_background` | `false` removes the circle behind the tile icons. Icons that are on glow, and icons that are off are dimmer. |
-| `animations` | `page`: `fade`, `slide` (the default), `zoom`, `flip` or `off`. `tap`: `ripple` (the default), `press` or `off`. `state`: `pop` (the default), `glow` or `off`. `calm: true` turns them all off. |
+| `animations` | `page`: `fade`, `slide` (the default), `zoom`, `flip`, `rise`, `blur`, `swing`, `bounce` or `off`. `tap`: `ripple` (the default), `press`, `sparkle`, `ring`, `glow` or `off`. `state`: `pop` (the default), `glow`, `bounce`, `flash`, `burst` or `off`. `calm: true` turns them all off. |
 | `touch_style` | For the touchscreen layout: `dark` (the default) or `theme` to follow your Home Assistant theme. |
 | `full_height` | `true` makes the card fill the screen. Good in a panel view. |
 | `weather_entity` | The weather shown in the touchscreen layout's bottom bar. Leave it out to use your first weather entity. |
@@ -169,6 +169,29 @@ presets:
 
 Shades that can't move to an exact position open or close instead.
 
+## The vehicle card
+
+`custom:dashboard-studio-vehicle` looks like the Tesla app: your car in its paint color, battery and range, charging, and one-tap controls. It finds your car by itself if you use Tesla Fleet, Teslemetry, Tessie or a similar integration.
+
+```yaml
+type: custom:dashboard-studio-vehicle
+name: Ruby
+model: model_3        # model_3, model_y, model_s, model_x or cybertruck
+color: ultra_red      # pearl_white, solid_black, midnight_silver, stealth_grey, quicksilver, deep_blue, ultra_red, stainless, or any color like '#2f6df6'
+```
+
+If you have more than one car, set `vehicle` to the car's name in its entity IDs. For `sensor.ruby_battery_level`, that's `ruby`. To pick an entity yourself, add it under `entities`:
+
+```yaml
+vehicle: ruby
+entities:
+  battery: sensor.ruby_battery_level   # also: range, charging, charge_switch, charge_power, time_to_full,
+  lock: lock.ruby_doors                # charge_limit, climate, inside, outside, frunk, trunk,
+                                       # charge_port, sentry, shift, location
+```
+
+A button only shows up when the card finds its entity. Tap the car's name to open Home Assistant's more-info dialog.
+
 ## The effects card
 
 `custom:dashboard-studio-fx` adds a moving background behind the whole view, plus effects on the other cards. It's invisible outside edit mode, so add one per view and put it anywhere.
@@ -186,9 +209,9 @@ card_effects:
   glowing_edges: false       # a soft glow pulses around each card
   light_glow: true           # tile cards for lights glow in the light's own color
 animations:
-  page: slide                # fade, slide, zoom, flip or off: plays when the view opens
-  tap: ripple                # ripple, press or off: plays when you touch a card
-  state: pop                 # pop, glow or off: plays when a card's device turns on or off
+  page: slide                # fade, slide, zoom, flip, rise, blur, swing, bounce or off: plays when the view opens
+  tap: ripple                # ripple, press, sparkle, ring, glow or off: plays when you touch a card
+  state: pop                 # pop, glow, bounce, flash, burst or off: plays when a card's device turns on or off
 calm: false                  # true turns off motion. Reduced-motion settings are respected too
 ```
 

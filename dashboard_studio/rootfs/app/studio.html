@@ -673,7 +673,75 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 /* effects */
 .bgfx{position:absolute; inset:0; width:100%; height:100%; border-radius:inherit; pointer-events:none; z-index:0; transition:opacity .3s}
 @keyframes cardIn{from{opacity:0; transform:translateY(18px) scale(.97)}}
+.car{width:100%;height:auto;display:block;overflow:visible}
+.car .car-lid{transition:transform .7s cubic-bezier(.3,1.3,.5,1),stroke-opacity .4s;stroke-opacity:.4}
+.car .car-lid.open{stroke-opacity:1}
+.car .car-lid.hood.open{transform:rotate(-17deg)}
+.car .car-lid.trunk.open{transform:rotate(17deg)}
+.car .car-head{stroke:#f4f6ff;opacity:.45;transition:opacity .4s,filter .4s}
+.car.lights .car-head{opacity:1;filter:drop-shadow(0 0 5px #fff) drop-shadow(0 0 12px #cfe0ff)}
+.car .car-tail{stroke:#ff4a4a;opacity:.55}
+.car .car-port{fill:#2b2d31;transition:fill .3s}
+.car .car-port.open{fill:#9be7b0}
+.car.charging .car-port{fill:#4ade80;filter:drop-shadow(0 0 6px #4ade80);animation:carPulse 1.4s ease-in-out infinite}
+.car .car-flow{animation:carFlow .9s linear infinite}
+.car .car-air{opacity:0}
+.car.climate .car-air{animation:carAir 2.4s ease-in-out infinite}
+.car .car-eye{fill:#ff3b3b;opacity:0}
+.car.sentry .car-eye{filter:drop-shadow(0 0 5px #ff3b3b);animation:carEye 1.6s ease-in-out infinite}
+@keyframes carPulse{50%{opacity:.45}}
+@keyframes carFlow{to{stroke-dashoffset:28}}
+@keyframes carAir{0%{opacity:0;transform:translateY(6px)}40%{opacity:.85}100%{opacity:0;transform:translateY(-10px)}}
+@keyframes carEye{50%{opacity:1}}
+@media (prefers-reduced-motion: reduce){.car *{animation:none!important;transition:none!important}}
+
+.w-vehicle{gap:12px}
+.v-top{display:flex; justify-content:space-between; align-items:flex-start; gap:12px}
+.w-vehicle .d-name{font-size:calc(22px * var(--d-fs,1))}
+.v-st{font-size:calc(13px * var(--d-fs,1)); color:var(--d-muted); margin-top:2px}
+.v-bat{display:flex; align-items:center; gap:2px; color:var(--d-muted)}
+.v-bat b{font-family:var(--d-display); font-size:calc(26px * var(--d-fs,1)); font-weight:600; color:var(--d-text); font-variant-numeric:tabular-nums}
+.v-bat svg.i{width:18px; height:18px; color:#4ade80}
+.v-car{margin:0 -6px}
+.v-range{display:flex; flex-direction:column; gap:6px}
+.v-bar{position:relative; height:10px; border-radius:99px; background:color-mix(in srgb, var(--d-text) 10%, transparent); overflow:hidden}
+.v-bar i{position:absolute; left:0; top:0; bottom:0; border-radius:99px; background:var(--d-text); opacity:.85; transition:width .8s ease}
+.v-bar.chg i{background:linear-gradient(90deg, #22c55e, #4ade80, #86efac, #4ade80); background-size:200% 100%; opacity:1; animation:vShine 2s linear infinite}
+.v-bar em{position:absolute; top:1px; bottom:1px; width:2px; background:var(--d-muted); border-radius:2px}
+.v-rl{display:flex; justify-content:space-between; gap:10px; font-size:calc(12.5px * var(--d-fs,1)); color:var(--d-muted)}
+.v-rl span:first-child{color:var(--d-text); font-weight:600; font-size:calc(15px * var(--d-fs,1))}
+.v-ctl{display:flex; flex-wrap:wrap; justify-content:center; gap:6px 4px}
+.v-ctl .vc{width:66px}
+.vc{border:0; background:none; display:flex; flex-direction:column; align-items:center; gap:6px; font-size:calc(11.5px * var(--d-fs,1)); color:var(--d-muted); padding:2px 0}
+.vc span{width:46px; height:46px; border-radius:50%; display:grid; place-items:center; background:color-mix(in srgb, var(--d-text) 9%, transparent); color:var(--d-text); transition:background .2s}
+.vc.on{color:var(--d-text)}
+.vc.on span{background:var(--d-accent); color:var(--d-on)}
+.v-info{font-size:calc(12px * var(--d-fs,1)); color:var(--d-muted); text-align:center}
+@keyframes vShine{to{background-position:-200% 0}}
+.dash.calm .car *, .dash.calm .v-bar i{animation:none !important}
+.v-paints{display:grid; grid-template-columns:1fr 1fr; gap:6px}
+.v-paints button{border:1px solid var(--line); background:var(--bg); border-radius:9px; padding:6px 8px; display:flex; align-items:center; gap:8px; font-size:12px; text-align:left}
+.v-paints button[aria-pressed="true"]{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent)}
+.v-paints i{width:16px; height:16px; border-radius:50%; border:1px solid rgba(0,0,0,.2); flex:none}
 @keyframes ptFade{from{opacity:0}}
+@keyframes ptRise{from{opacity:0; transform:translateY(28px)}}
+@keyframes ptBlur{from{opacity:0; filter:blur(12px); transform:scale(1.02)}}
+@keyframes ptSwing{from{opacity:0; transform:perspective(1100px) rotateX(-18deg)}}
+@keyframes ptBounce{0%{opacity:0; transform:scale(.86)} 60%{opacity:1; transform:scale(1.03)} 80%{transform:scale(.99)}}
+.pt-in[data-pt="rise"]{animation:ptRise .42s cubic-bezier(.2,.8,.2,1) both}
+.pt-in[data-pt="blur"]{animation:ptBlur .45s ease both}
+.pt-in[data-pt="swing"]{animation:ptSwing .52s cubic-bezier(.2,.8,.2,1) both; transform-origin:50% 0}
+.pt-in[data-pt="bounce"]{animation:ptBounce .56s ease-out both}
+@keyframes stBounce{30%{transform:translateY(-8px)} 55%{transform:translateY(0)} 75%{transform:translateY(-3px)}}
+@keyframes stFlash{25%{filter:brightness(1.9) saturate(1.3)}}
+.st-bounce{animation:stBounce .6s ease-out}
+.st-flash{animation:stFlash .6s ease-out}
+.tap-ring{position:absolute; z-index:8; border-radius:50%; pointer-events:none; border:2px solid color-mix(in srgb, var(--d-text) 70%, transparent); animation:tapRing .52s ease-out forwards}
+@keyframes tapRing{from{transform:scale(.1); opacity:1} to{transform:scale(1); opacity:0}}
+.tap-glow{position:absolute; z-index:8; border-radius:50%; pointer-events:none; background:radial-gradient(circle, color-mix(in srgb, var(--d-accent) 55%, transparent) 0, transparent 65%); filter:blur(6px); animation:tapGlow .7s ease-out forwards}
+@keyframes tapGlow{0%{transform:scale(.5); opacity:0} 30%{transform:scale(1); opacity:1} 100%{transform:scale(1.1); opacity:0}}
+.fx-spark{position:absolute; z-index:8; border-radius:50%; pointer-events:none; background:var(--spark, var(--d-accent)); box-shadow:0 0 8px var(--spark, var(--d-accent)); animation:fxSpark var(--t,.7s) cubic-bezier(.2,.8,.3,1) forwards}
+@keyframes fxSpark{from{transform:translate(0,0) scale(1); opacity:1} to{transform:translate(var(--dx), var(--dy)) scale(.2); opacity:0}}
 @keyframes ptSlide{from{opacity:0; transform:translateX(calc(var(--pt-dir,1) * 36px))}}
 @keyframes ptZoom{from{opacity:0; transform:scale(.94)}}
 @keyframes ptFlip{from{opacity:0; transform:perspective(1100px) rotateY(calc(var(--pt-dir,1) * 14deg)) translateX(calc(var(--pt-dir,1) * 18px))}}
@@ -919,6 +987,9 @@ const P = {
   lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   unlock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.6-1.8"/>',
   bolt:'<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  car:'<path d="M3 16v-3l2.5-5h13L21 13v3z"/><path d="M3 13h18"/><circle cx="7.5" cy="17" r="1.8"/><circle cx="16.5" cy="17" r="1.8"/>',
+  frunk:'<path d="M3 17v-3l2.5-4h9.5"/><path d="M15 10l5-3"/><path d="M3 14h18v3H3z"/><circle cx="7.5" cy="18" r="1.4"/><circle cx="16.5" cy="18" r="1.4"/>',
+  trunk:'<path d="M21 17v-3l-2.5-4H9"/><path d="M9 10 4 7"/><path d="M3 14h18v3H3z"/><circle cx="7.5" cy="18" r="1.4"/><circle cx="16.5" cy="18" r="1.4"/>',
   cloud:'<path d="M7 18h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 9.5 4.3 4.3 0 0 0 7 18z"/>',
   sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   partly:'<path d="M8 4v1M3.5 8.5h1M4.8 5.3l.7.7M11.2 5.3l-.7.7"/><path d="M5.6 11.4A3.5 3.5 0 1 1 11.6 8"/><path d="M9 20h8a3.5 3.5 0 0 0 .4-7 5 5 0 0 0-9.6 1.5A2.8 2.8 0 0 0 9 20z"/>',
@@ -1118,6 +1189,7 @@ const CATALOG = {
   alarm:{name:'Alarm', desc:'Arm home, away, off', icon:'shield', size:'s', d:{title:'Alarm', entity:'alarm_control_panel.home', mode:'disarmed'}},
   plant:{name:'Plant', desc:'Soil moisture + reminder', icon:'leaf', size:'s', d:{title:'Monstera', entity:'sensor.monstera_moisture', value:'34'}},
   garage:{name:'Garage', desc:'Door with open/close', icon:'garage', size:'s', d:{title:'Garage', entity:'cover.garage_door', open:false}},
+  vehicle:{name:'Vehicle', desc:'Tesla app style car: battery, charging and controls', icon:'car', size:'l', isNew:1, d:{title:'Model Y', model:'model_y', paint:'pearl_white', vehicle:'', battery:78, range:245, limit:80, charging:false, locked:true, climate:false, frunk:false, trunk:false, port:false, sentry:false, inside:21, outside:14}},
   dualshade:{name:'Dual shade', desc:'Day/night or top-down shades with two motors', icon:'blinds', size:'m', isNew:1, d:{title:'Bedroom Shades', style:'daynight', entity:'cover.bedroom_shade_night', entity2:'cover.bedroom_shade_day', label1:'Blackout', label2:'Light filtering', pos1:100, pos2:40}},
   hub:{name:'Control hub', desc:'Room-by-room device tiles, touchscreen style', icon:'tiles', size:'xl', isNew:1, d:{title:'My Home', room:-1, view:null, rooms:HUB_SAMPLE,
     gn:{lights:true, outlets:true, fans:false, shades:true, media:true, locks:true, alarm:true, temp:18},
@@ -1156,6 +1228,7 @@ const FIELDS = {
   plant:[['title','Plant name'], ENT('entity','Moisture sensor','sensor'), ['value','Example moisture %']],
   garage:[['title','Name'], ENT('entity','Garage cover','cover')],
   floorplan:[['title','Floor name']],
+  vehicle:[['title','Name'], ['vehicle','Car name in its entity IDs (optional)','my_model_y',1]],
   dualshade:[['title','Name'], ENT('entity','First shade','cover'), ['label1','First shade label'], ENT('entity2','Second shade','cover'), ['label2','Second shade label']],
   hub:[['title','Home name']]
 };
@@ -1521,6 +1594,15 @@ function act(b, a, el){
     case 'room': { const r = b.rooms?.[+el.dataset.i]; if (r) r.on = !r.on; break; }
     case 'ds': { const k = 'pos' + el.dataset.n, v = el.dataset.v; if (v === 'up') b[k] = Math.min(100, (b[k] ?? 100) + 25); if (v === 'down') b[k] = Math.max(0, (b[k] ?? 100) - 25); break; }
     case 'dsp': { const pr = DS[b.style || 'daynight'].presets.find(x => x[0] === el.dataset.v); if (pr) { b.pos1 = pr[2]; b.pos2 = pr[3]; } break; }
+    case 'car': { const v = el.dataset.v;
+      if (v === 'lock') b.locked = !b.locked;
+      if (v === 'climate') b.climate = !b.climate;
+      if (v === 'frunk') b.frunk = !b.frunk;
+      if (v === 'trunk') b.trunk = !b.trunk;
+      if (v === 'sentry') b.sentry = !b.sentry;
+      if (v === 'port') { b.port = !b.port; if (!b.port) b.charging = false; }
+      if (v === 'charge') { b.charging = !b.charging; if (b.charging) b.port = true; }
+      break; }
     case 'ts-menu': touchMenu.has(b.id) ? touchMenu.delete(b.id) : touchMenu.add(b.id); break;
     case 'ts-pick': b.room = +el.dataset.r; b.view = null; touchMenu.delete(b.id); break;
     case 'hub-room': b.room = +el.dataset.r; touchMenu.delete(b.id); break;
@@ -1748,7 +1830,7 @@ const LIB_GROUPS = [
   ['Touchscreen & rooms', 'Whole-home and room views', ['hub','floorplan','room','people']],
   ['Security', 'Locks, alarm and cameras', ['lock','alarm','camera','garage']],
   ['Media & info', 'Music, TV, calendar and readings', ['media','calendar','sensor','energy','air']],
-  ['Around the house', 'Shades, robots and plants', ['cover','dualshade','vacuum','plant']]
+  ['Around the house', 'Shades, robots, plants and cars', ['cover','dualshade','vacuum','plant','vehicle']]
 ];
 const libOpen = new Set(['Start here']);
 const libItem = k => { const c = CATALOG[k]; return `<button class="lib-item" draggable="true" data-type="${k}" title="${esc(c.desc)}"><span class="ic">${ic(c.icon)}</span>${c.isNew ? '<span class="newtag">New</span>' : ''}<b>${c.name}</b><span>${c.desc}</span></button>`; };
@@ -2208,6 +2290,7 @@ function renderInsp(){
     ${FIELDS[b.type].map(([k,label,ph,mono,domain]) => `<div class="field"><label for="f_${k}">${label}</label><input type="text" id="f_${k}" data-k="${k}" class="${mono?'mono':''}" value="${esc(b[k])}" placeholder="${esc(ph||'')}" spellcheck="false" ${domain && state.entities.length ? `list="entList" data-domain="${domain}"` : ''}></div>`).join('')}
     ${b.type === 'floorplan' ? fpEditorHTML(b) : ''}
     ${b.type === 'hub' ? hubEditorHTML(b) : ''}
+    ${b.type === 'vehicle' ? vehEditorHTML(b) : ''}
     ${b.type === 'dualshade' ? `<div class="field"><span class="lbl2">Shade type</span><div class="seg" role="group" aria-label="Shade type">${Object.entries(DS).map(([k, d]) => `<button data-dsstyle="${k}" aria-pressed="${(b.style || 'daynight') === k}">${d.short}</button>`).join('')}</div><p class="hint">${DS[b.style || 'daynight'].help}</p></div>` : ''}
     ${b.type === 'weather' ? `<div class="field"><span class="lbl2">Example weather</span><div class="seg" role="group" aria-label="Example weather">${Object.entries(CONDS).map(([k,c]) => `<button data-cond="${k}" aria-pressed="${(b.cond || 'partly') === k}">${c[1]}</button>`).join('')}</div><p class="hint">For the preview only. In Home Assistant this card shows your real weather. The “Follows the weather” background uses it too.</p></div>` : ''}
     <div class="field"><span class="lbl2">Width</span><div class="seg" role="group" aria-label="Width">${SIZES.map(s => `<button data-size="${s}" aria-pressed="${b.size===s}">${SIZE_LABEL[s]}</button>`).join('')}</div></div>
@@ -2307,6 +2390,7 @@ insp.addEventListener('input', e => {
   if (e.target.id === 'pgName') { commit('pgname'); page().name = e.target.value; renderPages(); save(); return; }
   const b = find(selected); if (!b) return;
   if (e.target.dataset.hsc) { const s = b.scenes?.[+e.target.dataset.hsc]; if (!s) return; commit('hsc' + e.target.dataset.hsc); s.name = e.target.value; renderDash(); save(); return; }
+  if (e.target.id === 'vPaint') { commit('vpaint'); b.paint = e.target.value; renderDash(); save(); return; }
   if (e.target.id === 'hRr') { commit('hrr'); b.roomRadius = +e.target.value; $('hRrV').textContent = rrLabel(b.roomRadius); renderDash(); save(); return; }
   if (e.target.id === 'hOp') { commit('hop'); b.opacity = +e.target.value; $('hOpV').textContent = b.opacity ? b.opacity + '%' : 'See-through'; renderDash(); save(); return; }
   if (e.target.id === 'gnTemp') { commit('gntemp'); b.gn.temp = +e.target.value; $('gnTempV').textContent = tC(b.gn.temp) + '°'; renderDash(); save(); return; }
@@ -2352,6 +2436,9 @@ insp.addEventListener('change', e => {
   if (e.target.id === 'moveTo' && e.target.value) { commit(); const dest = state.pages.find(p => p.id === e.target.value); B().splice(idx(b.id),1); dest.blocks.push(b); selected = null; renderDash(); renderInsp(); save(); toast('Moved to ' + dest.name); }
 });
 insp.addEventListener('click', e => {
+  { const b = find(selected), vm = e.target.closest('[data-vmodel]'), vp = e.target.closest('[data-vpaint]');
+    if (b && vm) { commit(); b.model = vm.dataset.vmodel; if (/^Model [3SXY]$|^Cybertruck$/.test(b.title)) b.title = VEH_MODELS.find(x => x[0] === b.model)[1]; renderDash(); renderInsp(); save(); return; }
+    if (b && vp) { commit(); b.paint = vp.dataset.vpaint; renderDash(); renderInsp(); save(); return; } }
   const pm = e.target.closest('[data-pmove]');
   if (pm) { commit(); const i = state.pages.indexOf(page()), j = i + +pm.dataset.pmove; if (j >= 0 && j < state.pages.length) { state.pages.splice(j, 0, state.pages.splice(i,1)[0]); renderPages(); save(); } return; }
   const b = find(selected); if (!b) return;
@@ -2439,6 +2526,15 @@ function cardYaml(b){
     case 'alarm': return {type:'tile', entity:b.entity, name:b.title, features_position:'bottom', features:[{type:'alarm-modes', modes:['armed_home','armed_away','disarmed']}]};
     case 'plant': return {type:'tile', entity:b.entity, name:b.title, icon:'mdi:sprout'};
     case 'garage': return {type:'tile', entity:b.entity, name:b.title, icon:'mdi:garage', features_position:'bottom', features:[{type:'cover-open-close'}]};
+    case 'vehicle': {
+      if (state.useCards) return {type:'custom:dashboard-studio-vehicle', name:b.title, model:b.model, color:b.paint, ...(b.vehicle ? {vehicle:b.vehicle} : {}), ...(state.calm ? {calm:true} : {})};
+      const v = b.vehicle || slug(b.title), tile = (entity, name, icon) => ({type:'tile', entity, name, icon});
+      const tog = (entity, name, icon) => ({type:'button', entity, name, icon, show_state:true, tap_action:{action:'toggle'}});
+      return {type:'vertical-stack', title:b.title, cards:[
+        {type:'grid', columns:2, square:false, cards:[tile(`sensor.${v}_battery_level`, 'Battery', 'mdi:car-battery'), tile(`sensor.${v}_battery_range`, 'Range', 'mdi:map-marker-distance')]},
+        {type:'grid', columns:3, square:false, cards:[tog(`lock.${v}_lock`, 'Lock', 'mdi:lock'), tog(`climate.${v}_climate`, 'Climate', 'mdi:fan'), tog(`switch.${v}_sentry_mode`, 'Sentry', 'mdi:shield-car'),
+          tog(`cover.${v}_frunk`, 'Frunk', 'mdi:car-select'), tog(`cover.${v}_trunk`, 'Trunk', 'mdi:car-back'), tog(`cover.${v}_charge_port_door`, 'Charge port', 'mdi:ev-station')]}]};
+    }
     case 'dualshade': {
       const style = b.style || 'daynight';
       if (state.useCards) return {type:'custom:dashboard-studio-dual-shade', name:b.title, style, shades:[{entity:b.entity, name:b.label1}, {entity:b.entity2, name:b.label2}]};
@@ -2485,7 +2581,7 @@ const cardOut = b => ({...cardYaml(b), grid_options:{columns:SPAN[b.size]}, visi
 const themeName = k => 'Studio ' + getTheme(k).label + (k === 'pride' ? ' ' + (FLAGS[state.prideFlag] || FLAGS.rainbow).name : '');
 const fxActive = () => state.fx.bg !== 'off' || ['enter','tilt','edges','spill'].some(k => state.fx[k]) || ['page','tap','pop'].some(k => state.fx[k] && state.fx[k] !== 'off');
 const animYaml = () => ({page:state.fx.page || 'off', tap:state.fx.tap || 'off', state:state.fx.pop || 'off'});
-const usesStudioCard = () => allBlocks().some(b => b.type === 'hub' || b.type === 'dualshade') || fxActive();
+const usesStudioCard = () => allBlocks().some(b => b.type === 'hub' || b.type === 'dualshade' || b.type === 'vehicle') || fxActive();
 function fxCardYaml(){
   if (!state.useCards || !fxActive()) return [];
   const f = state.fx, w = allBlocks().find(b => b.type === 'weather');
@@ -3216,6 +3312,82 @@ function dsWindow(b){
   if ((b.style || 'daynight') === 'tdbu') { const y1 = 100 - p1, y2 = Math.max(y1, 100 - p2); return `<div class="ds-f f2" style="top:${y1}%; height:${y2 - y1}%"></div>`; }
   return `<div class="ds-f f2" style="height:${100 - p2}%"></div><div class="ds-f f1" style="height:${100 - p1}%"></div>`;
 }
+/* side view of a car, drawn like the Tesla app: paint color, open lids, charging, climate and sentry */
+const CAR_SHAPES = {
+  sedan: {body: 'M22 112 C20 100 28 92 46 89 L112 80 C138 62 168 50 206 49 C246 48 276 58 306 76 L352 83 C372 86 382 95 382 108 L382 116 C382 121 378 124 372 124 L30 124 C25 124 22 120 22 116 Z',
+    glass: 'M126 80 C150 61 176 53 206 52 C240 51 266 60 296 77 Z', pillar: [212, 53, 79], belt: 'M48 94 C150 89 262 89 370 95',
+    hood: 'M306 76 L352 83 C368 85 377 91 380 99', hoodAt: [306, 76], trunk: 'M112 80 L46 89 C34 91 27 96 24 103', trunkAt: [112, 80],
+    wheels: [[100, 122], [306, 122]], r: 24, head: 'M362 93 L381 100', tail: 'M23 103 L42 97', port: [38, 100], eye: [214, 62], air: [140, 56, 150, 22]},
+  suv: {body: 'M22 112 C20 98 30 89 48 86 L108 76 C134 52 168 39 210 38 C252 38 284 50 312 72 L354 80 C373 84 382 93 382 107 L382 116 C382 121 378 124 372 124 L30 124 C25 124 22 120 22 116 Z',
+    glass: 'M128 76 C152 54 180 45 210 45 C244 45 270 55 296 72 Z', pillar: [214, 46, 75], belt: 'M48 91 C150 86 262 86 372 92',
+    hood: 'M312 72 L354 80 C370 83 378 90 381 98', hoodAt: [312, 72], trunk: 'M108 76 L48 86 C36 88 28 93 25 100', trunkAt: [108, 76],
+    wheels: [[100, 122], [308, 122]], r: 25, head: 'M364 90 L381 97', tail: 'M24 99 L44 94', port: [38, 97], eye: [216, 51], air: [136, 46, 156, 26]},
+  cyber: {body: 'M20 108 L28 90 L204 34 L384 78 L386 110 L382 124 L24 124 Z',
+    glass: 'M150 62 L204 43 L280 61 L274 70 L156 71 Z', pillar: [214, 46, 71], belt: 'M30 96 L382 92',
+    hood: 'M280 61 L384 78', hoodAt: [280, 61], trunk: 'M120 61 L28 90', trunkAt: [120, 61],
+    wheels: [[96, 121], [314, 121]], r: 25, head: 'M372 80 L386 82', tail: 'M22 96 L40 92', port: [34, 98], eye: [216, 50], air: [156, 46, 120, 24]}
+};
+const CAR_MODELS = {model_3: 'sedan', model_s: 'sedan', model_y: 'suv', model_x: 'suv', cybertruck: 'cyber', sedan: 'sedan', suv: 'suv', truck: 'cyber'};
+const CAR_PAINT = {pearl_white: '#eef0f2', solid_black: '#141518', midnight_silver: '#3e4247', stealth_grey: '#5b5f64', quicksilver: '#b9bdc3', deep_blue: '#1f3b70', ultra_red: '#a5121d', stainless: '#a7abb0'};
+const carMix = (hex, to, t) => {
+  const p = h => { h = String(h).replace('#', ''); if (h.length === 3) h = h.replace(/./g, x => x + x); const n = parseInt(h, 16); return isNaN(n) ? [217, 220, 225] : [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+  const a = p(CAR_PAINT[hex] || hex), b = p(to);
+  return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',')})`;
+};
+function carSVG(o, uid) {
+  const s = CAR_SHAPES[CAR_MODELS[o.model] || o.model] || CAR_SHAPES.suv, c = o.color || '#d9dce1', id = 'car' + uid;
+  const wheel = ([x, y]) => `<circle cx="${x}" cy="${y}" r="${s.r + 5}" fill="#07080a"/><circle cx="${x}" cy="${y}" r="${s.r}" fill="#17181c"/><circle cx="${x}" cy="${y}" r="${(s.r * .64).toFixed(1)}" fill="url(#${id}rim)"/>`
+    + [0, 72, 144, 216, 288].map(a => { const t = a * Math.PI / 180, L = s.r * .56; return `<line x1="${x}" y1="${y}" x2="${(x + Math.cos(t) * L).toFixed(1)}" y2="${(y + Math.sin(t) * L).toFixed(1)}" stroke="#3c4046" stroke-width="3.2" stroke-linecap="round"/>`; }).join('')
+    + `<circle cx="${x}" cy="${y}" r="3.5" fill="#9aa0a8"/>`;
+  const [ax, ay, aw, ah] = s.air, airC = o.climate === 'heat' ? '#ff9a5c' : '#7cc8ff';
+  const waves = [0, 1, 2].map(i => { const y = ay + ah * (.35 + i * .25); let d = `M${ax} ${y.toFixed(1)}`; for (let x = 0; x < aw; x += 24) d += ' q 6 -5 12 0 t 12 0'; return `<path class="car-air" d="${d}" stroke="${airC}" style="animation-delay:${i * .5}s"/>`; }).join('');
+  const [px, py] = s.port;
+  const cable = o.charging ? `<path d="M${px} ${py} C${px - 14} ${py + 12} ${px - 26} ${py + 30} ${px - 30} 152" stroke="#26282d" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path class="car-flow" d="M${px} ${py} C${px - 14} ${py + 12} ${px - 26} ${py + 30} ${px - 30} 152" stroke="#4ade80" stroke-width="2.4" fill="none" stroke-dasharray="4 10" stroke-linecap="round"/>` : '';
+  const cls = ['car', o.charging && 'charging', o.climate && 'climate', o.sentry && 'sentry', o.lights && 'lights'].filter(Boolean).join(' ');
+  return `<svg class="${cls}" viewBox="0 0 400 154" role="img" aria-label="${o.label || 'Car'}">
+    <defs><linearGradient id="${id}b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${carMix(c, '#ffffff', .3)}"/><stop offset=".45" stop-color="${carMix(c, '#ffffff', 0)}"/><stop offset="1" stop-color="${carMix(c, '#000000', .42)}"/></linearGradient>
+      <linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2e3946"/><stop offset=".55" stop-color="#0e1218"/><stop offset="1" stop-color="#1b232d"/></linearGradient>
+      <radialGradient id="${id}rim"><stop offset="0" stop-color="#6b7078"/><stop offset="1" stop-color="#2a2d32"/></radialGradient>
+      <clipPath id="${id}c"><path d="${s.glass}"/></clipPath></defs>
+    <ellipse cx="200" cy="146" rx="186" ry="7" fill="#000" opacity=".38"/>
+    ${cable}
+    <path d="${s.body}" fill="url(#${id}b)"/>
+    <path d="${s.belt}" stroke="#fff" stroke-opacity=".22" stroke-width="1.4" fill="none"/>
+    <path d="${s.glass}" fill="url(#${id}g)"/>
+    <g clip-path="url(#${id}c)" fill="none" stroke-width="2" stroke-linecap="round">${waves}<path d="${s.glass}" fill="#fff" opacity=".06" transform="translate(-30 -6)"/></g>
+    <line x1="${s.pillar[0]}" y1="${s.pillar[1]}" x2="${s.pillar[0]}" y2="${s.pillar[2]}" stroke="${carMix(c, '#000000', .5)}" stroke-width="5"/>
+    <line x1="${s.pillar[0]}" y1="${s.pillar[2]}" x2="${s.pillar[0] - 4}" y2="118" stroke="#000" stroke-opacity=".25" stroke-width="1.2"/>
+    ${o.frunk ? `<path d="${s.hood}" stroke="#000" stroke-opacity=".55" stroke-width="3" fill="none"/>` : ''}${o.trunk ? `<path d="${s.trunk}" stroke="#000" stroke-opacity=".55" stroke-width="3" fill="none"/>` : ''}
+    <path class="car-lid hood${o.frunk ? ' open' : ''}" d="${s.hood}" style="transform-origin:${s.hoodAt[0]}px ${s.hoodAt[1]}px" stroke="${carMix(c, '#ffffff', .35)}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <path class="car-lid trunk${o.trunk ? ' open' : ''}" d="${s.trunk}" style="transform-origin:${s.trunkAt[0]}px ${s.trunkAt[1]}px" stroke="${carMix(c, '#ffffff', .35)}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <path class="car-head" d="${s.head}" stroke-width="3" stroke-linecap="round"/><path class="car-tail" d="${s.tail}" stroke-width="3" stroke-linecap="round"/>
+    <circle class="car-port${o.port || o.charging ? ' open' : ''}" cx="${px}" cy="${py}" r="3.6"/>
+    <circle class="car-eye" cx="${s.eye[0]}" cy="${s.eye[1]}" r="3.4"/>
+    ${s.wheels.map(wheel).join('')}
+  </svg>`;
+}
+
+const VEH_MODELS = [['model_3','Model 3'], ['model_y','Model Y'], ['model_s','Model S'], ['model_x','Model X'], ['cybertruck','Cybertruck']];
+const VEH_PAINTS = [['pearl_white','Pearl White'], ['solid_black','Solid Black'], ['midnight_silver','Midnight Silver'], ['stealth_grey','Stealth Grey'], ['quicksilver','Quicksilver'], ['deep_blue','Deep Blue'], ['ultra_red','Ultra Red'], ['stainless','Stainless']];
+R.vehicle = b => {
+  const heat = b.climate && b.inside < 20, rng = isF() ? Math.round(b.range) + ' mi' : Math.round(b.range * 1.609) + ' km';
+  const car = carSVG({model:b.model, color:b.paint, charging:b.charging, climate:b.climate ? (heat ? 'heat' : 'cool') : '', sentry:b.sentry, lights:!b.locked || b.climate, frunk:b.frunk, trunk:b.trunk, port:b.port, label:b.title}, b.id);
+  const btn = (k, icon, label, on) => `<button class="vc${on ? ' on' : ''}" data-act="car" data-v="${k}" aria-pressed="${!!on}"><span>${ic(icon)}</span>${label}</button>`;
+  return `<div class="v-top"><div><div class="d-name">${esc(b.title)}</div><div class="v-st">${b.charging ? 'Charging' : `Parked at home · ${b.locked ? 'Locked' : 'Unlocked'}`}</div></div>
+      <div class="v-bat${b.charging ? ' chg' : ''}"><b>${b.battery}</b>%${b.charging ? ic('bolt') : ''}</div></div>
+    <div class="v-car">${car}</div>
+    <div class="v-range"><div class="v-bar${b.charging ? ' chg' : ''}"><i style="width:${b.battery}%"></i><em style="left:${b.limit}%"></em></div>
+      <div class="v-rl"><span>${rng}</span><span>${b.charging ? 'Charging · 11 kW · 25 min left to ' + b.limit + '%' : 'Charge limit ' + b.limit + '%'}</span></div></div>
+    <div class="v-ctl">${btn('lock', b.locked ? 'lock' : 'unlock', b.locked ? 'Locked' : 'Unlocked', !b.locked)}${btn('climate', 'fan', b.climate ? (heat ? 'Heating' : 'Cooling') : 'Climate', b.climate)}${btn('frunk', 'frunk', 'Frunk', b.frunk)}${btn('trunk', 'trunk', 'Trunk', b.trunk)}${btn('port', 'plug', 'Charge port', b.port)}${btn('charge', 'bolt', b.charging ? 'Stop' : 'Charge', b.charging)}${btn('sentry', 'shield', 'Sentry', b.sentry)}</div>
+    <div class="v-info">Inside ${tC(b.inside, 0)}° · Outside ${tC(b.outside, 0)}°</div>`;
+};
+function vehEditorHTML(b){
+  return `<div class="field"><span class="lbl2">Model</span><div class="seg" role="group" aria-label="Model">${VEH_MODELS.map(([k, l]) => `<button data-vmodel="${k}" aria-pressed="${b.model === k}">${l}</button>`).join('')}</div></div>
+    <div class="field"><span class="lbl2">Paint</span><div class="v-paints">${VEH_PAINTS.map(([k, l]) => `<button data-vpaint="${k}" aria-pressed="${b.paint === k}" title="${l}"><i style="background:${carMix(k, '#fff', 0)}"></i>${l}</button>`).join('')}</div>
+    <div class="crow"><label for="vPaint">Custom paint</label><input type="color" class="colorpick" id="vPaint" value="${toHex(carMix(b.paint, '#fff', 0))}"></div></div>
+    <p class="hint">In Home Assistant the card finds your car by itself (Tesla Fleet, Teslemetry, Tessie and similar). Fill in the car name only if you have more than one car. Tap the buttons here to try them.</p>`;
+}
 R.dualshade = b => {
   const d = DS[b.style || 'daynight'];
   const row = (n, label, p) => `<div class="ds-row"><div class="ds-l"><b>${esc(label)}</b><span>${dsState(p)}</span></div>
@@ -3399,9 +3571,9 @@ const FXT = [
   ['spill','Lights glow onto the page','Lights that are on cast a colored glow']
 ];
 const FXA = [
-  ['page', 'Page and room changes', [['fade','Fade'], ['slide','Slide'], ['zoom','Zoom'], ['flip','Flip'], ['off','Off']]],
-  ['tap', 'When you touch something', [['ripple','Ripple'], ['press','Press'], ['off','Off']]],
-  ['pop', 'When a device turns on or off', [['pop','Pop'], ['glow','Glow'], ['off','Off']]]
+  ['page', 'Page and room changes', [['fade','Fade'], ['slide','Slide'], ['zoom','Zoom'], ['flip','Flip'], ['rise','Rise'], ['blur','Blur'], ['swing','Swing'], ['bounce','Bounce'], ['off','Off']]],
+  ['tap', 'When you touch something', [['ripple','Ripple'], ['press','Press'], ['sparkle','Sparkle'], ['ring','Ring'], ['glow','Glow'], ['off','Off']]],
+  ['pop', 'When a device turns on or off', [['pop','Pop'], ['glow','Glow'], ['bounce','Bounce'], ['flash','Flash'], ['burst','Burst'], ['off','Off']]]
 ];
 function renderFxPanel(){
   $('fxAnims').innerHTML = FXA.map(([k, l, opts]) => `<div class="field"><span class="lbl2">${l}</span><div class="seg" role="group" aria-label="${l}">${opts.map(([v, n]) => `<button data-fxa="${k}" data-v="${v}" aria-pressed="${(state.fx[k] || 'off') === v}">${n}</button>`).join('')}</div></div>`).join('')
@@ -3451,16 +3623,28 @@ function popDiff(before, card){
     const was = before.get(base + '#' + seen[base]);
     if (was === undefined || was === POP_ON(el)) return;
     const t = el === card ? card : (el.closest('.ts-tile, .hub-tile, .hub-row, .hub-dev, button, label') || el);
-    t.classList.remove('st-pop', 'st-glow'); void t.offsetWidth; t.classList.add(k === 'glow' ? 'st-glow' : 'st-pop');
-    setTimeout(() => t.classList.remove('st-pop', 'st-glow'), 800);
+    const C = ['st-pop', 'st-glow', 'st-bounce', 'st-flash'];
+    t.classList.remove(...C); void t.offsetWidth; t.classList.add(k === 'burst' ? 'st-pop' : 'st-' + k);
+    if (k === 'burst') { const d = $('dash').getBoundingClientRect(), r = t.getBoundingClientRect(); sparks(r.left + r.width / 2 - d.left, r.top + r.height / 2 - d.top, 12, 54); }
+    setTimeout(() => t.classList.remove(...C), 800);
   });
 }
+function sparks(x, y, n, dist){
+  const d = $('dash');
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + Math.random() * .4, r = dist * (.6 + Math.random() * .6), sz = 4 + Math.random() * 4, sp = document.createElement('span');
+    sp.className = 'fx-spark'; sp.style.cssText = `left:${x - sz / 2}px; top:${y - sz / 2}px; width:${sz}px; height:${sz}px; --dx:${(Math.cos(a) * r).toFixed(1)}px; --dy:${(Math.sin(a) * r).toFixed(1)}px; --t:${(.6 + Math.random() * .25).toFixed(2)}s`;
+    d.append(sp); setTimeout(() => sp.remove(), 950);
+  }
+}
 grid.addEventListener('pointerdown', e => {
-  if (state.fx.tap !== 'ripple' || quiet() || e.button > 0) return;
+  const tk = state.fx.tap;
+  if (!tk || tk === 'off' || tk === 'press' || quiet() || e.button > 0) return;
+  if (tk === 'sparkle' && e.target.closest('[data-act], button, input, .card')) { const r = $('dash').getBoundingClientRect(); sparks(e.clientX - r.left, e.clientY - r.top, 8, 34); return; }
   const hit = e.target.closest('[data-act], button, input, .card'); if (!hit) return;
   const d = $('dash'), r = d.getBoundingClientRect(), t = (hit.closest('[data-act], button') || hit.closest('.card')).getBoundingClientRect();
   const size = Math.max(60, Math.min(260, Math.max(t.width, t.height) * 1.4));
-  const rip = document.createElement('span'); rip.className = 'tap-rip';
+  const rip = document.createElement('span'); rip.className = tk === 'ring' ? 'tap-ring' : tk === 'glow' ? 'tap-glow' : 'tap-rip';
   rip.style.cssText = `left:${e.clientX - r.left - size / 2}px; top:${e.clientY - r.top - size / 2}px; width:${size}px; height:${size}px`;
   d.append(rip); setTimeout(() => rip.remove(), 650);
 });

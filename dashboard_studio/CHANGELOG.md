@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.0
+
+- New **Vehicle** block and card, in the style of the Tesla app:
+  - Your car is drawn in its paint color: Model 3, Model Y, Model S, Model X or Cybertruck. There are 8 Tesla paints, or pick any color.
+  - Battery and range, with a charge limit mark. While charging, the bar glows and shows the power and the time left.
+  - Buttons for lock, climate, frunk, trunk, charge port, charging and sentry.
+  - The car shows what's happening: the frunk and trunk lift open, a charging cable glows, air flows in the cabin (blue to cool, orange to heat), headlights turn on when unlocked, and a red light pulses in sentry mode.
+  - It finds your car by itself (Tesla Fleet, Teslemetry, Tessie and similar), and has a visual editor.
+- More animation styles:
+  - Page changes: **Rise**, **Blur**, **Swing** and **Bounce**.
+  - Touch: **Sparkle**, **Ring** and **Glow**.
+  - On/off: **Bounce**, **Flash** and **Burst**.
+
 ## 0.9.0
 
 - New **Animations** in Effects, in the Studio and in Home Assistant:
