@@ -214,6 +214,8 @@ To make the 3D file:
 
 The 3D car uses three.js, which the card loads from jsDelivr the first time it shows a 3D car. The file holds Tesla's own artwork, so keep it for yourself and don't share it.
 
+If your car reports a closure the wrong way round (it says open when it's closed), add `reversed: [frunk, trunk]` or the ones you need. The visual editor shows every entity the card found, so you can check and change them.
+
 A button only shows up when the card finds its entity. Tap the car's name to open Home Assistant's more-info dialog.
 
 ## The effects card

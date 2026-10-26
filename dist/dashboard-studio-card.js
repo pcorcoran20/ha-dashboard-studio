@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.1.2';
+const STUDIO_VERSION = '1.1.3';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -1459,6 +1459,7 @@ const CAR_STYLE = `
  *   color: pearl_white        # a paint name, or any color like '#a5121d'
  *   device: <device id>       # optional: which car, when you have more than one (the visual editor lists them)
  *   charger: auto             # auto, supercharger, wall_connector or none: drawn next to the car while it charges
+ *   reversed: [frunk, trunk]  # optional: closures your car reports the wrong way round
  *   vehicle: my_model_y       # optional: the car's name in its entity IDs
  *   image: /local/my-car.png  # optional: your own picture instead of the drawing
  *   model_url: /local/tesla/model_y.glb   # optional: a real 3D car you made with Tesla Model Extractor
@@ -1626,7 +1627,9 @@ class DashboardStudioVehicle extends HTMLElement {
     const clim = this._s('climate'), climOn = clim && clim.state !== 'off', lockS = this._s('lock')?.state;
     const inT = this._n('inside') ?? clim?.attributes.current_temperature, outT = this._n('outside');
     const heat = climOn && (clim.state === 'heat' || clim.attributes.hvac_action === 'heating' || (inT != null && clim.attributes.temperature > inT));
-    const open = k => this._s(k)?.state === 'open';
+    /* some cars report a closure the wrong way round: `reversed` flips it, here and in Tesla View */
+    const flip = new Set([c.reversed || []].flat());
+    const open = k => { const st = this._s(k)?.state; return st === undefined ? false : (st === 'open' || st === 'opening') !== flip.has(k); };
     if (c.tesla_view !== false && this._tvOk === undefined) {
       this._tvOk = null;
       teslaViewCard().then(has => has && teslaViewReady()).then(ok => {
@@ -1674,7 +1677,8 @@ class DashboardStudioVehicle extends HTMLElement {
         const tvModel = own.model || tvModelFor(carKey(h.devices?.[dev]?.model)) || tvModelFor(carKey(c.model));
         const ents = Object.fromEntries([['frunk', e.frunk], ['trunk', e.trunk], ['charge_port', e.charge_port], ['charging', e.charging], ['lock', e.lock]].filter(([, v]) => v));
         this._tv = this._tv || document.createElement('tesla-view-card');
-        this._tv.setConfig({type: 'custom:tesla-view-card', ...(dev ? {device_id: dev} : {}), ...(tvModel ? {model: tvModel} : {}), entities: ents, hotspots: true,
+        const states = Object.fromEntries([...flip].filter(k => ['frunk', 'trunk', 'charge_port'].includes(k)).map(k => [k, {on: ['closed', 'closing']}]));
+        this._tv.setConfig({type: 'custom:tesla-view-card', ...(dev ? {device_id: dev} : {}), ...(tvModel ? {model: tvModel} : {}), entities: ents, ...(Object.keys(states).length ? {states} : {}), hotspots: true,
           theme: c.tesla_view_look === 'light' ? 'light' : 'dark', aspect_ratio: '16:9', ...own, camera: cam});
         this._tvCam = cam;
       }
@@ -1684,6 +1688,19 @@ class DashboardStudioVehicle extends HTMLElement {
       tvSlot.classList.toggle('blend', c.tesla_view_look !== 'light' && c.tesla_view_blend !== false);
       this._tv.style.filter = lift === 1 ? '' : `brightness(${lift})`;
       tvSlot.append(this._tv);
+      if (this._tvNote) tvSlot.insertAdjacentHTML('beforeend', `<p class="v-tvnote">${esc(this._tvNote)}</p>`);
+      if (!this._tvChecked) {
+        /* look inside Tesla View once it has loaded: a car file without wheels or lighting looks empty and dark */
+        this._tvChecked = true;
+        setTimeout(() => {
+          const t = this._tv, miss = [];
+          if (t?.vehicle && !t.vehicle.wheelName) miss.push('wheels');
+          if (t?.scene && t.vehicle && !t.scene.environment) miss.push('lighting');
+          if (t?.error) miss.push(String(t.error));
+          this._tvNote = miss.length ? `Tesla View couldn’t find the ${miss.join(' or the ')} in your car file, so the car looks ${miss.includes('lighting') ? 'dark' : 'unfinished'}.` : '';
+          if (miss.length) { console.warn('Dashboard Studio: Tesla View is missing', miss.join(', ')); this._render(); }
+        }, 12000);
+      }
     }
     const slot = use3d && this.shadowRoot.querySelector('[data-v3d]');
     if (slot) {
@@ -1732,7 +1749,9 @@ ha-card.calm *{animation:none!important;transition:none!important}
 ha-card.bare{background:none;box-shadow:none;border:none;padding:4px 0 0}
 .v-3derr{font-size:12px}
 .v-tv{margin:0 -6px}
-.v-tv.blend tesla-view-card{-webkit-mask-image:radial-gradient(ellipse 62% 60% at 50% 52%,#000 62%,transparent 100%);mask-image:radial-gradient(ellipse 62% 60% at 50% 52%,#000 62%,transparent 100%)}
+.v-tv.blend tesla-view-card{-webkit-mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent),linear-gradient(180deg,transparent,#000 9%,#000 91%,transparent);-webkit-mask-composite:source-in;
+  mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent),linear-gradient(180deg,transparent,#000 9%,#000 91%,transparent);mask-composite:intersect;border-radius:14px}
+.v-tvnote{font-size:12px;color:var(--v-muted);text-align:center;margin-top:-4px}
 .v-tv tesla-view-card{display:block;--ha-card-background:transparent;--card-background-color:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0}
 `;
 
@@ -1746,12 +1765,18 @@ class DashboardStudioVehicleEditor extends HTMLElement {
     if (!this._form) {
       this.innerHTML = '<p style="margin:0 0 12px;color:var(--secondary-text-color)">The card finds your car by itself. With more than one car, pick which one under Your car.</p>';
       const f = this._form = document.createElement('ha-form');
-      const L = {tesla_view_look: 'Tesla View look', tesla_view_brightness: 'Tesla View brightness', name: 'Name', device: 'Your car', charger: 'Charger to show while charging', model: 'Model', color: 'Paint', vehicle: "Or: the car's name in its entity IDs (like my_model_y)", image: 'Car picture (optional, a link like /local/my-car.png)', model_url: '3D car from Tesla Model Extractor (optional, like /local/tesla/model_y.glb)', calm: 'Turn off animations'};
+      const L = {reversed: 'These show open when they are closed', battery: 'Battery', range: 'Range', lock: 'Lock', climate: 'Climate', frunk: 'Frunk', trunk: 'Trunk', charge_port: 'Charge port',
+        charging: 'Charging', charge_switch: 'Charge on/off', sentry: 'Sentry mode', inside: 'Inside temperature', outside: 'Outside temperature', location: 'Location', tesla_view_look: 'Tesla View look', tesla_view_brightness: 'Tesla View brightness', name: 'Name', device: 'Your car', charger: 'Charger to show while charging', model: 'Model', color: 'Paint', vehicle: "Or: the car's name in its entity IDs (like my_model_y)", image: 'Car picture (optional, a link like /local/my-car.png)', model_url: '3D car from Tesla Model Extractor (optional, like /local/tesla/model_y.glb)', calm: 'Turn off animations'};
       f.computeLabel = s => L[s.name] || s.name;
       f.schema = [{name: 'device', selector: {device: {filter: ['tesla_fleet', 'teslemetry', 'tessie', 'tesla_custom'].map(integration => ({integration}))}}},
         {name: 'name', selector: {text: {}}}, {name: 'model', selector: opt(['model_3', 'Model 3'], ['model_y', 'Model Y'], ['model_s', 'Model S'], ['model_x', 'Model X'], ['cybertruck', 'Cybertruck'])},
         {name: 'color', selector: opt(...Object.keys(CAR_PAINT).map(k => [k, cap(k)]))}, {name: 'tesla_view_look', selector: opt(['dark', 'Blend into the card (app dark mode)'], ['light', 'Light (app light mode)'])},
         {name: 'tesla_view_brightness', selector: {number: {min: .6, max: 2, step: .05, mode: 'slider'}}},
+        {name: 'reversed', selector: {select: {multiple: true, mode: 'list', options: [{value: 'frunk', label: 'Frunk'}, {value: 'trunk', label: 'Trunk'}, {value: 'charge_port', label: 'Charge port'}]}}},
+        {name: 'entities', type: 'expandable', title: 'Entities (found by itself: change any)', schema: [
+          ['battery', 'sensor'], ['range', 'sensor'], ['lock', 'lock'], ['climate', 'climate'], ['frunk', 'cover'], ['trunk', 'cover'], ['charge_port', 'cover'],
+          ['charging', ['binary_sensor', 'sensor']], ['charge_switch', 'switch'], ['sentry', 'switch'], ['inside', 'sensor'], ['outside', 'sensor'], ['location', 'device_tracker']
+        ].map(([n, domain]) => ({name: n, selector: {entity: {domain}}}))},
         {name: 'charger', selector: opt(['auto', 'Find it by itself'], ['supercharger', 'Supercharger'], ['wall_connector', 'Wall Connector'], ['none', 'Only the cable'])},
         {name: 'vehicle', selector: {text: {}}}, {name: 'image', selector: {text: {}}}, {name: 'model_url', selector: {text: {}}}, {name: 'calm', selector: {boolean: {}}}];
       f.addEventListener('value-changed', e => {
@@ -1760,7 +1785,9 @@ class DashboardStudioVehicleEditor extends HTMLElement {
       });
       this.appendChild(f);
     }
-    this._form.hass = this._hass; this._form.data = {model: 'model_y', color: 'pearl_white', ...this._config};
+    /* show what the card found, so you can see it and change any one */
+    const found = findVehicle(this._hass, this._config);
+    this._form.hass = this._hass; this._form.data = {model: 'model_y', color: 'pearl_white', ...this._config, entities: {...found, ...(this._config.entities || {})}};
   }
 }
 

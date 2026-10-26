@@ -2481,6 +2481,8 @@ insp.addEventListener('click', e => {
   if (e.target.closest('#tvSetup')) { openTesla(); return; }
   { const b = find(selected), vm = e.target.closest('[data-vmodel]'), vp = e.target.closest('[data-vpaint]');
     const t = b?.type === 'hub' ? b.car : b, hc = e.target.closest('[data-hcar]');
+    const vr = e.target.closest('[data-vrev]');
+    if (t && vr) { commit(); const k = vr.dataset.vrev, r = new Set(t.reversed || []); r.has(k) ? r.delete(k) : r.add(k); t.reversed = [...r]; renderInsp(); save(); return; }
     const vl = e.target.closest('[data-vlook]');
     if (t && vl) { commit(); t.tvLook = vl.dataset.vlook; renderInsp(); save(); return; }
     const vc = e.target.closest('[data-vchg]');
@@ -3583,7 +3585,7 @@ R.vehicle = (b, uid) => {
     <div class="v-info">Inside ${tC(b.inside, 0)}° · Outside ${tC(b.outside, 0)}°</div>`;
 };
 const vehImgName = b => `car-${slug(b.title || 'car')}.webp`;
-const vehImgOut = b => ({...(b.tvLook === 'light' ? {tesla_view_look:'light'} : {}), ...(b.tvLift != null && b.tvLift !== 1.25 ? {tesla_view_brightness:b.tvLift} : {}), ...(b.device ? {device:b.device} : {}), ...(b.charger && b.charger !== 'auto' ? {charger:b.charger} : {}), ...(b.image ? {image:b.image.startsWith('data:') ? '/local/' + vehImgName(b) : b.image} : {}), ...(b.glb ? {model_url:b.glb} : {})});
+const vehImgOut = b => ({...(b.reversed?.length ? {reversed:b.reversed} : {}), ...(b.tvLook === 'light' ? {tesla_view_look:'light'} : {}), ...(b.tvLift != null && b.tvLift !== 1.25 ? {tesla_view_brightness:b.tvLift} : {}), ...(b.device ? {device:b.device} : {}), ...(b.charger && b.charger !== 'auto' ? {charger:b.charger} : {}), ...(b.image ? {image:b.image.startsWith('data:') ? '/local/' + vehImgName(b) : b.image} : {}), ...(b.glb ? {model_url:b.glb} : {})});
 insp.addEventListener('change', e => {
   if (e.target.id === 'vDev') {
     const blk = find(selected), t = blk?.type === 'hub' ? blk.car : blk; if (!t) return;
@@ -3620,6 +3622,8 @@ function vehEditorHTML(b){
     <div class="field"><span class="lbl2">Model</span><div class="seg" role="group" aria-label="Model">${VEH_MODELS.map(([k, l]) => `<button data-vmodel="${k}" aria-pressed="${b.model === k}">${l}</button>`).join('')}</div></div>
     <div class="field"><span class="lbl2">Paint</span><div class="v-paints">${VEH_PAINTS.map(([k, l]) => `<button data-vpaint="${k}" aria-pressed="${b.paint === k}" title="${l}"><i style="background:${carMix(k, '#fff', 0)}"></i>${l}</button>`).join('')}</div>
     <div class="crow"><label for="vPaint">Custom paint</label><input type="color" class="colorpick" id="vPaint" value="${toHex(carMix(b.paint, '#fff', 0))}"></div></div>
+    <div class="field"><span class="lbl2">Shows open when it's closed?</span><div class="seg" role="group" aria-label="Fix closures shown the wrong way round">${[['frunk','Frunk'], ['trunk','Trunk'], ['charge_port','Charge port']].map(([k, l]) => `<button data-vrev="${k}" aria-pressed="${(b.reversed || []).includes(k)}">${l}</button>`).join('')}</div>
+      <p class="hint">If your car reports one the wrong way round, tap it here to flip it.</p></div>
     <div class="field"><span class="lbl2">While it charges, show</span><div class="seg" role="group" aria-label="Charger">${CHARGERS.map(([k, l]) => `<button data-vchg="${k}" aria-pressed="${(b.charger || 'auto') === k}">${l}</button>`).join('')}</div>
       <p class="hint">Find it shows a Supercharger when your car is fast charging, and a Wall Connector at home.</p></div>
     <div class="field"><span class="lbl2">Car picture (optional)</span>

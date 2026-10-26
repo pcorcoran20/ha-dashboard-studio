@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.3
+
+- The Tesla View fade is softer and only touches the very edges, so Tesla View's labels (like Open frunk) show again.
+- New fix for cars that report the frunk, trunk or charge port the wrong way round: **Shows open when it's closed?** in the Studio, or `reversed: [frunk, trunk]` on the card. It flips the card's buttons and Tesla View together.
+- The card's visual editor lists every entity the card found, so you can check them and change any one.
+- If Tesla View can't find the wheels or the lighting in your car file, the card says so under the car.
+
 ## 1.1.2
 
 - Credits: a new [CREDITS.md](../CREDITS.md), plus credits in the README, the docs, the Magic panel and the Real 3D Tesla helper. Thank you to Koen Hendriks for Tesla View and Tesla Model Extractor, and to ya-webadb, GDRE Tools and three.js 💜
