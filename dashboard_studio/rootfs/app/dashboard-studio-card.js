@@ -22,6 +22,7 @@
 /*
  * Dashboard Studio hub card for Home Assistant
  * Rooms show as chips, or as a dropdown when there are more than 6 (room_picker: chips, dropdown or auto).
+ * layout: touchscreen gives a wall-panel look: room name at the top center opens the room list, now playing, big tiles, clock and weather.
  * A touchscreen-style home screen: room chips, big category tiles, per-room device controls,
  * scenes, an alarm keypad and a Good night button. Works with live entity states.
  *
@@ -38,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '0.5.0';
+const STUDIO_VERSION = '0.6.0';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -54,6 +55,14 @@ const CATS = [
   ['fan', 'Fans', 'mdi:fan'], ['switch', 'Outlets', 'mdi:power-socket-us']
 ];
 const catOf = t => (t === 'lock' || t === 'alarm') ? 'security' : t;
+/* touchscreen layout tiles, in screen order */
+const TOUCH = [['watch', 'Watch', 'mdi:television'], ['listen', 'Listen', 'mdi:speaker'], ['light', 'Lighting', 'mdi:lightbulb'], ['climate', 'Comfort', 'mdi:thermostat'],
+  ['shade', 'Shades', 'mdi:blinds'], ['security', 'Security', 'mdi:shield-home'], ['camera', 'Cameras', 'mdi:cctv'], ['fan', 'Fans', 'mdi:fan'],
+  ['switch', 'Outlets', 'mdi:power-socket-us'], ['quick', 'Quick buttons', 'mdi:gesture-tap-button']];
+const isTV = x => x.st?.attributes?.device_class === 'tv' || /(^|[._ ])(tv|roku|apple_?tv|shield|chromecast|fire_?tv|android_?tv|television)([._ ]|$)/i.test(`${x.entity} ${x.name}`);
+const WX_ICON = {sunny: 'mdi:weather-sunny', 'clear-night': 'mdi:weather-night', partlycloudy: 'mdi:weather-partly-cloudy', cloudy: 'mdi:weather-cloudy', rainy: 'mdi:weather-rainy',
+  pouring: 'mdi:weather-pouring', snowy: 'mdi:weather-snowy', 'snowy-rainy': 'mdi:weather-snowy-rainy', lightning: 'mdi:weather-lightning', 'lightning-rainy': 'mdi:weather-lightning-rainy',
+  fog: 'mdi:weather-fog', windy: 'mdi:weather-windy', 'windy-variant': 'mdi:weather-windy-variant', hail: 'mdi:weather-hail', exceptional: 'mdi:alert-circle-outline'};
 const ALARM_LABEL = {
   disarmed: 'Disarmed', armed_home: 'Armed home', armed_away: 'Armed away', armed_night: 'Armed night',
   armed_vacation: 'Armed vacation', armed_custom_bypass: 'Armed', arming: 'Arming…', pending: 'Entry delay…',
@@ -97,7 +106,7 @@ class DashboardStudioHub extends HTMLElement {
   getCardSize() { return 8; }
   getGridOptions() { return {columns: 12, min_columns: 6}; }
 
-  connectedCallback() { this._tick = setInterval(() => { if (this._view === 'camera') this._render(); }, 10000); }
+  connectedCallback() { this._tick = setInterval(() => { if (this._view === 'camera' || this._config?.layout === 'touchscreen') this._render(); }, 10000); }
   disconnectedCallback() { clearInterval(this._tick); }
 
   _watched() {
@@ -122,7 +131,9 @@ class DashboardStudioHub extends HTMLElement {
     const out = [];
     this._config.rooms.forEach((r, ri) => {
       if (this._room >= 0 && this._room !== ri) return;
-      r.devices.forEach(d => { const x = this._dev(d, r.name); if (!cat || catOf(x.type) === cat) out.push(x); });
+      r.devices.forEach(d => { const x = this._dev(d, r.name);
+        const ok = !cat || (cat === 'watch' ? x.type === 'media' && isTV(x) : cat === 'listen' ? x.type === 'media' && !isTV(x) : catOf(x.type) === cat);
+        if (ok) out.push(x); });
     });
     return out;
   }
@@ -190,10 +201,15 @@ class DashboardStudioHub extends HTMLElement {
   }
 
   _onClick(e) {
-    const el = e.target.closest('[data-a]'); if (!el || !this._hass) return;
+    const el = e.target.closest('[data-a]');
+    if (this._menu && !e.target.closest('.ts-menu, .ts-room')) { this._menu = false; if (!el) { this._render(); return; } }
+    if (!el || !this._hass) return;
     const a = el.dataset.a, id = el.dataset.e, x = id ? this._dev({entity: id, type: el.dataset.t}, '') : null;
     switch (a) {
-      case 'room': this._room = +el.dataset.r; break;
+      case 'room': this._room = +el.dataset.r; this._menu = false; break;
+      case 'roommenu': this._menu = !this._menu; break;
+      case 'pickroom': this._room = +el.dataset.r; this._view = null; this._menu = false; break;
+      case 'mp': this._call('media_player', el.dataset.v, {entity_id: id}); return;
       case 'cat': this._view = el.dataset.c; this._code = ''; this._msg = ''; break;
       case 'back': this._view = null; break;
       case 'scene': this._call('scene', 'turn_on', {entity_id: el.dataset.e}).then(() => this._toast(`${el.dataset.n} is on`)); return;
@@ -336,8 +352,11 @@ class DashboardStudioHub extends HTMLElement {
       : `<div class="chips">${opts.map(([i, n]) => `<button class="chip${ri === i ? ' on' : ''}" data-a="room" data-r="${i}">${esc(n)}</button>`).join('')}</div>`;
     let body = '';
     if (!this._hass) body = '<p class="hint">Connecting to Home Assistant…</p>';
+    else if (this._view === 'quick') {
+      body = `<div class="head"><div><div class="title">Quick buttons</div></div></div><div class="quick">${this._quickButtons()}</div>`;
+    }
     else if (this._view && this._devices(this._view).length) {
-      const cat = CATS.find(x => x[0] === this._view), L = this._devices(this._view);
+      const cat = CATS.find(x => x[0] === this._view) || TOUCH.find(x => x[0] === this._view), L = this._devices(this._view);
       const all = {light: ['All on', 'All off'], fan: ['All on', 'All off'], switch: ['All on', 'All off'], shade: ['Open all', 'Close all'], security: ['Lock all', 'Unlock all']}[this._view];
       const alarms = L.filter(x => x.type === 'alarm'), rest = L.filter(x => x.type !== 'alarm');
       const rows = rest.length ? `<div class="list">${rest.map(x => this._row(x, ri < 0)).join('')}</div>` : '';
@@ -345,6 +364,9 @@ class DashboardStudioHub extends HTMLElement {
         <div><div class="title">${cat[1]}</div><div class="sub">${ri >= 0 ? esc(rooms[ri].name) : 'All rooms'} · ${L.length} device${L.length === 1 ? '' : 's'}</div></div>
         ${all ? `<div class="all"><button class="pbtn" data-a="all" data-v="on">${all[0]}</button><button class="pbtn" data-a="all" data-v="off">${all[1]}</button></div>` : ''}</div>
         ${alarms.length ? `<div class="sec"><div class="kps">${alarms.map(x => this._keypad(x)).join('')}</div>${rows}</div>` : rows}`;
+    } else if (c.layout === 'touchscreen') {
+      this._view = null;
+      body = this._touchHome();
     } else {
       this._view = null;
       const cats = CATS.filter(([k]) => this._devices(k).length);
@@ -358,9 +380,111 @@ class DashboardStudioHub extends HTMLElement {
     const title = this._view ? '' : `<div class="title big">${esc(ri >= 0 ? rooms[ri].name : (c.title || 'Home'))}</div>`;
     const night = this._night ? `<div class="night"><ha-icon icon="mdi:weather-night"></ha-icon><b>Good night</b><span>Sleep well. The house is settling in.</span></div>` : '';
     const flash = this._flash ? `<div class="flash${this._flash.err ? ' err' : ''}" role="status">${esc(this._flash.msg)}</div>` : '';
+    if (c.layout === 'touchscreen') {
+      const name = ri >= 0 ? rooms[ri].name : (c.title || 'Home');
+      const top = `<div class="ts-top"><button class="ts-ib" data-a="${this._view ? 'back' : 'room'}" data-r="-1" aria-label="${this._view ? 'Back' : 'All rooms'}"><ha-icon icon="${this._view ? 'mdi:chevron-left' : 'mdi:home-outline'}"></ha-icon></button>
+        <button class="ts-room" data-a="roommenu" aria-haspopup="listbox" aria-expanded="${!!this._menu}">${esc(name)}<ha-icon icon="mdi:chevron-down"></ha-icon></button>
+        ${c.good_night !== false ? `<button class="ts-ib" data-a="goodnight" aria-label="Good night"><ha-icon icon="mdi:weather-night"></ha-icon></button>` : '<span></span>'}</div>`;
+      const menu = this._menu ? `<div class="ts-menu" role="listbox" aria-label="Rooms">${opts.map(([i, n]) => `<button class="${i === ri ? 'on' : ''}" role="option" aria-selected="${i === ri}" data-a="pickroom" data-r="${i}">${esc(n)}</button>`).join('')}</div>` : '';
+      const wid = c.weather_entity || Object.keys(this._hass?.states || {}).find(k => k.startsWith('weather.')), w = wid && this._hass?.states[wid];
+      const wx = w ? `<span class="ts-wx"><ha-icon icon="${WX_ICON[w.state] || 'mdi:weather-partly-cloudy'}"></ha-icon>${w.attributes.temperature != null ? Math.round(w.attributes.temperature) + '°' : esc(cap(w.state))}</span>` : '<span></span>';
+      const clock = `<span>${new Date().toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'})}</span>`;
+      const cls = ['ts', c.touch_style === 'theme' ? 'ts-theme' : '', c.full_height ? 'full' : '', c.calm ? 'calm' : ''].filter(Boolean).join(' ');
+      this.shadowRoot.innerHTML = `<style>${STYLE}${TOUCH_STYLE}</style><ha-card class="${cls}">${top}${menu}<div class="ts-body">${body}</div><div class="ts-bottom">${clock}${wx}</div>${night}${flash}</ha-card>`;
+      return;
+    }
     this.shadowRoot.innerHTML = `<style>${STYLE}</style><ha-card class="${c.calm ? 'calm' : ''}">${title}${chips}${body}${night}${flash}</ha-card>`;
   }
+
+  _quickButtons() {
+    const c = this._config;
+    return (c.good_night !== false ? `<button class="gn" data-a="goodnight"><ha-icon icon="mdi:weather-night"></ha-icon><span><b>Good night</b><small>Lights off, lock up and settle in</small></span></button>` : '') +
+      c.scenes.map(s => { const on = this._hass.states[s.entity], n = s.name || on?.attributes.friendly_name || s.entity;
+        return `<button class="scene" data-a="scene" data-e="${esc(s.entity)}" data-n="${esc(n)}"><ha-icon icon="${esc(s.icon || on?.attributes.icon || 'mdi:palette')}"></ha-icon>${esc(n)}</button>`; }).join('');
+  }
+
+  _nowPlaying() {
+    const L = this._devices('media').filter(x => x.st); if (!L.length) return '';
+    const live = x => !['off', 'unavailable', 'standby', 'unknown'].includes(x.st.state);
+    const x = L.find(m => m.st.state === 'playing') || L.find(live) || L[0], st = x.st, a = st.attributes, id = esc(x.entity), on = live(x);
+    const mp = (v, icon, label, cls = '') => `<button class="${cls}" data-a="mp" data-e="${id}" data-v="${v}" aria-label="${label}"><ha-icon icon="${icon}"></ha-icon></button>`;
+    const art = a.entity_picture ? `<img src="${esc(a.entity_picture)}" alt="">` : `<ha-icon icon="${isTV(x) ? 'mdi:television-play' : 'mdi:music'}"></ha-icon><small>${esc(a.source || a.app_name || x.name)}</small>`;
+    return `<div class="ts-np${on ? '' : ' off'}"><div class="ts-art">${art}</div>
+      <div class="ts-npm"><div class="ts-src"><b>${esc(a.media_title || a.source || a.app_name || x.name)}</b><span>${esc(x.name)} · ${esc(x.room)} · ${esc(cap(st.state))}</span></div>
+        ${a.volume_level != null ? `<div class="ts-vol"><ha-icon icon="mdi:volume-high"></ha-icon><input type="range" min="0" max="100" value="${Math.round(a.volume_level * 100)}" data-e="${id}" data-k="vol" aria-label="Volume"><span>${Math.round(a.volume_level * 100)}</span></div>` : ''}
+        <div class="ts-tr">${mp('media_previous_track', 'mdi:skip-previous', 'Previous')}${mp('media_play_pause', st.state === 'playing' ? 'mdi:pause' : 'mdi:play', st.state === 'playing' ? 'Pause' : 'Play', 'big')}${mp('media_next_track', 'mdi:skip-next', 'Next')}</div></div>
+      ${mp(on ? 'turn_off' : 'turn_on', 'mdi:power', `Turn ${x.name} ${on ? 'off' : 'on'}`, 'ts-pw')}</div>`;
+  }
+
+  _touchHome() {
+    const c = this._config;
+    const tiles = TOUCH.filter(([k]) => k === 'quick' ? (c.scenes.length || c.good_night !== false) : this._devices(k).length).map(([k, label, icon]) => {
+      let s;
+      if (k === 'quick') s = {text: c.scenes.length ? `${c.scenes.length} scene${c.scenes.length === 1 ? '' : 's'}` : 'Good night', active: false};
+      else if (k === 'watch' || k === 'listen') { const p = this._devices(k).find(x => x.st?.state === 'playing'); s = {text: p ? `Playing · ${p.name}` : 'Off', active: !!p}; }
+      else s = this._catStatus(k);
+      const temps = k === 'climate' ? this._devices('climate').map(x => x.st?.attributes.current_temperature).filter(v => v != null) : [];
+      const ico = temps.length ? `<span class="ts-ring"><b>${Math.round(temps.reduce((a, v) => a + v, 0) / temps.length)}</b></span>` : `<span class="ts-ico"><ha-icon icon="${icon}"></ha-icon></span>`;
+      return `<button class="ts-tile${s.active ? ' on' : ''}${s.warn ? ' warn' : ''}" data-a="cat" data-c="${k}">${ico}<span class="ts-l">${label}</span><span class="ts-s">${esc(s.text)}</span></button>`;
+    }).join('');
+    return this._nowPlaying() + (tiles ? `<div class="ts-tiles">${tiles}</div>` : '<p class="hint">No devices in this room yet.</p>');
+  }
 }
+
+const TOUCH_STYLE = `
+ha-card.ts{padding:0;gap:0;display:flex;flex-direction:column;min-height:460px;overflow:hidden;color:#f3f3f3;
+  background:linear-gradient(180deg,#46494e 0%,#2c2e32 55%,#1d1e21 100%);--s-text:#f3f3f3;--s-muted:rgba(255,255,255,.62);--s-line:rgba(255,255,255,.09);
+  --s-soft:rgba(255,255,255,.05);--s-soft2:rgba(255,255,255,.11);--t-bar:rgba(0,0,0,.2);--t-tile:rgba(32,34,37,.72);--t-menu:#2a2c30}
+ha-card.ts.ts-theme{color:var(--primary-text-color);background:var(--ha-card-background,var(--card-background-color));--s-text:var(--primary-text-color,#1c1c1c);--s-muted:var(--secondary-text-color);
+  --s-line:var(--ha-card-border-color,var(--divider-color));--s-soft:color-mix(in srgb,var(--s-text) 5%,transparent);--s-soft2:color-mix(in srgb,var(--s-text) 10%,transparent);
+  --t-bar:color-mix(in srgb,var(--s-text) 4%,transparent);--t-tile:color-mix(in srgb,var(--s-text) 3%,transparent);--t-menu:var(--card-background-color,#fff)}
+ha-card.ts.full{min-height:calc(100vh - var(--header-height,56px) - 16px)}
+.ts-top{position:relative;display:grid;grid-template-columns:48px minmax(0,1fr) 48px;align-items:center;height:56px;padding:0 8px;background:var(--t-bar);border-bottom:1px solid var(--s-line)}
+.ts-room{justify-self:center;border:0;background:none;display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;font-size:19px;font-weight:500;max-width:100%;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ts-room:hover,.ts-room[aria-expanded="true"]{background:var(--s-soft2)}
+.ts-room ha-icon{--mdc-icon-size:18px;opacity:.75}
+.ts-ib{width:42px;height:42px;border-radius:50%;border:0;background:none;display:grid;place-items:center}
+.ts-ib:hover{background:var(--s-soft2)}
+.ts-menu{position:absolute;top:60px;left:50%;transform:translateX(-50%);z-index:6;width:min(300px,calc(100% - 24px));max-height:min(60%,380px);overflow:auto;background:var(--t-menu);
+  border:1px solid var(--s-line);border-radius:14px;box-shadow:0 18px 40px rgba(0,0,0,.45);padding:6px;display:flex;flex-direction:column;gap:2px}
+.ts-menu button{border:0;background:none;text-align:left;padding:13px 14px;border-radius:10px;font-size:15px}
+.ts-menu button:hover{background:var(--s-soft2)}
+.ts-menu button.on{background:var(--s-accent);color:var(--s-on)}
+.ts-body{flex:1;padding:14px;display:flex;flex-direction:column;gap:14px;min-height:0}
+.ts-body .head>.ibtn:first-child{display:none}
+.ts-np{display:grid;grid-template-columns:120px minmax(0,1fr) auto;gap:16px;align-items:center;padding:14px;border-radius:calc(var(--s-r)*.7);background:var(--s-soft);border:1px solid var(--s-line)}
+.ts-np.off{opacity:.65}
+.ts-art{width:120px;height:92px;border-radius:12px;background:#0d0e10;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;overflow:hidden;box-shadow:0 6px 16px rgba(0,0,0,.4)}
+.ts-art img{width:100%;height:100%;object-fit:cover}
+.ts-art ha-icon{--mdc-icon-size:36px}
+.ts-art small{font-size:11px;opacity:.7;max-width:94%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ts-npm{min-width:0;display:flex;flex-direction:column;gap:10px}
+.ts-src{display:flex;flex-direction:column;min-width:0}
+.ts-src b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ts-src span{font-size:12px;color:var(--s-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ts-vol{display:flex;align-items:center;gap:10px}
+.ts-vol input{flex:1}
+.ts-vol span{min-width:3ch;font-size:12px;font-variant-numeric:tabular-nums;text-align:center;background:var(--s-soft2);border-radius:99px;padding:2px 8px}
+.ts-tr{display:flex;justify-content:center;gap:18px}
+.ts-tr button{width:42px;height:42px;border-radius:50%;border:0;background:none;display:grid;place-items:center}
+.ts-tr button.big{width:48px;height:48px;background:var(--s-soft2)}
+.ts-tr button:hover{background:var(--s-soft2)}
+.ts-pw{align-self:end;width:42px;height:42px;border-radius:50%;border:1px solid var(--s-line);background:none;display:grid;place-items:center}
+.ts-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:0;background:var(--t-tile);border:1px solid var(--s-line);border-radius:calc(var(--s-r)*.7);overflow:hidden}
+.ts-tile{aspect-ratio:1.15;border:0;background:transparent;box-shadow:inset -1px -1px 0 var(--s-line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:10px;min-width:0}
+.ts-tile:hover{background:var(--s-soft2)}
+.ts-ico{width:58px;height:58px;border-radius:15px;display:grid;place-items:center;background:linear-gradient(180deg,rgba(255,255,255,.2),rgba(255,255,255,.04));box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 4px 10px rgba(0,0,0,.35)}
+.ts-ico ha-icon{--mdc-icon-size:30px}
+.ts-tile.on .ts-ico{background:linear-gradient(180deg,#fff7da,#ffd36b);color:#3a2a00;box-shadow:0 0 24px rgba(255,210,107,.45)}
+.ts-tile.warn .ts-ico{background:linear-gradient(180deg,#ffc58a,#ff9f40);color:#2a1600}
+.ts-ring{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;border:3px solid var(--s-accent);background:radial-gradient(circle,#2c2e32,#18191c);color:#fff;box-shadow:0 0 16px color-mix(in srgb,var(--s-accent) 40%,transparent)}
+.ts-ring b{font-size:20px;font-weight:600}
+.ts-l{font-size:14px;font-weight:500}
+.ts-s{font-size:11.5px;color:var(--s-muted);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ts-bottom{display:flex;justify-content:space-between;align-items:center;padding:10px 18px;background:var(--t-bar);border-top:1px solid var(--s-line);font-size:16px;font-variant-numeric:tabular-nums}
+.ts-wx{display:flex;align-items:center;gap:6px}
+@media (max-width:520px){.ts-np{grid-template-columns:minmax(0,1fr) auto}.ts-art{display:none}}
+`;
 
 const STYLE = `
 :host{--s-text:var(--primary-text-color,#1c1c1c);--s-muted:var(--secondary-text-color,#6b6b6b);--s-accent:var(--primary-color,#03a9f4);

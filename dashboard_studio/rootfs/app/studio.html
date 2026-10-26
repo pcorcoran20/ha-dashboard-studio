@@ -484,6 +484,59 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .ds-c .d-btn{width:30px; height:30px}
 .dash.calm .ds-f{transition:none}
 
+/* touchscreen hub */
+.card:has(> .ts){padding:0; background:transparent; border-color:transparent; box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none}
+.ts{--t-bg:linear-gradient(180deg, #46494e 0%, #2c2e32 55%, #1d1e21 100%); --t-fg:#f3f3f3; --t-muted:rgba(255,255,255,.6); --t-line:rgba(255,255,255,.09); --t-bar:rgba(0,0,0,.2); --t-tile:rgba(32,34,37,.72); --t-menu:#2a2c30;
+  position:relative; display:flex; flex-direction:column; min-height:440px; border-radius:var(--d-radius); overflow:hidden; background:var(--t-bg); color:var(--t-fg); box-shadow:0 14px 40px rgba(0,0,0,.35); font-family:var(--d-font)}
+.ts.ts-theme{--t-bg:var(--d-card); --t-fg:var(--d-text); --t-muted:var(--d-muted); --t-line:var(--d-border); --t-bar:color-mix(in srgb, var(--d-text) 5%, transparent); --t-tile:color-mix(in srgb, var(--d-text) 4%, transparent); --t-menu:var(--d-card);
+  -webkit-backdrop-filter:blur(var(--d-blur)); backdrop-filter:blur(var(--d-blur)); border:1px solid var(--d-border)}
+.ts button{color:inherit}
+.ts-top{display:grid; grid-template-columns:48px minmax(0,1fr) 48px; align-items:center; height:54px; padding:0 8px; background:var(--t-bar); border-bottom:1px solid var(--t-line)}
+.ts-room{justify-self:center; border:0; background:none; display:flex; align-items:center; gap:6px; padding:8px 14px; border-radius:10px; font-size:calc(18px * var(--d-fs,1)); font-weight:500; max-width:100%; min-width:0}
+.ts-room:hover,.ts-room[aria-expanded="true"]{background:color-mix(in srgb, var(--t-fg) 10%, transparent)}
+.ts-room svg.i{width:16px; height:16px; opacity:.75; flex:none}
+.ts-ib{width:40px; height:40px; border-radius:50%; border:0; background:none; display:grid; place-items:center}
+.ts-ib:hover{background:color-mix(in srgb, var(--t-fg) 10%, transparent)}
+.ts-menu{position:absolute; top:58px; left:50%; transform:translateX(-50%); z-index:6; width:min(280px, calc(100% - 24px)); max-height:min(60%, 360px); overflow:auto; background:var(--t-menu); border:1px solid var(--t-line); border-radius:14px; box-shadow:0 18px 40px rgba(0,0,0,.45); padding:6px; display:flex; flex-direction:column; gap:2px}
+.ts-menu button{border:0; background:none; text-align:left; padding:12px 14px; border-radius:10px; font-size:calc(15px * var(--d-fs,1))}
+.ts-menu button:hover{background:color-mix(in srgb, var(--t-fg) 8%, transparent)}
+.ts-menu button.on{background:var(--d-accent); color:var(--d-on)}
+.ts-body{flex:1; padding:14px; display:flex; flex-direction:column; gap:14px; min-height:0}
+.ts-np{display:grid; grid-template-columns:110px minmax(0,1fr) auto; gap:16px; align-items:center; padding:14px; border-radius:calc(var(--d-radius) * .6); background:color-mix(in srgb, var(--t-fg) 5%, transparent); border:1px solid var(--t-line)}
+.ts-np.off{opacity:.65}
+.ts-art{width:110px; height:88px; border-radius:12px; background:#0d0e10; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; box-shadow:0 6px 16px rgba(0,0,0,.4)}
+.ts-art svg.i{width:34px; height:34px}
+.ts-art small{font-size:11px; opacity:.7; max-width:94%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ts-np-main{min-width:0; display:flex; flex-direction:column; gap:10px}
+.ts-src{display:flex; flex-direction:column; min-width:0}
+.ts-src b{font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ts-src span{font-size:calc(12px * var(--d-fs,1)); color:var(--t-muted)}
+.ts-vol{display:flex; align-items:center; gap:10px}
+.ts-vol svg.i{width:16px; height:16px; opacity:.7}
+.ts-vol span{min-width:3ch; font-size:12px; font-variant-numeric:tabular-nums; text-align:center; background:color-mix(in srgb, var(--t-fg) 12%, transparent); border-radius:99px; padding:2px 8px}
+.ts-tr{display:flex; justify-content:center; gap:18px}
+.ts-tr button{width:40px; height:40px; border-radius:50%; border:0; background:none; display:grid; place-items:center}
+.ts-tr button.big{width:46px; height:46px; background:color-mix(in srgb, var(--t-fg) 12%, transparent)}
+.ts-tr button:hover{background:color-mix(in srgb, var(--t-fg) 14%, transparent)}
+.ts-pw{align-self:end; width:40px; height:40px; border-radius:50%; border:1px solid var(--t-line); background:none; display:grid; place-items:center}
+.ts-tiles{display:grid; grid-template-columns:repeat(auto-fill, minmax(118px, 1fr)); gap:0; background:var(--t-tile); border:1px solid var(--t-line); border-radius:calc(var(--d-radius) * .6); overflow:hidden}
+.ts-tile{aspect-ratio:1.15; border:0; background:transparent; box-shadow:inset -1px -1px 0 var(--t-line); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; padding:10px; min-width:0}
+.ts-tile:hover{background:color-mix(in srgb, var(--t-fg) 8%, var(--t-tile))}
+.ts-ico{width:56px; height:56px; border-radius:14px; display:grid; place-items:center; background:linear-gradient(180deg, rgba(255,255,255,.2), rgba(255,255,255,.04)); box-shadow:inset 0 1px 0 rgba(255,255,255,.22), 0 4px 10px rgba(0,0,0,.35)}
+.ts-ico svg.i{width:28px; height:28px}
+.ts-tile.on .ts-ico{background:linear-gradient(180deg, #fff7da, #ffd36b); color:#3a2a00; box-shadow:0 0 24px rgba(255,210,107,.45)}
+.ts-tile.warn .ts-ico{background:linear-gradient(180deg, #ffc58a, #ff9f40); color:#2a1600}
+.ts-ring{width:56px; height:56px; border-radius:50%; display:grid; place-items:center; border:3px solid var(--d-accent); background:radial-gradient(circle, #2c2e32, #18191c); color:#fff; box-shadow:0 0 16px color-mix(in srgb, var(--d-accent) 40%, transparent)}
+.ts-ring b{font-family:var(--d-display); font-size:calc(19px * var(--d-fs,1)); font-weight:600}
+.ts-l{font-size:calc(14px * var(--d-fs,1)); font-weight:500}
+.ts-s{font-size:calc(11.5px * var(--d-fs,1)); color:var(--t-muted); max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ts-quick{display:flex; flex-wrap:wrap; gap:8px}
+.ts-bottom{display:flex; justify-content:space-between; align-items:center; padding:10px 18px; background:var(--t-bar); border-top:1px solid var(--t-line); font-size:calc(16px * var(--d-fs,1)); font-variant-numeric:tabular-nums}
+.ts-wx{display:flex; align-items:center; gap:6px}
+.ts-wx svg.i{width:20px; height:20px}
+.ts .hub-head > .d-btn:first-child{display:none}
+@container dash (max-width:520px){ .ts-np{grid-template-columns:minmax(0,1fr) auto} .ts-art{display:none} }
+
 /* auto-build */
 .ab-list{display:flex; flex-direction:column; gap:12px; max-height:min(42vh, 380px); overflow:auto; padding:2px 4px 2px 0}
 
@@ -829,6 +882,8 @@ const P = {
   phone:'<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/>',
   monitor:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
   pencil:'<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  tv:'<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  power:'<path d="M12 3v9"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/>',
   tiles:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   fan:'<circle cx="12" cy="12" r="2"/><path d="M12 10c0-4 1-7 4-7 2 0 3 2 1 4l-5 3M14 12c4 0 7 1 7 4 0 2-2 3-4 1l-3-5M12 14c0 4-1 7-4 7-2 0-3-2-1-4l5-3M10 12c-4 0-7-1-7-4 0-2 2-3 4-1l3 5"/>',
   plug:'<path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4"/>',
@@ -1395,7 +1450,9 @@ function act(b, a, el){
     case 'room': { const r = b.rooms?.[+el.dataset.i]; if (r) r.on = !r.on; break; }
     case 'ds': { const k = 'pos' + el.dataset.n, v = el.dataset.v; if (v === 'up') b[k] = Math.min(100, (b[k] ?? 100) + 25); if (v === 'down') b[k] = Math.max(0, (b[k] ?? 100) - 25); break; }
     case 'dsp': { const pr = DS[b.style || 'daynight'].presets.find(x => x[0] === el.dataset.v); if (pr) { b.pos1 = pr[2]; b.pos2 = pr[3]; } break; }
-    case 'hub-room': b.room = +el.dataset.r; break;
+    case 'ts-menu': touchMenu.has(b.id) ? touchMenu.delete(b.id) : touchMenu.add(b.id); break;
+    case 'ts-pick': b.room = +el.dataset.r; b.view = null; touchMenu.delete(b.id); break;
+    case 'hub-room': b.room = +el.dataset.r; touchMenu.delete(b.id); break;
     case 'hub-cat': b.view = el.dataset.c; break;
     case 'hub-back': b.view = null; break;
     case 'hub-all': { const on = el.dataset.v === 'on';
@@ -1416,7 +1473,8 @@ function act(b, a, el){
       if (op === 'down') d.pos = Math.max(0, (d.pos || 0) - 25);
       if (op === 'tplus') d.target = Math.min(28, +(d.target + .5).toFixed(1));
       if (op === 'tminus') d.target = Math.max(16, +(d.target - .5).toFixed(1));
-      if (op === 'play') d.playing = !d.playing;
+      if (op === 'play') { d.playing = !d.playing; if (d.playing) d.off = false; }
+      if (op === 'power') { d.off = !d.off; if (d.off) d.playing = false; }
       if (op === 'lock') d.locked = !d.locked;
       break; }
     case 'left': commit(); if (i > 0) blocks.splice(i-1, 0, blocks.splice(i,1)[0]); break;
@@ -2231,6 +2289,10 @@ insp.addEventListener('click', e => {
     if (b.label2 === old.labels[1]) b.label2 = nu.labels[1];
     b.style = dss.dataset.dsstyle; renderDash(); renderInsp(); save(); return;
   }
+  const hl = e.target.closest('[data-hlayout]');
+  if (hl) { commit(); b.layout = hl.dataset.hlayout; b.view = null; renderDash(); renderInsp(); save(); return; }
+  const hts = e.target.closest('[data-hts]');
+  if (hts) { commit(); b.touchStyle = hts.dataset.hts; renderDash(); renderInsp(); save(); return; }
   const hmv = e.target.closest('[data-hmove]');
   if (hmv) { const j = hubSel + +hmv.dataset.hmove; if (j < 0 || j >= b.rooms.length) return; commit(); b.rooms.splice(j, 0, b.rooms.splice(hubSel, 1)[0]); hubSel = j; b.room = -1; renderDash(); renderInsp(); save(); return; }
   const hsel = e.target.closest('[data-hsel]');
@@ -2307,7 +2369,8 @@ function cardYaml(b){
       if (state.useCards) return {type:'custom:dashboard-studio-hub', title:b.title,
         rooms:(b.rooms || []).map(r => ({name:r.name, devices:r.devices.map(d => ({entity:hubEnt(d), name:d.name, type:d.t}))})),
         scenes:(b.scenes || []).map(s => ({name:s.name, entity:'scene.' + slug(s.name)})),
-        good_night:'script.' + gnScriptId(b), ...(state.calm ? {calm:true} : {})};
+        good_night:'script.' + gnScriptId(b), ...(state.calm ? {calm:true} : {}),
+        ...(b.layout === 'touchscreen' ? {layout:'touchscreen', touch_style:b.touchStyle || 'dark', ...(state.nav === 'touch' ? {full_height:true} : {}), ...(allBlocks().find(x => x.type === 'weather') ? {weather_entity:allBlocks().find(x => x.type === 'weather').entity} : {})} : {})};
       const url = dashUrl(), rooms = b.rooms || [];
       const cats = Object.keys(HUB_CATS).filter(c => rooms.some(r => r.devices.some(d => catOf(d.t) === c)));
       const quick = [{type:'button', name:'Good night', icon:'mdi:weather-night', show_state:false, tap_action:{action:'perform-action', perform_action:'script.' + gnScriptId(b)}},
@@ -2366,7 +2429,17 @@ function dashObj(){
       views.push({title:r.name, path:hubPath(b, 'room-' + slug(r.name)), subview:true, type:'sections', max_columns:4, theme, sections:secs});
     });
   });
-  return {title:state.name || 'Home', views};
+  if (state.nav === 'touch' && views.length) {
+    /* one screen: the touchscreen page is the only tab; every other page stays, hidden as a subview */
+    let main = state.pages.findIndex(p => p.blocks.some(x => x.type === 'hub' && x.layout === 'touchscreen'));
+    if (main < 0) main = state.pages.findIndex(p => p.blocks.some(x => x.type === 'hub'));
+    if (main < 0) main = 0;
+    const mp = state.pages[main];
+    views.forEach((v, i) => { if (i !== main && i < state.pages.length) v.subview = true; });
+    if (mp.blocks.length === 1 && mp.blocks[0].type === 'hub') { const v = views[main]; delete v.max_columns; delete v.sections; v.type = 'panel'; v.cards = [cardOut(mp.blocks[0])]; }
+    views.unshift(views.splice(main, 1)[0]);
+  }
+  return {title:state.name || 'Home', views, ...(state.nav === 'touch' && state.hideHeader ? {kiosk_mode:{hide_header:true}} : {})};
 }
 function dashYaml(){
   const hasHub = allBlocks().some(b => b.type === 'hub');
@@ -2432,6 +2505,7 @@ function stepsHTML(){
     ${usesStudioCard() ? (state.useCards
       ? `<li>Install the <b>Dashboard Studio card</b>: in HACS, add its GitHub repository under <b>Custom repositories</b> (type <b>Dashboard</b>) and download it. Or copy <code>dashboard-studio-card.js</code> into <code>/config/www/</code> and add <code>/local/dashboard-studio-card.js</code> as a <b>JavaScript module</b> under <b>Settings &rsaquo; Dashboards &rsaquo; Resources</b>. Then reload your browser.</li>`
       : `<li>When you create the dashboard, set its URL to <code>${esc(dashUrl())}</code>. The Control hub buttons open hidden pages at that address, one per category and one per room.</li>`) : ''}
+    ${state.nav === 'touch' && state.hideHeader ? '<li>To hide Home Assistant’s top bar, install <b>kiosk-mode</b> from HACS. To get the top bar back for a moment, add <code>?disable_km</code> to the end of the dashboard’s address.</li>' : ''}
     <li>Go to <b>Settings &rsaquo; Dashboards &rsaquo; Add dashboard &rsaquo; New dashboard from scratch</b>, open it, tap the pencil, then the three dots &rsaquo; <b>Raw configuration editor</b>.</li>
     <li>Paste the <b>Dashboard</b> tab and save. You get ${state.pages.length} view${state.pages.length===1?'':'s'}, one per page.${state.night.on ? '' : ` Each view already uses <code>${esc(themeName(state.theme))}</code>.`}</li>
     ${state.night.on ? `<li>Paste the <b>Sunset switch</b> tab as a new automation. It sets the theme for everyone at sunset and sunrise. Set your profile theme to <b>Backend-selected</b> so it follows along.</li>` : ''}
@@ -2478,12 +2552,17 @@ function openExport(tab='dash'){
     else {
       const [name, text] = files[t]();
       const cardToggle = t === 'dash' && usesStudioCard() ? `<label class="switch"><span><b>Use the Dashboard Studio card</b><small>Exports the Control hub and your moving background and card effects as the live Dashboard Studio cards, so they look and work like the preview. Turn off to use only built-in HA cards.</small></span><input type="checkbox" id="useCardsIn" ${state.useCards ? 'checked' : ''}></label>` : '';
-      const urlField = cardToggle + (t === 'dash' && !state.useCards && allBlocks().some(b => b.type === 'hub') ? `<div class="field"><label for="dashUrlIn">Dashboard URL in Home Assistant</label><input type="text" class="mono" id="dashUrlIn" value="${esc(dashUrl())}" spellcheck="false"><p class="hint">Use this exact URL when you create the dashboard, so the Control hub buttons open the right pages. It needs a dash in it, like <code>home-studio</code>.</p></div>` : '');
+      const navField = t === 'dash' && state.pages.length > 1 ? `<div class="field"><span class="lbl2">Room switching in Home Assistant</span><div class="seg" role="group" aria-label="Room switching">${[['tabs','A tab for every page'], ['touch','One touchscreen, rooms in the dropdown']].map(([k, l]) => `<button data-nav="${k}" aria-pressed="${(state.nav || 'tabs') === k}">${l}</button>`).join('')}</div>
+        <p class="hint">${state.nav === 'touch' ? 'Your touchscreen page becomes the only tab. Your other pages are still there, hidden from the tab bar.' : 'Every page gets its own tab at the top of the dashboard.'}</p>
+        ${state.nav === 'touch' ? `<label class="switch"><span><b>Hide Home Assistant’s top bar too</b><small>Needs the free kiosk-mode add-on from HACS</small></span><input type="checkbox" id="hideHeaderIn" ${state.hideHeader ? 'checked' : ''}></label>` : ''}</div>` : '';
+      const urlField = navField + cardToggle + (t === 'dash' && !state.useCards && allBlocks().some(b => b.type === 'hub') ? `<div class="field"><label for="dashUrlIn">Dashboard URL in Home Assistant</label><input type="text" class="mono" id="dashUrlIn" value="${esc(dashUrl())}" spellcheck="false"><p class="hint">Use this exact URL when you create the dashboard, so the Control hub buttons open the right pages. It needs a dash in it, like <code>home-studio</code>.</p></div>` : '');
       $('mBody').innerHTML = urlField + (t === 'plan' ? `${plans.length > 1 ? `<div class="field"><label for="planPick">Floor plan</label><select id="planPick">${plans.map((p,i) => `<option value="${i}" ${i===planI?'selected':''}>${esc(p.title)}</option>`).join('')}</select></div>` : ''}
         <p class="hint">Save this as <code>/config/www/${esc(name)}</code>. The dashboard card already points at <code>/local/${esc(name)}</code>.</p>` : '') + `<pre class="code" id="codeOut">${esc(text)}</pre>`;
       const pp = $('planPick'); if (pp) pp.onchange = () => { planI = +pp.value; draw('plan'); };
       const du = $('dashUrlIn'); if (du) du.oninput = () => { state.dashUrl = du.value; save(); $('codeOut').textContent = dashYaml(); };
       const uc = $('useCardsIn'); if (uc) uc.onchange = () => { state.useCards = uc.checked; save(); draw('dash'); };
+      $('mBody').querySelectorAll('[data-nav]').forEach(x => x.onclick = () => { commit(); state.nav = x.dataset.nav; save(); draw('dash'); });
+      const hh = $('hideHeaderIn'); if (hh) hh.onchange = () => { commit(); state.hideHeader = hh.checked; save(); draw('dash'); };
     }
     $('copyBtn').hidden = t === 'steps'; const dl = $('dlBtn'); if (dl) dl.hidden = t === 'steps';
   };
@@ -2716,7 +2795,8 @@ document.addEventListener('fullscreenchange', () => { if (!document.fullscreenEl
 let hubSel = 0, hubFor = null;
 function hubDevices(b, cat){
   const ri = b.room ?? -1, out = [];
-  (b.rooms || []).forEach((r, ri2) => { if (ri >= 0 && ri !== ri2) return; r.devices.forEach((d, i) => { if (!cat || catOf(d.t) === cat) out.push({d, r:ri2, i, room:r.name}); }); });
+  const match = d => !cat || (cat === 'watch' ? d.t === 'media' && isTVd(d) : cat === 'listen' ? d.t === 'media' && !isTVd(d) : catOf(d.t) === cat);
+  (b.rooms || []).forEach((r, ri2) => { if (ri >= 0 && ri !== ri2) return; r.devices.forEach((d, i) => { if (match(d)) out.push({d, r:ri2, i, room:r.name}); }); });
   return out;
 }
 function hubDevStatus(d){
@@ -2774,16 +2854,22 @@ R.hub = b => {
   const chips = rooms.length > 6
     ? `<label class="hub-roomsel">${ic('door')}<select data-hubroomsel aria-label="Room">${opts.map(([i, n]) => `<option value="${i}" ${ri === i ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>${ic('down')}</label>`
     : `<div class="hub-rooms">${opts.map(([i, n]) => `<button class="hub-chip${ri === i ? ' on' : ''}" data-act="hub-room" data-r="${i}">${esc(n)}</button>`).join('')}</div>`;
-  if (b.view && HUB_CATS[b.view] && hubDevices(b, b.view).length) {
-    const list = hubDevices(b, b.view), c = HUB_CATS[b.view];
+  if (b.layout === 'touchscreen') return hubTouch(b, ri, rooms);
+  if (b.view && HUB_CATS[b.view] && hubDevices(b, b.view).length) return chips + hubDetailHTML(b, ri, rooms);
+  return hubTilesHTML(b, ri, rooms, chips);
+};
+function hubDetailHTML(b, ri, rooms){
+    const list = hubDevices(b, b.view), c = HUB_CATS[b.view] || {label:TOUCH_TILES.find(t => t[0] === b.view)?.[1] || ''};
     const all = {light:['All on','All off'], fan:['All on','All off'], switch:['All on','All off'], shade:['Open all','Close all'], lock:['Lock all','Unlock all']}[b.view];
-    return chips + `<div class="hub-head"><button class="d-btn" data-act="hub-back" aria-label="Back to all categories">${ic('left')}</button>
+    return `<div class="hub-head"><button class="d-btn" data-act="hub-back" aria-label="Back to all categories">${ic('left')}</button>
       <div style="min-width:0"><div class="hub-title">${c.label}</div><div class="d-label">${ri >= 0 ? esc(rooms[ri].name) : 'All rooms'} · ${list.length} device${list.length === 1 ? '' : 's'}</div></div>
       ${all ? `<div class="hub-all"><button class="d-pbtn" data-act="hub-all" data-v="on">${all[0]}</button><button class="d-pbtn" data-act="hub-all" data-v="off">${all[1]}</button></div>` : ''}</div>
       ${(() => { const alarms = list.filter(x => x.d.t === 'alarm'), rest = list.filter(x => x.d.t !== 'alarm');
         const rows = `<div class="hub-list">${rest.map(x => hubRow(x, ri < 0)).join('')}</div>`;
         return alarms.length ? `<div class="hub-sec"><div class="kp-col">${alarms.map(x => keypadHTML(b, x)).join('')}</div>${rest.length ? rows : ''}</div>` : rows; })()}`;
-  }
+}
+function hubTilesHTML(b, ri, rooms, chips){
+  b.view = null;
   const cats = Object.keys(HUB_CATS).filter(c => hubDevices(b, c).length);
   const flash = gnFlash.delete(b.id) ? `<div class="gn-ov" aria-hidden="true">${ic('moon')}<b>Good night</b><span>Sleep well. The house is settling in.</span></div>` : '';
   const quick = `<div class="hub-quick"><button class="hub-gn" data-act="hub-gn">${ic('moon')}<span><b>Good night</b><small>${esc(gnSummary(b))}</small></span></button>${(b.scenes || []).map(s => `<button class="hub-scene${b.activeScene === s.id ? ' on' : ''}" data-act="hub-scene" data-s="${esc(s.id)}">${ic('sparkle')}${esc(s.name)}</button>`).join('')}</div>`;
@@ -2791,11 +2877,57 @@ R.hub = b => {
     (cats.length ? `<div class="hub-tiles">${cats.map(c => { const st = hubStatus(b, c);
       return `<button class="hub-tile${st.active ? ' on' : ''}${st.warn ? ' warn' : ''}" data-act="hub-cat" data-c="${c}"><span class="ht-ico">${ic(HUB_TYPES[c].icon)}</span><span class="ht-l">${HUB_CATS[c].label}</span><span class="ht-s">${esc(st.text)}</span></button>`; }).join('')}</div>`
       : `<p class="d-label">No devices here yet. Select this block and add some in the right panel.</p>`);
-};
+}
+/* touchscreen layout: room name at the top center opens the room list; now playing; a grid of big tiles; clock and weather below */
+const TOUCH_TILES = [['watch','Watch','tv'], ['listen','Listen','music'], ['light','Lighting','bulb'], ['climate','Comfort','thermo'], ['shade','Shades','blinds'],
+  ['lock','Security','shield'], ['camera','Cameras','cam'], ['fan','Fans','fan'], ['switch','Outlets','plug'], ['quick','Quick buttons','tiles']];
+const isTVd = d => /(^|[._ ])(tv|roku|apple_?tv|shield|chromecast|fire_?tv|android_?tv|television)([._ ]|$)/i.test(`${d.entity || ''} ${d.name || ''}`);
+const touchMenu = new Set();
+function touchNowPlaying(b){
+  const L = hubDevices(b, 'media'); if (!L.length) return '';
+  const x = L.find(m => m.d.playing && !m.d.off) || L.find(m => !m.d.off) || L[0], d = x.d, on = !d.off, a = (op, v) => `data-act="hub-dev" data-r="${x.r}" data-d="${x.i}" data-op="${op}"${v ? ` data-v="${v}"` : ''}`;
+  return `<div class="ts-np${on ? '' : ' off'}"><div class="ts-art">${ic(isTVd(d) ? 'tv' : 'music')}<small>${esc(d.name)}</small></div>
+    <div class="ts-np-main"><div class="ts-src"><b>${esc(d.name)}</b><span>${esc(x.room)} · ${on ? (d.playing ? 'Playing' : 'Paused') : 'Off'}</span></div>
+      <div class="ts-vol">${ic('music')}<input class="bri" type="range" min="0" max="100" value="${d.vol ?? 30}" data-hubr="${x.r},${x.i},vol" aria-label="${esc(d.name)} volume"><span>${d.vol ?? 30}</span></div>
+      <div class="ts-tr"><button ${a('noop')} aria-label="Previous">${ic('prev')}</button><button class="big" ${a('play')} aria-label="${d.playing ? 'Pause' : 'Play'}">${ic(d.playing ? 'pause' : 'play')}</button><button ${a('noop')} aria-label="Next">${ic('next')}</button></div></div>
+    <button class="ts-pw" ${a('power')} aria-label="Turn ${esc(d.name)} ${on ? 'off' : 'on'}">${ic('power')}</button></div>`;
+}
+function hubTouch(b, ri, rooms){
+  const name = ri >= 0 ? rooms[ri].name : b.title, open = touchMenu.has(b.id);
+  const top = `<div class="ts-top"><button class="ts-ib" data-act="${b.view ? 'hub-back' : 'hub-room'}" data-r="-1" aria-label="${b.view ? 'Back' : 'All rooms'}">${ic(b.view ? 'left' : 'home')}</button>
+    <button class="ts-room" data-act="ts-menu" aria-expanded="${open}" aria-haspopup="listbox">${esc(name)}${ic('down')}</button>
+    <button class="ts-ib" data-act="hub-gn" aria-label="Good night">${ic('moon')}</button></div>`;
+  const menu = open ? `<div class="ts-menu" role="listbox" aria-label="Rooms">${[[-1, 'All rooms'], ...rooms.map((r, i) => [i, r.name])].map(([i, n]) => `<button class="${i === ri ? 'on' : ''}" role="option" aria-selected="${i === ri}" data-act="ts-pick" data-r="${i}">${esc(n)}</button>`).join('')}</div>` : '';
+  let body;
+  if (b.view === 'quick') {
+    body = `<div class="hub-head"><div class="hub-title">Quick buttons</div></div><div class="ts-quick"><button class="hub-gn" data-act="hub-gn">${ic('moon')}<span><b>Good night</b><small>${esc(gnSummary(b))}</small></span></button>
+      ${(b.scenes || []).map(s => `<button class="hub-scene${b.activeScene === s.id ? ' on' : ''}" data-act="hub-scene" data-s="${esc(s.id)}">${ic('sparkle')}${esc(s.name)}</button>`).join('')}</div>`;
+  } else if (b.view && hubDevices(b, b.view).length) body = hubDetailHTML(b, ri, rooms);
+  else {
+    b.view = null;
+    const temps = hubDevices(b, 'climate').map(x => x.d.current).filter(v => v != null);
+    const tiles = TOUCH_TILES.filter(([k]) => k === 'quick' || hubDevices(b, k).length).map(([k, label, icon]) => {
+      let text, on = false, warn = false;
+      if (k === 'quick') text = `${(b.scenes || []).length} scene${(b.scenes || []).length === 1 ? '' : 's'} · Good night`;
+      else if (k === 'watch' || k === 'listen') { const p = hubDevices(b, k).map(x => x.d).find(d => d.playing && !d.off); text = p ? `Playing · ${p.name}` : 'Off'; on = !!p; }
+      else ({text, active:on, warn = false} = hubStatus(b, k));
+      const ico = k === 'climate' && temps.length ? `<span class="ts-ring"><b>${tC(temps.reduce((a, v) => a + v, 0) / temps.length, 0)}</b></span>` : `<span class="ts-ico">${ic(icon)}</span>`;
+      return `<button class="ts-tile${on ? ' on' : ''}${warn ? ' warn' : ''}" data-act="hub-cat" data-c="${k}">${ico}<span class="ts-l">${label}</span><span class="ts-s">${esc(text)}</span></button>`;
+    }).join('');
+    body = touchNowPlaying(b) + `<div class="ts-tiles">${tiles}</div>`;
+  }
+  const w = allBlocks().find(x => x.type === 'weather'), cond = CONDS[w?.cond] || CONDS.partly;
+  const flash = gnFlash.delete(b.id) ? `<div class="gn-ov" aria-hidden="true">${ic('moon')}<b>Good night</b><span>Sleep well. The house is settling in.</span></div>` : '';
+  return `<div class="ts${b.touchStyle === 'theme' ? ' ts-theme' : ''}">${flash}${top}${menu}<div class="ts-body">${body}</div>
+    <div class="ts-bottom"><span data-clock>${nowStr()}</span><span class="ts-wx">${ic(cond[0])}${tC(cond[2], 0)}°</span></div></div>`;
+}
 function hubEditorHTML(b){
   if (hubFor !== b.id) { hubFor = b.id; hubSel = 0; }
   const rooms = b.rooms || [], r = rooms[hubSel], dl = state.entities.length ? 'list="entList"' : '';
-  return `<div class="field"><span class="lbl2">Rooms</span>
+  return `<div class="field"><span class="lbl2">Layout</span><div class="seg" role="group" aria-label="Hub layout">${[['tiles','Tiles'], ['touchscreen','Touchscreen']].map(([k, l]) => `<button data-hlayout="${k}" aria-pressed="${(b.layout || 'tiles') === k}">${l}</button>`).join('')}</div>
+    ${b.layout === 'touchscreen' ? `<div class="seg" role="group" aria-label="Touchscreen look">${[['dark','Dark touchscreen'], ['theme','Follow my theme']].map(([k, l]) => `<button data-hts="${k}" aria-pressed="${(b.touchStyle || 'dark') === k}">${l}</button>`).join('')}</div>
+    <p class="hint">Room name in the middle of the top bar opens the room list. To make this the only screen in Home Assistant, go to Export › Dashboard › Room switching.</p>` : ''}</div>
+    <div class="field"><span class="lbl2">Rooms</span>
     <div class="hub-ed-rooms">${rooms.map((rm, i) => `<button class="pg" data-hsel="${i}" aria-pressed="${i === hubSel}">${esc(rm.name)}<small>${rm.devices.length}</small></button>`).join('')}<button class="pg add" data-hadd-room aria-label="Add a room">${ic('plus')}</button></div>
     ${state.entities.length ? `<button class="btn" data-hfill>${ic('sparkle')}${window.__haAreaNames ? 'Fill rooms from my HA areas' : 'Fill rooms from my entities'}</button>` : '<p class="hint">Tip: add your entity list in Smart and the studio can fill these rooms for you.</p>'}</div>
     ${r ? `<div class="fp-room"><div class="field"><label for="hr_name">Room name</label><input type="text" id="hr_name" data-hroom="1" value="${esc(r.name)}"></div>
@@ -2975,8 +3107,9 @@ function scriptsOut(){
   return out;
 }
 $('touchBtn').addEventListener('click', () => {
-  addPage('Touchscreen', [mk('header'), mk('hub'), mk('scenes')]);
-  toast('Touchscreen home added. Try Wall mode to see it full screen');
+  addPage('Touchscreen', [mk('hub', {layout:'touchscreen'})]);
+  state.nav = 'touch'; save();
+  toast('Touchscreen home added. In Home Assistant it will be the only screen, with rooms in the dropdown. Change this in Export');
 });
 
 /* ---------- dual shades: two motors on one window ---------- */

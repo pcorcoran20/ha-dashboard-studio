@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0
+
+- New **Touchscreen** layout for the Control hub, in the Studio and the hub card: the room name at the top center opens a room list, a Now Playing panel with volume and transport controls, big tiles (Watch, Listen, Lighting, Comfort with the temperature, Shades, Security, Cameras, Fans, Outlets, Quick buttons), and the clock and weather along the bottom. Pick a dark touchscreen look or follow your theme.
+- New Export setting, **Room switching in Home Assistant**: keep a tab for every page, or make the touchscreen page the only screen with rooms in its dropdown. Other pages stay, hidden from the tab bar. You can also hide Home Assistant's top bar with kiosk-mode.
+- Smart › Create touchscreen home now uses the touchscreen layout and the one-screen setting.
+
 ## 0.5.0
 
 - New room picker in the Studio: arrows to step through rooms and pages, plus a dropdown with every room, a search box, and drag or ↑ ↓ to reorder.

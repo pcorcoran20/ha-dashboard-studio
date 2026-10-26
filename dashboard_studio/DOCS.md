@@ -22,6 +22,8 @@ The Studio reads your entities, their friendly names and your areas straight fro
 
 - **Dual shades** (two motors on one window, like day/night honeycomb shades) are found automatically when two covers in a room differ only by day/night, blackout/sheer or top/bottom.
 
+- **A wall touchscreen:** in a Control hub, choose **Layout › Touchscreen**. Then in **Export › Dashboard › Room switching**, choose **One touchscreen, rooms in the dropdown**. Your dashboard opens straight to the touchscreen, and you switch rooms from the name at the top center instead of tabs. **Smart › Create touchscreen home** sets all of this up in one tap.
+
 To pick up new devices, go to **Smart › My entities › Reload from Home Assistant**.
 
 Your designs are saved inside the add-on, so they survive restarts and show up on every device you open the Studio on.
