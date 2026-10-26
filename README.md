@@ -125,6 +125,31 @@ good_night:
 - The card needs Home Assistant 2024.8 or newer.
 
 
+## The dual shade card
+
+`custom:dashboard-studio-dual-shade` controls one window with two shade motors. It draws the window so you can see where each shade is, gives each motor its own controls, and adds one-tap presets.
+
+```yaml
+type: custom:dashboard-studio-dual-shade
+name: Bedroom Shades
+style: daynight              # daynight: two fabrics. tdbu: top down, bottom up
+shades:
+  - entity: cover.bedroom_shade_night   # first: the blackout fabric, or the top rail
+    name: Blackout
+  - entity: cover.bedroom_shade_day     # second: the light filtering fabric, or the bottom rail
+    name: Light filtering
+```
+
+The presets are **Open, Day, Night** for `daynight` and **Open, Privacy, Closed** for `tdbu`. To make your own, add a list of a `name` and the two `positions` (100 is open, 0 is closed):
+
+```yaml
+presets:
+  - name: Movie
+    positions: [0, 100]
+```
+
+Shades that can't move to an exact position open or close instead.
+
 ## The effects card
 
 `custom:dashboard-studio-fx` adds a moving background behind the whole view, plus effects on the other cards. It's invisible outside edit mode, so add one per view and put it anywhere.

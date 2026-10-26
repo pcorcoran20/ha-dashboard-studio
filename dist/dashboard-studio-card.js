@@ -37,7 +37,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '0.2.0';
+const STUDIO_VERSION = '0.4.0';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -711,11 +711,173 @@ class DashboardStudioFx extends HTMLElement {
   }
 }
 
+/*
+ * Dashboard Studio dual shade card
+ * One window with two motorized shades: day/night (two fabrics) or top down, bottom up (two rails).
+ *
+ *   type: custom:dashboard-studio-dual-shade
+ *   name: Bedroom Shades
+ *   style: daynight           # or tdbu
+ *   shades:
+ *     - entity: cover.bedroom_shade_night
+ *       name: Blackout
+ *     - entity: cover.bedroom_shade_day
+ *       name: Light filtering
+ *   presets:                  # optional, these are the defaults for daynight
+ *     - name: Day
+ *       positions: [100, 0]
+ *
+ * Positions follow Home Assistant: 100 is open, 0 is closed.
+ */
+const DS_STYLES = {
+  daynight: {labels: ['Blackout', 'Light filtering'], presets: [['Open', 100, 100, 'mdi:blinds-open'], ['Day', 100, 0, 'mdi:weather-sunny'], ['Night', 0, 0, 'mdi:weather-night']]},
+  tdbu: {labels: ['Top rail', 'Bottom rail'], presets: [['Open', 100, 100, 'mdi:blinds-open'], ['Privacy', 50, 0, 'mdi:eye-off-outline'], ['Closed', 100, 0, 'mdi:blinds']]}
+};
+const SUPPORT_SET_POSITION = 4;
+
+class DashboardStudioDualShade extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({mode: 'open'});
+    this.shadowRoot.addEventListener('click', e => this._onClick(e));
+    this.shadowRoot.addEventListener('change', e => this._onChange(e));
+    this.shadowRoot.addEventListener('pointerdown', e => { if (e.target.matches('input[type=range]')) this._busy = true; });
+    window.addEventListener('pointerup', () => { if (this._busy) { this._busy = false; if (this._pending) this._render(); } });
+  }
+
+  static getStubConfig() {
+    return {name: 'Shades', style: 'daynight', shades: [{entity: 'cover.shade_night', name: 'Blackout'}, {entity: 'cover.shade_day', name: 'Light filtering'}]};
+  }
+
+  setConfig(config) {
+    const shades = (config?.shades || []).map(x => typeof x === 'string' ? {entity: x} : x).filter(x => x && x.entity);
+    if (shades.length !== 2) throw new Error('Add exactly two entries under "shades", one for each motor.');
+    const style = DS_STYLES[config.style] ? config.style : 'daynight';
+    const presets = Array.isArray(config.presets)
+      ? config.presets.map(p => [p.name, +p.positions?.[0], +p.positions?.[1], p.icon || 'mdi:blinds']).filter(p => p[0] && !isNaN(p[1]) && !isNaN(p[2]))
+      : DS_STYLES[style].presets;
+    this._config = {...config, style, shades, presets};
+    this._render();
+  }
+
+  set hass(hass) {
+    const old = this._hass; this._hass = hass;
+    if (!old || this._config?.shades.some(x => old.states[x.entity] !== hass.states[x.entity])) {
+      if (this._busy) { this._pending = true; return; }
+      this._render();
+    }
+  }
+
+  getCardSize() { return 5; }
+  getGridOptions() { return {columns: 6, min_columns: 6}; }
+
+  _pos(i) {
+    const st = this._hass?.states[this._config.shades[i].entity];
+    if (!st) return null;
+    if (st.attributes.current_position != null) return st.attributes.current_position;
+    return st.state === 'closed' ? 0 : 100;
+  }
+
+  _move(i, position) {
+    const ent = this._config.shades[i].entity, st = this._hass.states[ent];
+    if (!st) return Promise.resolve();
+    const canSet = (st.attributes.supported_features & SUPPORT_SET_POSITION) || st.attributes.current_position != null;
+    const call = canSet ? ['set_cover_position', {entity_id: ent, position}] : [position >= 50 ? 'open_cover' : 'close_cover', {entity_id: ent}];
+    return this._hass.callService('cover', ...call).catch(err => this._toast(err?.message || 'That shade didn’t respond'));
+  }
+
+  _toast(msg) {
+    this._flash = msg; this._render();
+    clearTimeout(this._ft); this._ft = setTimeout(() => { this._flash = null; this._render(); }, 3000);
+  }
+
+  _onClick(e) {
+    const el = e.target.closest('[data-a]'); if (!el || !this._hass) return;
+    const i = +el.dataset.i, ent = this._config.shades[i]?.entity;
+    switch (el.dataset.a) {
+      case 'preset': { const p = this._config.presets[+el.dataset.p]; this._move(0, p[1]); this._move(1, p[2]); break; }
+      case 'open': case 'close': case 'stop':
+        this._hass.callService('cover', `${el.dataset.a}_cover`, {entity_id: ent}).catch(err => this._toast(err?.message || 'That shade didn’t respond'));
+        break;
+      case 'more': this.dispatchEvent(new CustomEvent('hass-more-info', {detail: {entityId: ent}, bubbles: true, composed: true})); break;
+    }
+  }
+
+  _onChange(e) {
+    if (e.target.dataset.i == null) return;
+    this._move(+e.target.dataset.i, +e.target.value);
+  }
+
+  _render() {
+    if (!this._config) return;
+    this._pending = false;
+    const c = this._config, labels = DS_STYLES[c.style].labels;
+    const p = [this._pos(0), this._pos(1)], known = p.every(v => v != null);
+    const state = v => v == null ? 'Not found' : v <= 0 ? 'Closed' : v >= 100 ? 'Open' : `${v}% open`;
+    const status = i => { const st = this._hass?.states[c.shades[i].entity]; return st && ['opening', 'closing'].includes(st.state) ? cap(st.state) + '…' : state(p[i]); };
+    const active = known ? c.presets.findIndex(x => x[1] === p[0] && x[2] === p[1]) : -1;
+    let win = '';
+    if (known) {
+      if (c.style === 'tdbu') { const y1 = 100 - p[0], y2 = Math.max(y1, 100 - p[1]); win = `<i class="f f2 rails" style="top:${y1}%;height:${y2 - y1}%"></i>`; }
+      else win = `<i class="f f2" style="height:${100 - p[1]}%"></i><i class="f f1" style="height:${100 - p[0]}%"></i>`;
+    }
+    const row = i => {
+      const name = c.shades[i].name || labels[i], dead = p[i] == null, id = esc(c.shades[i].entity);
+      return `<div class="row${dead ? ' dead' : ''}"><div class="nm" data-a="more" data-i="${i}"><b>${esc(name)}</b><span>${esc(status(i))}</span></div>
+        <div class="ctl">${['open:mdi:arrow-up:Open', 'stop:mdi:stop:Stop', 'close:mdi:arrow-down:Close'].map(x => { const [a, ...r] = x.split(':'), label = r.pop();
+          return `<button class="ibtn" data-a="${a}" data-i="${i}" aria-label="${label} ${esc(name)}" ${dead ? 'disabled' : ''}><ha-icon icon="${r.join(':')}"></ha-icon></button>`; }).join('')}</div>
+        ${dead ? '' : `<input type="range" min="0" max="100" value="${p[i]}" data-i="${i}" aria-label="${esc(name)} position" data-e="${id}">`}</div>`;
+    };
+    this.shadowRoot.innerHTML = `<style>${DS_STYLE}</style><ha-card>
+      <div class="top"><b class="title">${esc(c.name || 'Shades')}</b><span class="pill">${active >= 0 ? esc(c.presets[active][0]) : known ? 'Custom' : '…'}</span></div>
+      <div class="win${c.style === 'tdbu' ? ' tdbu' : ''}" aria-hidden="true">${win}</div>
+      ${row(0)}${row(1)}
+      <div class="presets">${c.presets.map((x, k) => `<button class="pbtn${k === active ? ' on' : ''}" data-a="preset" data-p="${k}"><ha-icon icon="${esc(x[3])}"></ha-icon>${esc(x[0])}</button>`).join('')}</div>
+      ${this._flash ? `<div class="flash" role="status">${esc(this._flash)}</div>` : ''}</ha-card>`;
+  }
+}
+
+const DS_STYLE = `
+:host{--s-text:var(--primary-text-color,#1c1c1c);--s-muted:var(--secondary-text-color,#6b6b6b);--s-accent:var(--primary-color,#03a9f4);--s-on:var(--text-primary-color,#fff);
+  --s-r:var(--ha-card-border-radius,12px);--s-line:var(--ha-card-border-color,var(--divider-color,rgba(0,0,0,.12)));--s-soft2:color-mix(in srgb,var(--s-text) 11%,transparent)}
+ha-card{padding:16px;display:flex;flex-direction:column;gap:12px;position:relative;color:var(--s-text)}
+button{font:inherit;color:inherit;cursor:pointer}
+ha-icon{--mdc-icon-size:18px;display:inline-flex}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.title{font-size:16px;font-weight:600}
+.pill{font-size:11px;font-weight:600;padding:3px 8px;border-radius:99px;background:var(--s-soft2)}
+.win{height:120px;border-radius:calc(var(--s-r)*.5);position:relative;overflow:hidden;border:1px solid var(--s-line);background:linear-gradient(180deg,#a9d3ff,#e8f3ff)}
+.win::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(90deg,transparent calc(50% - 1px),rgba(255,255,255,.75) calc(50% - 1px) calc(50% + 1px),transparent calc(50% + 1px))}
+.f{position:absolute;left:0;right:0;top:0;display:block;transition:height .5s ease,top .5s ease}
+.f2{background:repeating-linear-gradient(180deg,rgba(255,255,255,.62) 0 8px,rgba(220,226,235,.55) 8px 10px);box-shadow:0 2px 3px rgba(0,0,0,.12)}
+.f1{z-index:1;background:repeating-linear-gradient(180deg,#353a46 0 8px,#22252d 8px 10px);box-shadow:0 2px 5px rgba(0,0,0,.3)}
+.rails{border-top:4px solid #8a8f99;border-bottom:4px solid #8a8f99}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:center}
+.row.dead{opacity:.55}
+.nm{min-width:0;cursor:pointer}
+.nm b{display:block;font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nm span{font-size:12px;color:var(--s-muted)}
+.ctl{display:flex;gap:4px}
+.ibtn{width:32px;height:32px;border-radius:50%;border:0;background:var(--s-soft2);display:grid;place-items:center}
+.ibtn:disabled{opacity:.4;cursor:default}
+input[type=range]{grid-column:1/-1;width:100%;margin:0;accent-color:var(--s-accent)}
+.presets{display:flex;gap:8px}
+.pbtn{flex:1;min-width:0;height:38px;border:0;border-radius:calc(var(--s-r)*.6);background:var(--s-soft2);font-weight:600;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.pbtn.on{background:var(--s-accent);color:var(--s-on)}
+.flash{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:#e5484d;color:#fff;padding:7px 12px;border-radius:9px;font-size:12.5px;z-index:3;max-width:calc(100% - 24px)}
+button:focus-visible{outline:2px solid var(--s-accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.f{transition:none}}
+`;
+
 if (!customElements.get('dashboard-studio-hub')) customElements.define('dashboard-studio-hub', DashboardStudioHub);
+if (!customElements.get('dashboard-studio-dual-shade')) customElements.define('dashboard-studio-dual-shade', DashboardStudioDualShade);
 if (!customElements.get('dashboard-studio-fx')) customElements.define('dashboard-studio-fx', DashboardStudioFx);
 window.customCards = window.customCards || [];
 if (!window.customCards.some(c => c.type === 'dashboard-studio-hub')) {
   window.customCards.push({type: 'dashboard-studio-hub', name: 'Dashboard Studio hub', description: 'Touchscreen-style home screen with rooms, device tiles, scenes, an alarm keypad and a Good night button.', preview: false});
+}
+if (!window.customCards.some(c => c.type === 'dashboard-studio-dual-shade')) {
+  window.customCards.push({type: 'dashboard-studio-dual-shade', name: 'Dashboard Studio dual shade', description: 'One window, two shade motors: day/night honeycomb or top down, bottom up. With Open, Day and Night presets.', preview: false});
 }
 if (!window.customCards.some(c => c.type === 'dashboard-studio-fx')) {
   window.customCards.push({type: 'dashboard-studio-fx', name: 'Dashboard Studio effects', description: 'Moving backgrounds (including live weather) and card effects for the whole view. Invisible outside edit mode.', preview: false});

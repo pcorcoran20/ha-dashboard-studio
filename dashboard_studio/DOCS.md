@@ -20,6 +20,8 @@ The Studio reads your entities, their friendly names and your areas straight fro
 
 - **Smart › Auto-build my home** makes a page for every room, filled with that room's devices, plus a Home page with a Control hub. It shows you the rooms it found first, so you can untick any you don't want.
 
+- **Dual shades** (two motors on one window, like day/night honeycomb shades) are found automatically when two covers in a room differ only by day/night, blackout/sheer or top/bottom.
+
 To pick up new devices, go to **Smart › My entities › Reload from Home Assistant**.
 
 Your designs are saved inside the add-on, so they survive restarts and show up on every device you open the Studio on.

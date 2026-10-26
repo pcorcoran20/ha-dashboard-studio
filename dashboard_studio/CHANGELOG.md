@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+- New **Dual shade** block and card for one window with two shade motors: day/night honeycomb shades (blackout plus light filtering, like SmartWings day/night) or top down, bottom up shades. Each shade has its own controls, plus one-tap presets (Open, Day, Night or Open, Privacy, Closed).
+- Without the Studio card, dual shades export as two tiles plus preset buttons, and Install creates the preset scripts.
+- Auto-build my home pairs up dual shades by itself when two covers differ only by day/night, blackout/sheer or top/bottom.
+
 ## 0.3.0
 
 - New: **Smart › Auto-build my home** makes a page for every room from your Home Assistant areas, plus an optional Home page with a Control hub that already has every room. You pick the rooms first, and choose whether to keep or replace your current pages.
