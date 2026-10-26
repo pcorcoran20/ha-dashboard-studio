@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0
+
+- A simpler Studio. A start screen asks what you want to do: build from your home, start from a style, or start with a blank page. Open it again with **Start** at the bottom left.
+- One icon menu on the left: **Add**, **Style**, **Effects** and **Magic** (this was Smart). Select the open tool again to hide its panel.
+- The right panel shows only the main settings. When a block shows, its style, moving it and its code are under **More options**. Duplicate and Delete sit next to the block's name.
+- Less-used settings in Style and Magic are folded away until you open them.
+
 ## 0.7.0
 
 - The touchscreen hub is see-through by default, with frosted glass tiles so the text stays easy to read. Set how solid it is with **Background strength**.

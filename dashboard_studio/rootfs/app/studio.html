@@ -74,7 +74,36 @@ a.btn{text-decoration:none}
 .btn.icon{padding:7px}
 .btn.block{width:100%; justify-content:center}
 
-.main{display:grid; grid-template-columns:284px minmax(0,1fr) 300px; min-height:0}
+.main{display:grid; grid-template-columns:76px 280px minmax(0,1fr) 300px; min-height:0}
+.main.collapsed{grid-template-columns:76px minmax(0,1fr) 300px}
+.main.collapsed .side{display:none}
+.rail{display:flex; flex-direction:column; align-items:stretch; gap:4px; padding:10px 8px; background:var(--panel); border-right:1px solid var(--line); overflow:auto}
+.rail button{border:0; background:none; border-radius:12px; padding:9px 4px 8px; display:flex; flex-direction:column; align-items:center; gap:4px; color:var(--muted); font-size:calc(11.5px * var(--d-fs,1)); font-weight:600}
+.rail button svg.i{width:21px; height:21px}
+.rail button:hover{color:var(--fg); background:var(--bg)}
+.rail button[aria-selected="true"]{color:var(--fg); background:color-mix(in srgb, var(--accent) 13%, var(--bg))}
+.rail button[aria-selected="true"] svg.i{color:var(--accent)}
+.main.collapsed .rail button[aria-selected="true"]{background:none; color:var(--muted)}
+.main.collapsed .rail button[aria-selected="true"] svg.i{color:inherit}
+.rail-sp{flex:1}
+.pane-title h2{margin:0; font-family:var(--f-display); font-size:calc(19px * var(--d-fs,1)); font-weight:700; letter-spacing:-.01em}
+.pane-title p{margin:4px 0 0; color:var(--muted); font-size:calc(12.5px * var(--d-fs,1)); line-height:1.45}
+.twg.fold .twb{padding-top:0}
+.pane-title + .group{border-top:0; padding-top:0}
+.ihead-acts{margin-left:auto; display:flex; gap:4px}
+.insp-empty{display:flex; flex-direction:column; align-items:center; text-align:center; gap:8px; padding:26px 8px 18px; border:1.5px dashed var(--line); border-radius:16px}
+.insp-empty .ic{width:46px; height:46px; border-radius:14px; background:var(--bg); display:grid; place-items:center; color:var(--accent)}
+.insp-empty h2{margin:0; font-family:var(--f-display); font-size:calc(16px * var(--d-fs,1))}
+.insp-empty p{margin:0; color:var(--muted); font-size:calc(12.5px * var(--d-fs,1)); line-height:1.45}
+.wel{display:grid; gap:10px}
+.wel button{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:14px; text-align:left; border:1px solid var(--line); background:var(--bg); border-radius:16px; padding:16px; color:var(--fg)}
+.wel button:hover{border-color:var(--accent)}
+.wel button.hero{background:color-mix(in srgb, var(--magic) 10%, var(--bg)); border-color:color-mix(in srgb, var(--magic) 40%, var(--line))}
+.wel .wi{width:44px; height:44px; border-radius:13px; display:grid; place-items:center; background:var(--panel); color:var(--accent)}
+.wel .hero .wi{background:var(--magic); color:#fff}
+.wel b{display:block; font-size:calc(15px * var(--d-fs,1))}
+.wel small{display:block; color:var(--muted); font-size:calc(12.5px * var(--d-fs,1)); margin-top:2px; line-height:1.4}
+.wel .go{color:var(--muted)}
 .side,.insp{background:var(--panel); overflow:auto; min-height:0}
 .side{border-right:1px solid var(--line)}
 .insp{border-left:1px solid var(--line)}
@@ -676,7 +705,8 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
   body[data-pane="blocks"] .side, body[data-pane="theme"] .side, body[data-pane="smart"] .side, body[data-pane="fx"] .side{display:block}
   body[data-pane="preview"] .stage{display:block}
   body[data-pane="edit"] .insp{display:block}
-  .side .tabs{display:none}
+  .rail{display:none}
+  .main.collapsed{grid-template-columns:minmax(0,1fr)}
   .stage{padding:14px 12px 40px}
   .dash{padding:16px; border-radius:14px}
   .mnav{display:flex; position:fixed; left:0; right:0; bottom:0; background:var(--panel); border-top:1px solid var(--line); padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px)); z-index:20; justify-content:space-around}
@@ -706,46 +736,45 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
     <button class="btn primary" id="exportBtn"><svg class="i" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg><span class="lbl">Export</span></button>
   </header>
 
-  <div class="main">
-    <aside class="side">
-      <div class="tabs" role="tablist">
-        <button role="tab" data-tab="blocks" aria-selected="true">Blocks</button>
-        <button role="tab" data-tab="theme" aria-selected="false">Design</button>
-        <button role="tab" data-tab="fx" aria-selected="false">Effects</button>
-        <button role="tab" data-tab="smart" aria-selected="false"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>Smart</button>
-      </div>
+  <div class="main" id="main">
+    <nav class="rail" role="tablist" aria-label="Tools" aria-orientation="vertical">
+      <button role="tab" data-tab="blocks" aria-selected="true" title="Add blocks"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></svg><span>Add</span></button>
+      <button role="tab" data-tab="theme" aria-selected="false" title="Themes, colors and fonts"><svg class="i" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-1.3-1-1.6-1-2.8 0-1 .8-1.6 1.8-1.6H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/></svg><span>Style</span></button>
+      <button role="tab" data-tab="fx" aria-selected="false" title="Moving backgrounds and card effects"><svg class="i" viewBox="0 0 24 24"><path d="M4 20 15 9M14 4v2M19 9h2M17.5 5.5l1.5-1.5"/></svg><span>Effects</span></button>
+      <button role="tab" data-tab="smart" aria-selected="false" title="Build pages for you"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><span>Magic</span></button>
+      <span class="rail-sp"></span>
+      <button class="rail-start" id="welcomeBtn" title="Open the start screen"><svg class="i" viewBox="0 0 24 24"><path d="M3 11 12 4l9 7M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg><span>Start</span></button>
+    </nav>
+    <aside class="side" id="side">
 
       <div class="pane" id="paneBlocks">
+        <div class="pane-title"><h2>Add a block</h2><p>Drag one onto your page, or tap it to add it after the selected block.</p></div>
         <div class="search"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="text" id="libSearch" placeholder="Find a block" aria-label="Find a block"></div>
-        <p class="hint">Drag onto the canvas, or tap to add after the selected block.</p>
         <div class="lib" id="lib"></div>
       </div>
 
       <div class="pane" id="paneTheme" hidden>
+        <div class="pane-title"><h2>Style</h2><p>Pick a theme. Everything else is optional.</p></div>
         <div class="group">
           <div class="eyebrow">Theme</div>
           <div class="themes" id="themes"></div>
           <div class="field" id="flags" hidden></div>
           <div class="score" id="score"></div>
         </div>
-        <div class="group">
-          <div class="eyebrow">Customize everything</div>
+        <details class="twg fold"><summary>Fine-tune colors and fonts</summary><div class="twb">
           <div class="btnrow"><button class="btn magic" id="surpriseBtn"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>Surprise me</button><button class="btn" id="twResetAll">Reset all tweaks</button></div>
           <p class="hint">Settings tagged <span class="pv">Preview only</span> show in the studio, but Home Assistant has no setting for them.</p>
           <div class="tweaks" id="tweaks"></div>
-        </div>
-        <div class="group">
-          <h3><svg class="i" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>Sunset switch <span class="newtag">New</span></h3>
+        </div></details>
+        <details class="twg fold"><summary>Sunset switch</summary><div class="twb">
           <label class="switch"><span><b>Change theme at sunset</b><small>Exports an automation that swaps themes at sunset and sunrise</small></span><input type="checkbox" id="nightOn"></label>
           <div class="field" id="nightPick" hidden><label for="nightTheme">Night theme</label><select id="nightTheme"></select></div>
-        </div>
-        <div class="group">
-          <h3><svg class="i" viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>Calm mode <span class="newtag">New</span></h3>
+        </div></details>
+        <details class="twg fold"><summary>Calm mode</summary><div class="twb">
           <label class="switch"><span><b>Low-stimulation look</b><small>No motion, no blur, no glow. Same layout, quieter screen.</small></span><input type="checkbox" id="calmOn"></label>
-        </div>
-        <div class="group">
+        </div></details>
+        <details class="twg fold"><summary>Wallpaper</summary><div class="twb">
           <div class="field">
-            <span class="lbl2">Wallpaper</span>
             <div class="btnrow">
               <label class="btn" for="wallFile"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/></svg>Upload photo</label>
               <input type="file" id="wallFile" accept="image/*" hidden>
@@ -754,14 +783,14 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
             </div>
             <p class="hint">In HA, save it as <code>/config/www/wallpaper.jpg</code>.</p>
           </div>
-        </div>
-        <div class="group">
-          <span class="lbl2" style="font-size:calc(12.5px * var(--d-fs,1)); font-weight:500">Start over</span>
+        </div></details>
+        <details class="twg fold"><summary>Start over</summary><div class="twb">
           <div class="btnrow"><button class="btn" id="resetBtn">Load sample layout</button><button class="btn danger" id="clearBtn">Clear this page</button></div>
-        </div>
+        </div></details>
       </div>
 
       <div class="pane" id="paneFx" hidden>
+        <div class="pane-title"><h2>Effects</h2><p>All optional, and all of them can be turned off.</p></div>
         <div class="group">
           <div class="eyebrow">Moving background</div>
           <div class="fxgrid" id="fxBgs"></div>
@@ -776,15 +805,16 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
       </div>
 
       <div class="pane" id="paneSmart" hidden>
-        <div class="group">
-          <h3><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Touchscreen home <span class="newtag">New</span></h3>
-          <p class="hint">A home page with big tiles for each device type, like a wall touchscreen. Tap a tile to control everything of that type, room by room.</p>
-          <div class="btnrow"><button class="btn magic" id="touchBtn">Create touchscreen home</button></div>
-        </div>
+        <div class="pane-title"><h2>Magic</h2><p>Let the studio build pages for you.</p></div>
         <div class="group">
           <h3><svg class="i" viewBox="0 0 24 24"><path d="M3 11 12 4l9 7M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>Auto-build my home <span class="newtag">New</span></h3>
           <p class="hint" id="autoHomeHint">Makes a page for every room, filled with that room’s devices, plus a Home page with a Control hub.</p>
           <div class="btnrow"><button class="btn magic" id="autoHomeBtn">Build a page for every room</button></div>
+        </div>
+        <div class="group">
+          <h3><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Touchscreen home <span class="newtag">New</span></h3>
+          <p class="hint">A home page with big tiles for each device type, like a wall touchscreen. Tap a tile to control everything of that type, room by room.</p>
+          <div class="btnrow"><button class="btn magic" id="touchBtn">Create touchscreen home</button></div>
         </div>
         <div class="group" id="aiGroup" hidden>
           <h3><svg class="i" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>Ask Claude</h3>
@@ -796,21 +826,18 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
           <p class="hint" id="entHint">Paste your entity list once. Then entity fields autocomplete and the studio can build a page from your real devices.</p>
           <div class="btnrow"><button class="btn" id="entBtn">Add my entities</button><button class="btn" id="autoBtn" hidden>Auto-build a page</button></div>
         </div>
-        <div class="group">
-          <h3><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="18" height="8" rx="1.5"/></svg>Tidy up</h3>
+        <details class="twg fold"><summary>Tidy up</summary><div class="twb">
           <p class="hint">Repacks this page so every row fills all 12 columns. No gaps, nothing deleted.</p>
           <div class="btnrow"><button class="btn" id="tidyBtn">Tidy this page</button></div>
-        </div>
-        <div class="group">
-          <h3><svg class="i" viewBox="0 0 24 24"><path d="M12 3c-4 0-7 6-7 11a7 7 0 0 0 14 0c0-5-3-11-7-11z"/></svg>Secret eggs <span class="newtag">New</span></h3>
+        </div></details>
+        <details class="twg fold"><summary>Secret eggs</summary><div class="twb">
           <p class="hint" id="eggCount"></p>
           <div class="eggs" id="eggs"></div>
-        </div>
-        <div class="group">
-          <h3><svg class="i" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Share code</h3>
+        </div></details>
+        <details class="twg fold"><summary>Share code</summary><div class="twb">
           <p class="hint">Copy your whole design as one line of text and send it to a friend. They paste it to load it.</p>
           <div class="btnrow"><button class="btn" id="shareBtn">Copy share code</button><button class="btn" id="importBtn">Paste a code</button></div>
-        </div>
+        </div></details>
       </div>
     </aside>
 
@@ -829,10 +856,10 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 </div>
 
 <nav class="mnav" aria-label="Sections">
-  <button data-pane="blocks" aria-pressed="false"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></svg>Blocks</button>
-  <button data-pane="theme" aria-pressed="false"><svg class="i" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-1.3-1-1.6-1-2.8 0-1 .8-1.6 1.8-1.6H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/></svg>Design</button>
+  <button data-pane="blocks" aria-pressed="false"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></svg>Add</button>
+  <button data-pane="theme" aria-pressed="false"><svg class="i" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-1.3-1-1.6-1-2.8 0-1 .8-1.6 1.8-1.6H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/></svg>Style</button>
   <button data-pane="fx" aria-pressed="false"><svg class="i" viewBox="0 0 24 24"><path d="M4 20 15 9M14 4v2M19 9h2M17.5 5.5l1.5-1.5"/></svg>Effects</button>
-  <button data-pane="smart" aria-pressed="false"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>Smart</button>
+  <button data-pane="smart" aria-pressed="false"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>Magic</button>
   <button data-pane="preview" aria-pressed="true"><svg class="i" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Preview</button>
   <button data-pane="edit" aria-pressed="false"><svg class="i" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>Edit</button>
 </nav>
@@ -1437,7 +1464,7 @@ function renderDash(){
   grid.innerHTML = blocks.length ? blocks.map((b, n) => {
     const vl = visLabel(b), hid = hiddenHere(b);
     return `<div class="card w-${b.type}${stateClass(b)}${b.st?.bare?' bare':''}${b.id===selected?' is-sel':''}${hid?' hidden-here':''}" style="--n:${n};${esc(blockStyle(b))}" data-id="${b.id}" data-size="${b.size}" draggable="true" tabindex="0" aria-label="${esc(CATALOG[b.type].name)} block">${vl ? `<span class="vis-badge">${ic(hid?'eyeoff':'eye')}${esc(vl)}</span>` : ''}${R[b.type](b)}${b.id===selected ? toolbar(b) + '<span class="rz" data-rz title="Drag to resize" aria-hidden="true"></span>' : ''}</div>`;
-  }).join('') : `<div class="empty"><b>This page is empty</b>Drag a block in from the left, tap one to add it, or try Smart &rsaquo; Ask Claude.</div>`;
+  }).join('') : `<div class="empty"><b>This page is empty</b>Drag a block in from the left, tap one to add it, or try Magic &rsaquo; Ask Claude.</div>`;
   $('blockCount').textContent = blocks.length + ' block' + (blocks.length===1?'':'s');
   renderPages();
 }
@@ -2113,10 +2140,15 @@ twoStep($('clearBtn'), () => { commit(); page().blocks = []; selected = null; re
 
 /* side tabs */
 function setTab(t){
-  document.querySelectorAll('.side .tabs [data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === t));
+  $('main').classList.remove('collapsed');
+  document.querySelectorAll('.rail [data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === t));
   $('paneBlocks').hidden = t !== 'blocks'; $('paneTheme').hidden = t !== 'theme'; $('paneSmart').hidden = t !== 'smart'; $('paneFx').hidden = t !== 'fx';
 }
-document.querySelector('.side .tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) setTab(b.dataset.tab); });
+document.querySelector('.rail').addEventListener('click', e => {
+  const b = e.target.closest('[data-tab]'); if (!b) return;
+  if (b.getAttribute('aria-selected') === 'true' && !$('main').classList.contains('collapsed')) { $('main').classList.add('collapsed'); return; }
+  setTab(b.dataset.tab);
+});
 
 /* ---------- inspector ---------- */
 const insp = $('insp');
@@ -2125,39 +2157,35 @@ function renderInsp(){
   const b = selected && find(selected);
   if (!b) {
     const p = page();
-    insp.innerHTML = `<div class="pane"><div class="insp-head"><span class="ic">${ic('home')}</span><div><h2>Page</h2><p>${p.blocks.length} blocks · ${esc(getTheme(activeKey()).label)}</p></div></div>
+    insp.innerHTML = `<div class="pane"><div class="insp-empty"><span class="ic">${ic('pencil')}</span><h2>Tap a block to change it</h2><p>Its settings show up here. Drag blocks to move them around.</p></div>
       <div class="field"><label for="pgName">Page name</label><input type="text" id="pgName" value="${esc(p.name)}"></div>
-      ${state.pages.length > 1 ? `<div class="btnrow"><button class="btn" data-pmove="-1">${ic('left')}Move</button><button class="btn" data-pmove="1">Move${ic('right')}</button><button class="btn danger" id="pgDel">${ic('trash')}Delete page</button></div>` : ''}
-      <ol class="tips">
-        <li><b>Select a block</b> to rename it, set its entity, or choose when it shows.</li>
-        <li><b>Drag blocks</b> to reorder. The bar shows where it lands.</li>
-        <li><b>Widths</b> use a 12 column grid: Small 3, Half 6, Wide 9, Full 12.</li>
-        <li><b>Wall mode</b> previews it full screen like a wall tablet, with a clock screensaver.</li>
-      </ol>
-      <p class="hint">Ctrl+Z undoes. Delete removes the selected block. Esc deselects.</p></div>`;
+      ${state.pages.length > 1 ? `<details class="twg"><summary>Page options</summary><div class="twb"><div class="btnrow"><button class="btn" data-pmove="-1">${ic('left')}Move earlier</button><button class="btn" data-pmove="1">Move later${ic('right')}</button></div><div class="btnrow"><button class="btn danger" id="pgDel">${ic('trash')}Delete page</button></div></div></details>` : ''}
+      <p class="hint">Made a mistake? Ctrl+Z undoes it.</p></div>`;
     if (state.pages.length > 1) twoStep($('pgDel'), () => { commit(); const i = state.pages.indexOf(p); state.pages.splice(i,1); state.page = state.pages[Math.max(0,i-1)].id; selected = null; renderDash(); renderInsp(); save(); toast('Page deleted'); });
     return;
   }
   const c = CATALOG[b.type], vis = b.vis || {mode:'always'};
   if (fpFor !== b.id) { fpFor = b.id; fpSel = null; }
   insp.innerHTML = `<div class="pane">
-    <div class="insp-head"><span class="ic">${ic(c.icon)}</span><div><h2>${c.name}</h2><p>${c.desc}</p></div></div>
+    <div class="insp-head"><span class="ic">${ic(c.icon)}</span><div><h2>${c.name}</h2><p>${c.desc}</p></div>
+      <div class="ihead-acts"><button class="btn icon" data-iact="dup" title="Duplicate" aria-label="Duplicate">${ic('copy')}</button><button class="btn icon danger" data-iact="del" title="Delete" aria-label="Delete">${ic('trash')}</button></div></div>
     ${FIELDS[b.type].map(([k,label,ph,mono,domain]) => `<div class="field"><label for="f_${k}">${label}</label><input type="text" id="f_${k}" data-k="${k}" class="${mono?'mono':''}" value="${esc(b[k])}" placeholder="${esc(ph||'')}" spellcheck="false" ${domain && state.entities.length ? `list="entList" data-domain="${domain}"` : ''}></div>`).join('')}
     ${b.type === 'floorplan' ? fpEditorHTML(b) : ''}
     ${b.type === 'hub' ? hubEditorHTML(b) : ''}
     ${b.type === 'dualshade' ? `<div class="field"><span class="lbl2">Shade type</span><div class="seg" role="group" aria-label="Shade type">${Object.entries(DS).map(([k, d]) => `<button data-dsstyle="${k}" aria-pressed="${(b.style || 'daynight') === k}">${d.short}</button>`).join('')}</div><p class="hint">${DS[b.style || 'daynight'].help}</p></div>` : ''}
     ${b.type === 'weather' ? `<div class="field"><span class="lbl2">Example weather</span><div class="seg" role="group" aria-label="Example weather">${Object.entries(CONDS).map(([k,c]) => `<button data-cond="${k}" aria-pressed="${(b.cond || 'partly') === k}">${c[1]}</button>`).join('')}</div><p class="hint">For the preview only. In Home Assistant this card shows your real weather. The “Follows the weather” background uses it too.</p></div>` : ''}
     <div class="field"><span class="lbl2">Width</span><div class="seg" role="group" aria-label="Width">${SIZES.map(s => `<button data-size="${s}" aria-pressed="${b.size===s}">${SIZE_LABEL[s]}</button>`).join('')}</div></div>
+    <details class="twg" id="moreOpts" ${moreOpen ? 'open' : ''}><summary>More options</summary><div class="twb">
     <div class="field"><label for="visMode">Show this block</label>
       <select id="visMode"><option value="always">Always</option><option value="phone">On phones only</option><option value="big">On tablets and bigger</option><option value="state">Only when an entity matches</option></select>
       ${vis.mode === 'state' ? `<div class="row" style="gap:8px"><input type="text" class="mono" id="visEnt" placeholder="binary_sensor.doorbell" value="${esc(vis.entity||'')}" ${state.entities.length ? 'list="entList"' : ''}><input type="text" class="mono" id="visState" placeholder="on" value="${esc(vis.state||'')}" style="max-width:80px"></div><p class="hint">Example: show the camera only while the doorbell is ringing.</p>` : ''}
     </div>
     ${blockStyleHTML(b)}
-    <div class="field"><span class="lbl2">Arrange</span><div class="btnrow">
-      <button class="btn" data-iact="left">${ic('left')}Earlier</button><button class="btn" data-iact="right">Later${ic('right')}</button>
-      <button class="btn" data-iact="dup">${ic('copy')}Duplicate</button><button class="btn danger" data-iact="del">${ic('trash')}Delete</button></div>
+    <div class="field"><span class="lbl2">Move it</span><div class="btnrow">
+      <button class="btn" data-iact="left">${ic('left')}Earlier</button><button class="btn" data-iact="right">Later${ic('right')}</button></div>
       ${state.pages.length > 1 ? `<select id="moveTo" aria-label="Move to another page"><option value="">Move to another page…</option>${state.pages.filter(p => p.id !== state.page).map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>` : ''}</div>
-    <div class="field"><span class="lbl2">Exports as</span><pre class="code" id="snip" style="max-height:none">${esc(exportSnippet(b))}</pre></div>
+    <details class="twg" id="codeOpts" ${codeOpen ? 'open' : ''}><summary>Show the code</summary><div class="twb"><pre class="code" id="snip" style="max-height:none">${esc(exportSnippet(b))}</pre></div></details>
+    </div></details>
   </div>`;
   $('visMode').value = vis.mode;
   if (b.type === 'floorplan') mountFp(b);
@@ -2186,7 +2214,8 @@ function cardMod(b){
   if (st.fs && st.fs !== 100) css.push(`font-size: ${st.fs}%;`);
   return css.length ? {style:`ha-card {\n  ${css.join('\n  ')}\n}`} : undefined;
 }
-insp.addEventListener('toggle', e => { if (e.target.id === 'blkStyle') blkOpen = e.target.open; }, true);
+let moreOpen = false, codeOpen = false;
+insp.addEventListener('toggle', e => { if (e.target.id === 'blkStyle') blkOpen = e.target.open; if (e.target.id === 'moreOpts') moreOpen = e.target.open; if (e.target.id === 'codeOpts') codeOpen = e.target.open; }, true);
 
 /* ---------- floor plan editor ---------- */
 let fpSel = null, fpFor = null;
@@ -2946,7 +2975,7 @@ function hubEditorHTML(b){
     <p class="hint">Room name in the middle of the top bar opens the room list. To make this the only screen in Home Assistant, go to Export › Dashboard › Room switching.</p>` : ''}</div>
     <div class="field"><span class="lbl2">Rooms</span>
     <div class="hub-ed-rooms">${rooms.map((rm, i) => `<button class="pg" data-hsel="${i}" aria-pressed="${i === hubSel}">${esc(rm.name)}<small>${rm.devices.length}</small></button>`).join('')}<button class="pg add" data-hadd-room aria-label="Add a room">${ic('plus')}</button></div>
-    ${state.entities.length ? `<button class="btn" data-hfill>${ic('sparkle')}${window.__haAreaNames ? 'Fill rooms from my HA areas' : 'Fill rooms from my entities'}</button>` : '<p class="hint">Tip: add your entity list in Smart and the studio can fill these rooms for you.</p>'}</div>
+    ${state.entities.length ? `<button class="btn" data-hfill>${ic('sparkle')}${window.__haAreaNames ? 'Fill rooms from my HA areas' : 'Fill rooms from my entities'}</button>` : '<p class="hint">Tip: add your entity list in Magic and the studio can fill these rooms for you.</p>'}</div>
     ${r ? `<div class="fp-room"><div class="field"><label for="hr_name">Room name</label><input type="text" id="hr_name" data-hroom="1" value="${esc(r.name)}"></div>
       <div class="btnrow"><button class="btn" data-hmove="-1" ${hubSel === 0 ? 'disabled' : ''}>${ic('left')}Move room earlier</button><button class="btn" data-hmove="1" ${hubSel === rooms.length - 1 ? 'disabled' : ''}>Move room later${ic('right')}</button></div>
       <span class="lbl2">Devices in ${esc(r.name)}</span>
@@ -3246,7 +3275,7 @@ function roomBlocks(room, kinds){
 }
 function openAutoHome(){
   if (!state.entities.length) {
-    toast(window.STUDIO_ADDON ? 'No entities yet. Try Smart › Reload from Home Assistant' : 'Add your entities first (Smart › My entities)');
+    toast(window.STUDIO_ADDON ? 'No entities yet. Try Magic › Reload from Home Assistant' : 'Add your entities first (Magic › My entities)');
     if (!window.STUDIO_ADDON) openEntities();
     return;
   }
@@ -3453,15 +3482,38 @@ function setDevice(d){
 }
 document.querySelector('.seg.dev').addEventListener('click', e => { const b = e.target.closest('[data-dev]'); if (b) setDevice(b.dataset.dev); });
 function setPane(p){
-  document.body.dataset.pane = p;
+  document.body.dataset.pane = p; $('main').classList.remove('collapsed');
   document.querySelectorAll('.mnav [data-pane]').forEach(b => b.setAttribute('aria-pressed', b.dataset.pane === p));
   if (['blocks','theme','smart','fx'].includes(p)) setTab(p);
 }
 document.querySelector('.mnav').addEventListener('click', e => { const b = e.target.closest('[data-pane]'); if (b) setPane(b.dataset.pane); });
 setInterval(() => document.querySelectorAll('[data-clock]').forEach(n => n.textContent = nowStr()), 20000);
 
+/* start screen: three big, plain choices */
+const WKEY = 'hearth-dashboard-studio-welcomed';
+function openWelcome(){
+  const opt = (id, icon, title, text, hero) => `<button data-wel="${id}" class="${hero ? 'hero' : ''}"><span class="wi">${ic(icon)}</span><span><b>${title}</b><small>${text}</small></span><span class="go">${ic('right')}</span></button>`;
+  openModal({title:'What do you want to do?', body:`<p class="hint">Pick one to get going. You can change anything later, and Ctrl+Z undoes.</p>
+    <div class="wel">${opt('home', 'home', 'Build from my home', 'Makes a page for every room with your real devices, plus a Home page.', true)}
+    ${opt('style', 'sparkle', 'Start from a style', 'Keep the example page and try on themes first.')}
+    ${opt('blank', 'plus', 'Start with a blank page', 'An empty page. Add blocks one at a time.')}</div>`,
+    foot:`<button class="btn" data-wel="look">Just look around</button>`,
+    mount:() => {
+      const h = e => { const b = e.target.closest('[data-wel]'); if (!b) return; const w = b.dataset.wel;
+        try { localStorage.setItem(WKEY, '1'); } catch(err) {}
+        closeModal();
+        if (w === 'home') { setTab('smart'); setPane('smart'); openAutoHome(); }
+        else if (w === 'style') { setTab('theme'); setPane('theme'); }
+        else if (w === 'blank') { commit(); page().blocks = []; selected = null; renderDash(); renderInsp(); save(); setTab('blocks'); setPane('blocks'); toast('Blank page ready. Pick a block to add'); }
+      };
+      $('modal').addEventListener('click', h); return () => $('modal').removeEventListener('click', h);
+    }});
+}
+$('welcomeBtn').addEventListener('click', openWelcome);
+
 function syncAll(){ nameIn.value = state.name || ''; renderThemes(); renderDash(); renderInsp(); syncSmart(); renderEggs(); renderUnits(); renderFxPanel(); }
 renderLib(); setPane('preview'); setDevice(device); syncAll(); syncHistory(); playEnter();
+{ let seen = false; try { seen = !!localStorage.getItem(WKEY); } catch(e) {} if (!seen) setTimeout(openWelcome, 400); }
 
 /* ---------- running inside Home Assistant as an add-on ---------- */
 async function haLoad(announce){

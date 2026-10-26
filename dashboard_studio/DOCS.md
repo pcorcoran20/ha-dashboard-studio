@@ -10,21 +10,27 @@ After you start the add-on, select **Dashboard Studio** in the sidebar. If you d
 
 The chip at the top right shows your home's name with a green dot when the Studio is connected to Home Assistant.
 
+## Finding your way around
+
+- The first time you open the Studio, a start screen asks what you want to do: **Build from my home**, **Start from a style** or **Start with a blank page**. Open it again any time with **Start** at the bottom left.
+- The menu on the left has four tools: **Add** (blocks), **Style** (themes, colors and fonts), **Effects** and **Magic** (builds pages for you). Select the open tool again to hide its panel and get more room.
+- Tap a block to change it. The right panel shows the main settings. Everything else, like when the block shows, its style and its code, is under **More options**.
+
 ## What it knows about your home
 
 The Studio reads your entities, their friendly names and your areas straight from Home Assistant:
 
 - Entity fields suggest your real entity IDs as you type.
-- **Smart › Auto-build a page** makes a page from your actual devices.
+- **Magic › Auto-build a page** makes a page from your actual devices.
 - In a **Control hub** block, **Fill rooms from my HA areas** puts each device in its Home Assistant area.
 
-- **Smart › Auto-build my home** makes a page for every room, filled with that room's devices, plus a Home page with a Control hub. It shows you the rooms it found first, so you can untick any you don't want.
+- **Magic › Auto-build my home** makes a page for every room, filled with that room's devices, plus a Home page with a Control hub. It shows you the rooms it found first, so you can untick any you don't want.
 
 - **Dual shades** (two motors on one window, like day/night honeycomb shades) are found automatically when two covers in a room differ only by day/night, blackout/sheer or top/bottom.
 
-- **A wall touchscreen:** in a Control hub, choose **Layout › Touchscreen**. Then in **Export › Dashboard › Room switching**, choose **One touchscreen, rooms in the dropdown**. Your dashboard opens straight to the touchscreen, and you switch rooms from the name at the top center instead of tabs. **Smart › Create touchscreen home** sets all of this up in one tap.
+- **A wall touchscreen:** in a Control hub, choose **Layout › Touchscreen**. Then in **Export › Dashboard › Room switching**, choose **One touchscreen, rooms in the dropdown**. Your dashboard opens straight to the touchscreen, and you switch rooms from the name at the top center instead of tabs. **Magic › Create touchscreen home** sets all of this up in one tap.
 
-To pick up new devices, go to **Smart › My entities › Reload from Home Assistant**.
+To pick up new devices, go to **Magic › My entities › Reload from Home Assistant**.
 
 Your designs are saved inside the add-on, so they survive restarts and show up on every device you open the Studio on.
 
