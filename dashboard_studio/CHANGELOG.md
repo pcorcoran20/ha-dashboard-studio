@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.0
+
+- **Your car in the hub:** the Control hub has a car tile with the battery level. Tap it for the full Tesla-style view. The hub card finds your car by itself. It shows on All rooms and in a room like Garage or Driveway. Set `vehicle: false` to hide it.
+- **Real 3D cars:** use a GLB file you made with [Tesla Model Extractor](https://github.com/koenhendriks/tesla-model-extractor) from your own copy of the Tesla app. The frunk, trunk and charge port open in 3D to match your car, and you can drag to turn it. Set `model_url` on the card, or **3D car** in the Studio.
+- **Your own car picture:** upload one in the Studio, or set `image` on the card. Charging, sentry and climate still glow on top.
+- The car drawing is more realistic: a metallic sheen, aero wheels, mirrors, door handles, and light housings.
+- Fix: Auto-build my home and Fill rooms only use your real Home Assistant areas. They no longer guess rooms from entity names when you have areas.
+- Fix: leftover entities from removed devices, and hidden, disabled or settings-only entities, are left out.
+
 ## 0.10.0
 
 - New **Vehicle** block and card, in the style of the Tesla app:

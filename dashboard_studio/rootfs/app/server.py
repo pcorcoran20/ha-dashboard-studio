@@ -37,7 +37,7 @@ from pathlib import Path
 import yaml
 from aiohttp import ClientSession, ClientTimeout, web
 
-VERSION = os.environ.get("STUDIO_VERSION", "0.10.0")
+VERSION = os.environ.get("STUDIO_VERSION", "0.11.0")
 def _token():
     """The Supervisor's token, from the environment or from where s6 keeps the container's environment."""
     tok = os.environ.get("SUPERVISOR_TOKEN", "")
@@ -142,13 +142,19 @@ async def ha_info(request):
         entities = await c.call("config/entity_registry/list")
         devices = await c.call("config/device_registry/list")
     device_area = {d["id"]: d.get("area_id") for d in devices}
+    known_areas = {a["area_id"] for a in areas}
     entity_area = {e["entity_id"]: e.get("area_id") or device_area.get(e.get("device_id")) for e in entities}
+    # leave out leftovers: entities from removed devices, and hidden, disabled or settings-only entities
+    skip = {e["entity_id"] for e in entities if e.get("hidden_by") or e.get("disabled_by") or e.get("entity_category")}
+    disabled_devices = {d["id"] for d in devices if d.get("disabled_by")}
+    skip |= {e["entity_id"] for e in entities if e.get("device_id") in disabled_devices}
+    states = [s for s in states if s["entity_id"] not in skip and not s.get("attributes", {}).get("restored")]
     return web.json_response({
         "entities": [{
             "entity_id": s["entity_id"],
             "name": s.get("attributes", {}).get("friendly_name") or s["entity_id"],
             "state": s.get("state"),
-            "area": entity_area.get(s["entity_id"]),
+            "area": entity_area.get(s["entity_id"]) if entity_area.get(s["entity_id"]) in known_areas else None,
         } for s in states],
         "areas": [{"id": a["area_id"], "name": a["name"]} for a in areas],
         "unit": (cfg.get("unit_system") or {}).get("temperature"),

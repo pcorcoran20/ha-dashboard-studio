@@ -114,6 +114,7 @@ In a Sections dashboard, make the card full width so the tiles have room.
 | `room_radius` | For the touchscreen layout: how round the room button is, from `0` (square corners) to `30` (fully round, the default). |
 | `icon_background` | `false` removes the circle behind the tile icons. Icons that are on glow, and icons that are off are dimmer. |
 | `animations` | `page`: `fade`, `slide` (the default), `zoom`, `flip`, `rise`, `blur`, `swing`, `bounce` or `off`. `tap`: `ripple` (the default), `press`, `sparkle`, `ring`, `glow` or `off`. `state`: `pop` (the default), `glow`, `bounce`, `flash`, `burst` or `off`. `calm: true` turns them all off. |
+| `vehicle` | The car tile. Leave it out and the card finds your car by itself. Set `false` to hide it, or give the same settings as the vehicle card, like `{name: Ruby, model: model_3, color: ultra_red, model_url: /local/tesla/model_3.glb}`. |
 | `touch_style` | For the touchscreen layout: `dark` (the default) or `theme` to follow your Home Assistant theme. |
 | `full_height` | `true` makes the card fill the screen. Good in a panel view. |
 | `weather_entity` | The weather shown in the touchscreen layout's bottom bar. Leave it out to use your first weather entity. |
@@ -189,6 +190,19 @@ entities:
   lock: lock.ruby_doors                # charge_limit, climate, inside, outside, frunk, trunk,
                                        # charge_port, sentry, shift, location
 ```
+
+### Your own picture, or a real 3D car
+
+- `image: /local/my-car.png` shows your own picture instead of the drawing. A side view on a plain or see-through background looks best.
+- `model_url: /local/tesla/model_y.glb` shows your car in 3D. The frunk, trunk and charge port open and close to match the car, and you can drag sideways to turn it. Set `model_angle` (in degrees) for the starting angle.
+
+To make the 3D file:
+
+1. Get [Tesla Model Extractor](https://github.com/koenhendriks/tesla-model-extractor) and the Android bundle of the Tesla app from a device you own. Its README shows how.
+2. Export your car as a GLB, for example with `tesla-model-extract unreal Tesla_4.60.5.apkm --models <your car> --paint "<your paint>"`.
+3. Put the `.glb` file in `/config/www/tesla/` in Home Assistant, then set `model_url: /local/tesla/<file>.glb`.
+
+The 3D car uses three.js, which the card loads from jsDelivr the first time it shows a 3D car. The file holds Tesla's own artwork, so keep it for yourself and don't share it.
 
 A button only shows up when the card finds its entity. Tap the car's name to open Home Assistant's more-info dialog.
 

@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '0.10.0';
+const STUDIO_VERSION = '0.11.0';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -52,11 +52,11 @@ const TYPE_ICON = {
 const CATS = [
   ['light', 'Lights', 'mdi:lightbulb-group'], ['shade', 'Shades', 'mdi:blinds'], ['climate', 'Comfort', 'mdi:thermostat'],
   ['media', 'Listen & Watch', 'mdi:play-circle'], ['security', 'Security', 'mdi:shield-home'], ['camera', 'Cameras', 'mdi:cctv'],
-  ['fan', 'Fans', 'mdi:fan'], ['switch', 'Outlets', 'mdi:power-socket-us']
+  ['fan', 'Fans', 'mdi:fan'], ['switch', 'Outlets', 'mdi:power-socket-us'], ['car', 'Car', 'mdi:car-electric']
 ];
 const catOf = t => (t === 'lock' || t === 'alarm') ? 'security' : t;
 /* touchscreen layout tiles, in screen order */
-const TOUCH = [['watch', 'Watch', 'mdi:television'], ['listen', 'Listen', 'mdi:speaker'], ['light', 'Lighting', 'mdi:lightbulb'], ['climate', 'Comfort', 'mdi:thermostat'],
+const TOUCH = [['watch', 'Watch', 'mdi:television'], ['listen', 'Listen', 'mdi:speaker'], ['light', 'Lighting', 'mdi:lightbulb'], ['climate', 'Comfort', 'mdi:thermostat'], ['car', 'Car', 'mdi:car-electric'],
   ['shade', 'Shades', 'mdi:blinds'], ['security', 'Security', 'mdi:shield-home'], ['camera', 'Cameras', 'mdi:cctv'], ['fan', 'Fans', 'mdi:fan'],
   ['switch', 'Outlets', 'mdi:power-socket-us'], ['quick', 'Shortcuts', 'mdi:gesture-tap-button']];
 const isTV = x => x.st?.attributes?.device_class === 'tv' || /(^|[._ ])(tv|roku|apple_?tv|shield|chromecast|fire_?tv|android_?tv|television)([._ ]|$)/i.test(`${x.entity} ${x.name}`);
@@ -154,7 +154,21 @@ class DashboardStudioHub extends HTMLElement {
     const old = this._hass;
     this._hass = hass;
     const filled = this._autoFill(hass);
-    if (filled || !old || this._watched().some(e => old.states[e] !== hass.states[e]) || old.themes !== hass.themes) this._schedule();
+    if (this._carCfg() && (!this._carE || old?.entities !== hass.entities)) this._carE = findVehicle(hass, this._carCfg());
+    const car = this._view === 'car' ? [] : Object.values(this._carE || {});
+    if (filled || !old || [...this._watched(), ...car].some(e => old.states[e] !== hass.states[e]) || old.themes !== hass.themes) this._schedule();
+    const v = this._root?.querySelector('dashboard-studio-vehicle'); if (v) v.hass = hass;
+  }
+
+  /* the car: found by itself unless vehicle is false. It shows on All rooms, and in a room that sounds like where it parks */
+  _carCfg() { const v = this._config?.vehicle; return v === false ? null : typeof v === 'object' ? v : typeof v === 'string' ? {vehicle: v} : {}; }
+  _hasCar() { return !!(this._carCfg() && this._carE?.battery); }
+  _carHere() { return this._hasCar() && (this._room < 0 || /garage|driveway|carport|car/i.test(this._config.rooms[this._room]?.name || '')); }
+  _carInfo() {
+    const st = id => id && this._hass.states[id], e = this._carE, bat = Math.round(parseFloat(st(e.battery)?.state));
+    const cs = st(e.charging)?.state?.toLowerCase(), chg = cs ? ['on', 'charging', 'true'].includes(cs) : st(e.charge_switch)?.state === 'on';
+    const lock = st(e.lock)?.state;
+    return {bat: isNaN(bat) ? null : bat, chg, text: [isNaN(bat) ? '' : `${bat}%`, chg ? 'Charging' : lock === 'locked' ? 'Locked' : lock === 'unlocked' ? 'Unlocked' : ''].filter(Boolean).join(' · ')};
   }
 
   _autoFill(hass) {
@@ -272,6 +286,7 @@ class DashboardStudioHub extends HTMLElement {
         return {text: parts.join(' · '), active: !!al && al.st?.state?.startsWith('armed') && !unlocked, warn: unlocked > 0 || al?.st?.state === 'triggered'};
       }
       case 'camera': return {text: `${L.length} live`, active: false};
+      case 'car': { const i = this._carInfo(); return {text: i.text, active: i.chg}; }
     }
     return {text: '', active: false};
   }
@@ -443,6 +458,9 @@ class DashboardStudioHub extends HTMLElement {
     else if (this._view === 'quick') {
       body = `<div class="head"><div><div class="title">Shortcuts</div></div></div><div class="quick">${this._quickButtons()}</div>`;
     }
+    else if (this._view === 'car' && this._hasCar()) {
+      body = `${c.layout === 'touchscreen' ? '' : '<div class="head"><button class="ibtn" data-a="back" aria-label="Back"><ha-icon icon="mdi:chevron-left"></ha-icon></button></div>'}<dashboard-studio-vehicle class="hub-car"></dashboard-studio-vehicle>`;
+    }
     else if (this._view && this._devices(this._view).length) {
       const cat = CATS.find(x => x[0] === this._view) || TOUCH.find(x => x[0] === this._view), L = this._devices(this._view);
       const all = {light: ['All on', 'All off'], fan: ['All on', 'All off'], switch: ['All on', 'All off'], shade: ['Open all', 'Close all'], security: ['Lock all', 'Unlock all']}[this._view];
@@ -457,7 +475,7 @@ class DashboardStudioHub extends HTMLElement {
       body = this._touchHome();
     } else {
       this._view = null;
-      const cats = CATS.filter(([k]) => this._devices(k).length);
+      const cats = CATS.filter(([k]) => k === 'car' ? this._carHere() : this._devices(k).length);
       const quick = (c.good_night !== false ? `<button class="gn" data-a="goodnight"><ha-icon icon="mdi:weather-night"></ha-icon><span><b>Good night</b><small>Lights off, lock up and settle in</small></span></button>` : '') +
         c.scenes.map(s => { const on = this._hass.states[s.entity]; return `<button class="scene" data-a="scene" data-e="${esc(s.entity)}" data-n="${esc(s.name || on?.attributes.friendly_name || s.entity)}"><ha-icon icon="${esc(s.icon || on?.attributes.icon || 'mdi:palette')}"></ha-icon>${esc(s.name || on?.attributes.friendly_name || s.entity)}</button>`; }).join('');
       body = `${quick ? `<div class="quick">${quick}</div>` : ''}
@@ -497,6 +515,8 @@ class DashboardStudioHub extends HTMLElement {
     }
     this._root.innerHTML = html;
     const card = this._root.querySelector('ha-card'), an = this._anim();
+    const veh = card.querySelector('dashboard-studio-vehicle');
+    if (veh) { veh.setConfig({...this._carCfg(), bare: true, calm: !!this._config.calm}); veh.hass = this._hass; }
     card.classList.toggle('tap-press', an.tap === 'press' && !this._still());
     const on = new Map();
     card.querySelectorAll('.ts-tile, .tile, .row, .scene').forEach(el => {
@@ -551,13 +571,15 @@ class DashboardStudioHub extends HTMLElement {
 
   _touchHome() {
     const c = this._config;
-    const tiles = TOUCH.filter(([k]) => k === 'quick' ? (c.scenes.length || c.good_night !== false) : this._devices(k).length).map(([k, label, icon]) => {
+    const tiles = TOUCH.filter(([k]) => k === 'quick' ? (c.scenes.length || c.good_night !== false) : k === 'car' ? this._carHere() : this._devices(k).length).map(([k, label, icon]) => {
       let s;
       if (k === 'quick') s = {text: c.scenes.length ? `${c.scenes.length} scene${c.scenes.length === 1 ? '' : 's'}` : 'Good night', active: false};
       else if (k === 'watch' || k === 'listen') { const p = this._devices(k).find(x => x.st?.state === 'playing'); s = {text: p ? `Playing · ${p.name}` : 'Off', active: !!p}; }
       else s = this._catStatus(k);
       const temps = k === 'climate' ? this._devices('climate').map(x => x.st?.attributes.current_temperature).filter(v => v != null) : [];
-      const ico = temps.length ? `<span class="ts-ring"><b>${Math.round(temps.reduce((a, v) => a + v, 0) / temps.length)}</b></span>` : `<span class="ts-ico"><ha-icon icon="${icon}"></ha-icon></span>`;
+      const ci = k === 'car' ? this._carInfo() : null;
+      if (ci) label = esc(this._carCfg().name || this._hass.states[this._carE.battery]?.attributes.friendly_name?.replace(/ battery( level)?$/i, '') || label);
+      const ico = ci && ci.bat != null ? `<span class="ts-ring${ci.chg ? ' chg' : ''}"><b>${ci.bat}</b></span>` : temps.length ? `<span class="ts-ring"><b>${Math.round(temps.reduce((a, v) => a + v, 0) / temps.length)}</b></span>` : `<span class="ts-ico"><ha-icon icon="${icon}"></ha-icon></span>`;
       return `<button class="ts-tile${s.active ? ' on' : ''}${s.warn ? ' warn' : ''}" data-a="cat" data-c="${k}">${ico}<span class="ts-l">${label}</span><span class="ts-s">${esc(s.text)}</span></button>`;
     }).join('');
     return this._nowPlaying() + (tiles ? `<div class="ts-tiles">${tiles}</div>` : '<p class="hint">No devices in this room yet.</p>');
@@ -636,6 +658,8 @@ ha-card.ts.noicobg .ts-tile.warn .ts-ico{background:none;color:#ff8a7a}
 
 const STYLE = `
 :host{display:block;position:relative}
+.hub-car{display:block;--primary-text-color:var(--s-text);--secondary-text-color:var(--s-muted)}
+.ts-ring.chg{border-color:#4ade80;box-shadow:0 0 16px rgba(74,222,128,.45)}
 .fxl{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:var(--ha-card-border-radius,12px);z-index:9}
 ha-card.tap-press :is(button,.row):active{transform:scale(.94);transition:transform .08s}
 ha-card.tap-press button{transition:transform .2s cubic-bezier(.3,1.6,.5,1)}
@@ -1214,15 +1238,18 @@ const CAR_SHAPES = {
   sedan: {body: 'M22 112 C20 100 28 92 46 89 L112 80 C138 62 168 50 206 49 C246 48 276 58 306 76 L352 83 C372 86 382 95 382 108 L382 116 C382 121 378 124 372 124 L30 124 C25 124 22 120 22 116 Z',
     glass: 'M126 80 C150 61 176 53 206 52 C240 51 266 60 296 77 Z', pillar: [212, 53, 79], belt: 'M48 94 C150 89 262 89 370 95',
     hood: 'M306 76 L352 83 C368 85 377 91 380 99', hoodAt: [306, 76], trunk: 'M112 80 L46 89 C34 91 27 96 24 103', trunkAt: [112, 80],
-    wheels: [[100, 122], [306, 122]], r: 24, head: 'M362 93 L381 100', tail: 'M23 103 L42 97', port: [38, 100], eye: [214, 62], air: [140, 56, 150, 22]},
+    wheels: [[100, 122], [306, 122]], r: 24, head: 'M362 93 L381 100', tail: 'M23 103 L42 97', port: [38, 100], eye: [214, 62], air: [140, 56, 150, 22],
+    mirror: 'M284 78 L296 71 L304 73 L302 79 Z', handles: [[168, 92], [252, 92]], rocker: [62, 344, 117]},
   suv: {body: 'M22 112 C20 98 30 89 48 86 L108 76 C134 52 168 39 210 38 C252 38 284 50 312 72 L354 80 C373 84 382 93 382 107 L382 116 C382 121 378 124 372 124 L30 124 C25 124 22 120 22 116 Z',
     glass: 'M128 76 C152 54 180 45 210 45 C244 45 270 55 296 72 Z', pillar: [214, 46, 75], belt: 'M48 91 C150 86 262 86 372 92',
     hood: 'M312 72 L354 80 C370 83 378 90 381 98', hoodAt: [312, 72], trunk: 'M108 76 L48 86 C36 88 28 93 25 100', trunkAt: [108, 76],
-    wheels: [[100, 122], [308, 122]], r: 25, head: 'M364 90 L381 97', tail: 'M24 99 L44 94', port: [38, 97], eye: [216, 51], air: [136, 46, 156, 26]},
+    wheels: [[100, 122], [308, 122]], r: 25, head: 'M364 90 L381 97', tail: 'M24 99 L44 94', port: [38, 97], eye: [216, 51], air: [136, 46, 156, 26],
+    mirror: 'M290 73 L302 66 L310 68 L308 74 Z', handles: [[170, 89], [256, 89]], rocker: [62, 345, 117]},
   cyber: {body: 'M20 108 L28 90 L204 34 L384 78 L386 110 L382 124 L24 124 Z',
     glass: 'M150 62 L204 43 L280 61 L274 70 L156 71 Z', pillar: [214, 46, 71], belt: 'M30 96 L382 92',
     hood: 'M280 61 L384 78', hoodAt: [280, 61], trunk: 'M120 61 L28 90', trunkAt: [120, 61],
-    wheels: [[96, 121], [314, 121]], r: 25, head: 'M372 80 L386 82', tail: 'M22 96 L40 92', port: [34, 98], eye: [216, 50], air: [156, 46, 120, 24]}
+    wheels: [[96, 121], [314, 121]], r: 25, head: 'M372 80 L386 82', tail: 'M22 96 L40 92', port: [34, 98], eye: [216, 50], air: [156, 46, 120, 24],
+    mirror: 'M272 66 L284 60 L290 62 L288 68 Z', handles: [[176, 86], [258, 86]], rocker: [60, 350, 116]}
 };
 const CAR_MODELS = {model_3: 'sedan', model_s: 'sedan', model_y: 'suv', model_x: 'suv', cybertruck: 'cyber', sedan: 'sedan', suv: 'suv', truck: 'cyber'};
 const CAR_PAINT = {pearl_white: '#eef0f2', solid_black: '#141518', midnight_silver: '#3e4247', stealth_grey: '#5b5f64', quicksilver: '#b9bdc3', deep_blue: '#1f3b70', ultra_red: '#a5121d', stainless: '#a7abb0'};
@@ -1233,9 +1260,11 @@ const carMix = (hex, to, t) => {
 };
 function carSVG(o, uid) {
   const s = CAR_SHAPES[CAR_MODELS[o.model] || o.model] || CAR_SHAPES.suv, c = o.color || '#d9dce1', id = 'car' + uid;
-  const wheel = ([x, y]) => `<circle cx="${x}" cy="${y}" r="${s.r + 5}" fill="#07080a"/><circle cx="${x}" cy="${y}" r="${s.r}" fill="#17181c"/><circle cx="${x}" cy="${y}" r="${(s.r * .64).toFixed(1)}" fill="url(#${id}rim)"/>`
-    + [0, 72, 144, 216, 288].map(a => { const t = a * Math.PI / 180, L = s.r * .56; return `<line x1="${x}" y1="${y}" x2="${(x + Math.cos(t) * L).toFixed(1)}" y2="${(y + Math.sin(t) * L).toFixed(1)}" stroke="#3c4046" stroke-width="3.2" stroke-linecap="round"/>`; }).join('')
-    + `<circle cx="${x}" cy="${y}" r="3.5" fill="#9aa0a8"/>`;
+  /* aero style wheels: a tire, a metallic cover with five curved vents, and a center cap */
+  const wheel = ([x, y]) => `<circle cx="${x}" cy="${y}" r="${s.r + 5}" fill="#07080a"/><circle cx="${x}" cy="${y}" r="${s.r}" fill="#141518"/>`
+    + `<circle cx="${x}" cy="${y}" r="${(s.r * .72).toFixed(1)}" fill="url(#${id}rim)" stroke="#2b2e33" stroke-width="1"/>`
+    + [0, 72, 144, 216, 288].map(a => `<ellipse cx="${x}" cy="${(y - s.r * .4).toFixed(1)}" rx="${(s.r * .17).toFixed(1)}" ry="${(s.r * .1).toFixed(1)}" fill="#1a1c20" transform="rotate(${a + 18} ${x} ${y})"/>`).join('')
+    + `<circle cx="${x}" cy="${y}" r="${(s.r * .16).toFixed(1)}" fill="#24262b" stroke="#8d939b" stroke-width=".8"/><circle cx="${x - s.r * .25}" cy="${y - s.r * .3}" r="${(s.r * .5).toFixed(1)}" fill="#fff" opacity=".06"/>`;
   const [ax, ay, aw, ah] = s.air, airC = o.climate === 'heat' ? '#ff9a5c' : '#7cc8ff';
   const waves = [0, 1, 2].map(i => { const y = ay + ah * (.35 + i * .25); let d = `M${ax} ${y.toFixed(1)}`; for (let x = 0; x < aw; x += 24) d += ' q 6 -5 12 0 t 12 0'; return `<path class="car-air" d="${d}" stroke="${airC}" style="animation-delay:${i * .5}s"/>`; }).join('');
   const [px, py] = s.port;
@@ -1245,24 +1274,129 @@ function carSVG(o, uid) {
   return `<svg class="${cls}" viewBox="0 0 400 154" role="img" aria-label="${o.label || 'Car'}">
     <defs><linearGradient id="${id}b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${carMix(c, '#ffffff', .3)}"/><stop offset=".45" stop-color="${carMix(c, '#ffffff', 0)}"/><stop offset="1" stop-color="${carMix(c, '#000000', .42)}"/></linearGradient>
       <linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2e3946"/><stop offset=".55" stop-color="#0e1218"/><stop offset="1" stop-color="#1b232d"/></linearGradient>
-      <radialGradient id="${id}rim"><stop offset="0" stop-color="#6b7078"/><stop offset="1" stop-color="#2a2d32"/></radialGradient>
+      <radialGradient id="${id}rim" cx=".4" cy=".35"><stop offset="0" stop-color="#d4d8dd"/><stop offset=".6" stop-color="#8c9199"/><stop offset="1" stop-color="#4b4f56"/></radialGradient>
+      <linearGradient id="${id}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".32" stop-color="#fff" stop-opacity=".16"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset=".82" stop-color="#fff" stop-opacity=".1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
       <clipPath id="${id}c"><path d="${s.glass}"/></clipPath></defs>
     <ellipse cx="200" cy="146" rx="186" ry="7" fill="#000" opacity=".38"/>
     ${cable}
     <path d="${s.body}" fill="url(#${id}b)"/>
+    <path d="${s.body}" fill="url(#${id}s)"/>
+    <path d="M${s.rocker[0]} ${s.rocker[2]} L${s.rocker[1]} ${s.rocker[2]} L${s.rocker[1] - 4} 124 L${s.rocker[0] + 4} 124 Z" fill="#000" opacity=".28"/>
     <path d="${s.belt}" stroke="#fff" stroke-opacity=".22" stroke-width="1.4" fill="none"/>
-    <path d="${s.glass}" fill="url(#${id}g)"/>
+    <path d="${s.glass}" fill="url(#${id}g)" stroke="#0a0c10" stroke-width="2.2" stroke-linejoin="round"/>
+    <path d="${s.mirror}" fill="${carMix(c, '#000000', .2)}" stroke="#0a0c10" stroke-width="1"/>
+    ${s.handles.map(([x, y]) => `<rect x="${x}" y="${y}" width="18" height="2.6" rx="1.3" fill="#000" opacity=".3"/><rect x="${x}" y="${y - .6}" width="18" height="1.2" rx=".6" fill="#fff" opacity=".35"/>`).join('')}
     <g clip-path="url(#${id}c)" fill="none" stroke-width="2" stroke-linecap="round">${waves}<path d="${s.glass}" fill="#fff" opacity=".06" transform="translate(-30 -6)"/></g>
     <line x1="${s.pillar[0]}" y1="${s.pillar[1]}" x2="${s.pillar[0]}" y2="${s.pillar[2]}" stroke="${carMix(c, '#000000', .5)}" stroke-width="5"/>
     <line x1="${s.pillar[0]}" y1="${s.pillar[2]}" x2="${s.pillar[0] - 4}" y2="118" stroke="#000" stroke-opacity=".25" stroke-width="1.2"/>
     ${o.frunk ? `<path d="${s.hood}" stroke="#000" stroke-opacity=".55" stroke-width="3" fill="none"/>` : ''}${o.trunk ? `<path d="${s.trunk}" stroke="#000" stroke-opacity=".55" stroke-width="3" fill="none"/>` : ''}
     <path class="car-lid hood${o.frunk ? ' open' : ''}" d="${s.hood}" style="transform-origin:${s.hoodAt[0]}px ${s.hoodAt[1]}px" stroke="${carMix(c, '#ffffff', .35)}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
     <path class="car-lid trunk${o.trunk ? ' open' : ''}" d="${s.trunk}" style="transform-origin:${s.trunkAt[0]}px ${s.trunkAt[1]}px" stroke="${carMix(c, '#ffffff', .35)}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-    <path class="car-head" d="${s.head}" stroke-width="3" stroke-linecap="round"/><path class="car-tail" d="${s.tail}" stroke-width="3" stroke-linecap="round"/>
+    <path d="${s.head}" stroke="#0a0c10" stroke-width="6" stroke-linecap="round"/><path class="car-head" d="${s.head}" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="${s.tail}" stroke="#2a0507" stroke-width="6" stroke-linecap="round"/><path class="car-tail" d="${s.tail}" stroke-width="2.6" stroke-linecap="round"/>
     <circle class="car-port${o.port || o.charging ? ' open' : ''}" cx="${px}" cy="${py}" r="3.6"/>
     <circle class="car-eye" cx="${s.eye[0]}" cy="${s.eye[1]}" r="3.4"/>
     ${s.wheels.map(wheel).join('')}
   </svg>`;
+}
+
+/* the car: your own picture if you set one, otherwise the drawing. Charging, sentry and climate show on both */
+function carVisual(o, uid) {
+  if (!o.image) return carSVG(o, uid);
+  const cls = ['car-photo', o.charging && 'charging', o.sentry && 'sentry', o.climate && 'climate ' + o.climate].filter(Boolean).join(' ');
+  return `<div class="${cls}"><img src="${String(o.image).replace(/"/g, '&quot;')}" alt="${o.label || 'Car'}"><i class="cp-glow"></i><i class="cp-eye"></i><i class="cp-air"></i></div>`;
+}
+/* real 3D cars: a GLB file you made yourself from your own copy of the Tesla app with Tesla Model Extractor.
+   three.js loads only when a card uses a 3D model. Closures follow the car: time 0 is closed, the end of a clip is open */
+const THREE_CDN = 'https://cdn.jsdelivr.net/npm/three@0.169.0';
+let threeLoad;
+const loadThree = () => threeLoad = threeLoad || Promise.all([
+  import(`${THREE_CDN}/+esm`), import(`${THREE_CDN}/examples/jsm/loaders/GLTFLoader.js/+esm`), import(`${THREE_CDN}/examples/jsm/environments/RoomEnvironment.js/+esm`)
+]).then(([T, G, E]) => ({T, GLTFLoader: G.GLTFLoader, RoomEnvironment: E.RoomEnvironment}));
+const glbFiles = new Map();
+const CAR_CLIPS = {frunk: /hood|frunk/i, trunk: /trunk|liftgate|tailgate|tonneau/i, charge_port: /charge.?port/i, windows: /window/i};
+
+class Car3D {
+  constructor(url, angle) {
+    this.url = url; this.state = {}; this.actions = {}; this.yaw = (angle ?? 35) * Math.PI / 180; this.pitch = .16;
+    this.el = document.createElement('div'); this.el.className = 'v3d-stage';
+    this.ready = this._init().catch(err => { this.error = err; throw err; });
+  }
+
+  async _init() {
+    const {T, GLTFLoader, RoomEnvironment} = await loadThree();
+    if (!glbFiles.has(this.url)) glbFiles.set(this.url, new Promise((ok, bad) => new GLTFLoader().load(this.url, ok, undefined, bad)));
+    let gltf;
+    try { gltf = await glbFiles.get(this.url); } catch (err) { glbFiles.delete(this.url); throw err; }
+    this.T = T;
+    const r = this.renderer = new T.WebGLRenderer({antialias: true, alpha: true});
+    r.setPixelRatio(Math.min(2, devicePixelRatio || 1)); r.outputColorSpace = T.SRGBColorSpace; r.toneMapping = T.ACESFilmicToneMapping; r.toneMappingExposure = 1.05;
+    this.el.append(r.domElement);
+    const scene = this.scene = new T.Scene(), pm = new T.PMREMGenerator(r);
+    scene.environment = pm.fromScene(new RoomEnvironment(), .04).texture;
+    const model = gltf.scene.clone(true), box = new T.Box3().setFromObject(model), size = box.getSize(new T.Vector3()), mid = box.getCenter(new T.Vector3());
+    model.position.set(-mid.x, -box.min.y, -mid.z);
+    const stage = new T.Group(); stage.add(model); scene.add(stage);
+    /* a soft shadow under the car */
+    const sc = document.createElement('canvas'); sc.width = sc.height = 128; const g = sc.getContext('2d'), rg = g.createRadialGradient(64, 64, 4, 64, 64, 64);
+    rg.addColorStop(0, 'rgba(0,0,0,.55)'); rg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = rg; g.fillRect(0, 0, 128, 128);
+    const sh = new T.Mesh(new T.PlaneGeometry(size.x * 1.25, size.z * 1.25), new T.MeshBasicMaterial({map: new T.CanvasTexture(sc), transparent: true, depthWrite: false}));
+    sh.rotation.x = -Math.PI / 2; sh.position.y = .002; scene.add(sh);
+    const len = Math.max(size.x, size.z);
+    this.dist = len * 1.85; this.target = new T.Vector3(0, size.y * .42, 0);
+    this.cam = new T.PerspectiveCamera(26, 2, len / 200, len * 30);
+    this.mixer = new T.AnimationMixer(model); this.clock = new T.Clock();
+    Object.entries(CAR_CLIPS).forEach(([k, re]) => {
+      const clip = gltf.animations.find(a => re.test(a.name)); if (!clip) return;
+      const a = this.mixer.clipAction(clip); a.setLoop(T.LoopOnce, 1); a.clampWhenFinished = true; a.play(); a.paused = true;
+      a.time = this.state[k] ? clip.duration : 0; this.actions[k] = a;
+    });
+    this.mixer.update(0);
+    /* drag sideways to turn the car */
+    let px = null;
+    this.el.addEventListener('pointerdown', e => { px = e.clientX; this.el.setPointerCapture(e.pointerId); this.dragging = true; this._kick(); });
+    this.el.addEventListener('pointermove', e => { if (px == null) return; this.yaw -= (e.clientX - px) * .01; px = e.clientX; this._kick(); });
+    const up = () => { px = null; this.dragging = false; };
+    this.el.addEventListener('pointerup', up); this.el.addEventListener('pointercancel', up);
+    this.ro = new ResizeObserver(() => this._size()); this.ro.observe(this.el);
+    this._size();
+  }
+
+  _size() {
+    if (!this.renderer) return;
+    const w = this.el.clientWidth || 300, h = this.el.clientHeight || 200;
+    this.renderer.setSize(w, h, false); this.cam.aspect = w / h; this.cam.updateProjectionMatrix(); this._kick();
+  }
+
+  /* open or close the frunk, trunk, charge port and windows to match the car */
+  set(state, animate = true) {
+    Object.entries(this.actions).forEach(([k, a]) => {
+      const open = !!state[k]; if (open === !!this.state[k] && a.time !== undefined) return;
+      const end = a.getClip().duration;
+      if (!animate) { a.paused = true; a.time = open ? end : 0; return; }
+      a.enabled = true; a.paused = false; a.timeScale = open ? 1 : -1;
+      if (open && a.time >= end) a.time = 0;
+      if (!open && a.time <= 0) a.time = end;
+    });
+    this.state = {...state};
+    if (this.mixer && !animate) this.mixer.update(0);
+    this._kick();
+  }
+
+  _kick() { if (!this._raf && this.renderer) this._raf = requestAnimationFrame(() => this._frame()); }
+
+  _frame() {
+    this._raf = 0;
+    const dt = Math.min(.05, this.clock.getDelta());
+    this.mixer.update(dt);
+    const c = Math.cos(this.pitch);
+    this.cam.position.set(this.target.x + Math.sin(this.yaw) * c * this.dist, this.target.y + Math.sin(this.pitch) * this.dist, this.target.z + Math.cos(this.yaw) * c * this.dist);
+    this.cam.lookAt(this.target);
+    this.renderer.render(this.scene, this.cam);
+    if (this.dragging || Object.values(this.actions).some(a => !a.paused && a.isRunning())) this._kick();
+  }
+
+  dispose() { cancelAnimationFrame(this._raf); this.ro?.disconnect(); this.renderer?.dispose(); this.renderer?.forceContextLoss(); this.el.remove(); }
 }
 const CAR_STYLE = `
 .car{width:100%;height:auto;display:block;overflow:visible}
@@ -1285,7 +1419,23 @@ const CAR_STYLE = `
 @keyframes carFlow{to{stroke-dashoffset:28}}
 @keyframes carAir{0%{opacity:0;transform:translateY(6px)}40%{opacity:.85}100%{opacity:0;transform:translateY(-10px)}}
 @keyframes carEye{50%{opacity:1}}
-@media (prefers-reduced-motion: reduce){.car *{animation:none!important;transition:none!important}}
+.car-photo{position:relative}
+.car-photo img{display:block;width:100%;max-height:230px;object-fit:contain;position:relative;z-index:1}
+.car-photo i{position:absolute;pointer-events:none;opacity:0}
+.car-photo .cp-glow{left:12%;right:12%;bottom:2%;height:16px;border-radius:50%;background:#4ade80;filter:blur(14px)}
+.car-photo.charging .cp-glow{opacity:.75;animation:carPulse 1.6s ease-in-out infinite}
+.car-photo .cp-eye{z-index:2;top:10%;left:50%;width:9px;height:9px;margin-left:-4px;border-radius:50%;background:#ff3b3b;box-shadow:0 0 10px #ff3b3b}
+.car-photo.sentry .cp-eye{animation:carEye 1.6s ease-in-out infinite}
+.car-photo .cp-air{left:25%;right:25%;top:0;height:55%;border-radius:50%;background:radial-gradient(closest-side,#7cc8ff,transparent);filter:blur(18px)}
+.car-photo.climate.heat .cp-air{background:radial-gradient(closest-side,#ff9a5c,transparent)}
+.car-photo.climate .cp-air{animation:cpAir 3s ease-in-out infinite}
+@keyframes cpAir{50%{opacity:.4}}
+@media (prefers-reduced-motion: reduce){.car *,.car-photo *{animation:none!important;transition:none!important}}
+.v3d{min-height:180px}
+.v3d-stage{position:relative;z-index:1;height:clamp(180px,28vw,260px);cursor:grab;touch-action:pan-y}
+.v3d-stage:active{cursor:grabbing}
+.v3d-stage canvas{display:block;width:100%;height:100%}
+.v3d-wait{display:grid;place-items:center;height:200px;font-size:13px;opacity:.6}
 `;
 
 /*
@@ -1298,6 +1448,8 @@ const CAR_STYLE = `
  *   model: model_y            # model_3, model_s, model_x, model_y or cybertruck
  *   color: pearl_white        # a paint name, or any color like '#a5121d'
  *   vehicle: my_model_y       # optional: the car's name in its entity IDs
+ *   image: /local/my-car.png  # optional: your own picture instead of the drawing
+ *   model_url: /local/tesla/model_y.glb   # optional: a real 3D car you made with Tesla Model Extractor
  *   entities:                 # optional: set any of these by hand
  *     battery: sensor.my_model_y_battery_level
  */
@@ -1352,6 +1504,10 @@ class DashboardStudioVehicle extends HTMLElement {
   static getConfigElement() { return document.createElement('dashboard-studio-vehicle-editor'); }
 
   setConfig(config) { this._config = {model: 'model_y', color: 'pearl_white', ...config}; this._e = null; this._render(); }
+
+  connectedCallback() { clearTimeout(this._drop); }
+  /* free the 3D view when the card goes away for good */
+  disconnectedCallback() { clearTimeout(this._drop); this._drop = setTimeout(() => { this._3d?.dispose(); this._3d = null; }, 1500); }
 
   set hass(hass) {
     const old = this._hass; this._hass = hass;
@@ -1416,7 +1572,10 @@ class DashboardStudioVehicle extends HTMLElement {
     const inT = this._n('inside') ?? clim?.attributes.current_temperature, outT = this._n('outside');
     const heat = climOn && (clim.state === 'heat' || clim.attributes.hvac_action === 'heating' || (inT != null && clim.attributes.temperature > inT));
     const open = k => this._s(k)?.state === 'open';
-    const car = carSVG({model: c.model, color: c.color, charging: chg, climate: climOn ? (heat ? 'heat' : 'cool') : '', sentry: this._s('sentry')?.state === 'on',
+    const url = c.model_url || c.glb, use3d = url && !(this._3d?.url === url && this._3d.error);
+    const flags = [chg && 'charging', this._s('sentry')?.state === 'on' && 'sentry', climOn && 'climate ' + (heat ? 'heat' : 'cool')].filter(Boolean).join(' ');
+    const car = use3d ? `<div class="car-photo v3d ${flags}" data-v3d>${this._3d?.renderer ? '' : '<div class="v3d-wait">Loading your 3D car…</div>'}<i class="cp-glow"></i><i class="cp-eye"></i><i class="cp-air"></i></div>`
+      : (url ? '<p class="hint v-3derr">Couldn’t load the 3D car, so here is the drawing. Check the model_url.</p>' : '') + carVisual({image: c.image, model: c.model, color: c.color, charging: chg, climate: climOn ? (heat ? 'heat' : 'cool') : '', sentry: this._s('sentry')?.state === 'on',
       lights: lockS === 'unlocked' || climOn, frunk: open('frunk'), trunk: open('trunk'), port: open('charge_port'), label: c.name || 'Car'}, this._uid);
     const name = c.name || h.states[this._e.battery]?.attributes.friendly_name?.replace(/ battery( level)?$/i, '') || (c.vehicle ? cap(c.vehicle) : 'My car');
     const pw = this._n('charge_power'), left = this._timeLeft();
@@ -1432,7 +1591,7 @@ class DashboardStudioVehicle extends HTMLElement {
     ].join('');
     const u = h.config?.unit_system?.temperature || '°', temp = v => v == null ? '' : `${Math.round(v)}${u.replace(/[CF]$/, '')}`;
     const info = [inT != null ? `Inside ${temp(inT)}` : '', outT != null ? `Outside ${temp(outT)}` : ''].filter(Boolean).join(' · ');
-    this.shadowRoot.innerHTML = `<style>${VEH_STYLE}${CAR_STYLE}</style><ha-card class="${c.calm ? 'calm' : ''}">
+    this.shadowRoot.innerHTML = `<style>${VEH_STYLE}${CAR_STYLE}</style><ha-card class="${[c.calm ? 'calm' : '', c.bare ? 'bare' : ''].filter(Boolean).join(' ')}">
       <div class="v-top"><button class="v-name" data-a="more"><b>${esc(name)}</b><span>${esc(this._status())}</span></button>
         ${bat != null ? `<div class="v-bat${chg ? ' chg' : ''}"><b>${Math.round(bat)}</b>%${chg ? '<ha-icon icon="mdi:lightning-bolt"></ha-icon>' : ''}</div>` : ''}</div>
       <div class="v-car">${car}</div>
@@ -1441,6 +1600,16 @@ class DashboardStudioVehicle extends HTMLElement {
       ${ctl ? `<div class="v-ctl">${ctl}</div>` : ''}
       ${info ? `<div class="v-info">${esc(info)}</div>` : ''}
       ${this._msg ? `<div class="v-msg" role="status">${esc(this._msg)}</div>` : ''}</ha-card>`;
+    const slot = use3d && this.shadowRoot.querySelector('[data-v3d]');
+    if (slot) {
+      if (!this._3d || this._3d.url !== url) {
+        this._3d?.dispose(); this._3d = new Car3D(url, c.model_angle); this._3dLive = false;
+        this._3d.ready.then(() => this._render(), err => { console.warn('Dashboard Studio: could not load', url, err); this._render(); });
+      }
+      slot.prepend(this._3d.el);
+      this._3d.set({frunk: open('frunk'), trunk: open('trunk'), charge_port: open('charge_port') || chg, windows: open('windows')}, this._3dLive);
+      if (this._3d.renderer) this._3dLive = true;
+    }
   }
 }
 
@@ -1475,6 +1644,8 @@ button{font:inherit;color:inherit;cursor:pointer}
 .v-msg{position:absolute;left:12px;right:12px;bottom:12px;background:#b3261e;color:#fff;border-radius:10px;padding:8px 12px;font-size:13px}
 @keyframes vShine{to{background-position:-200% 0}}
 ha-card.calm *{animation:none!important;transition:none!important}
+ha-card.bare{background:none;box-shadow:none;border:none;padding:4px 0 0}
+.v-3derr{font-size:12px}
 `;
 
 /* visual editor for the vehicle card */
@@ -1487,10 +1658,10 @@ class DashboardStudioVehicleEditor extends HTMLElement {
     if (!this._form) {
       this.innerHTML = '<p style="margin:0 0 12px;color:var(--secondary-text-color)">The card finds your car by itself. Fill in the car name only if you have more than one car.</p>';
       const f = this._form = document.createElement('ha-form');
-      const L = {name: 'Name', model: 'Model', color: 'Paint', vehicle: "Car name in its entity IDs (like my_model_y)", calm: 'Turn off animations'};
+      const L = {name: 'Name', model: 'Model', color: 'Paint', vehicle: "Car name in its entity IDs (like my_model_y)", image: 'Car picture (optional, a link like /local/my-car.png)', model_url: '3D car from Tesla Model Extractor (optional, like /local/tesla/model_y.glb)', calm: 'Turn off animations'};
       f.computeLabel = s => L[s.name] || s.name;
       f.schema = [{name: 'name', selector: {text: {}}}, {name: 'model', selector: opt(['model_3', 'Model 3'], ['model_y', 'Model Y'], ['model_s', 'Model S'], ['model_x', 'Model X'], ['cybertruck', 'Cybertruck'])},
-        {name: 'color', selector: opt(...Object.keys(CAR_PAINT).map(k => [k, cap(k)]))}, {name: 'vehicle', selector: {text: {}}}, {name: 'calm', selector: {boolean: {}}}];
+        {name: 'color', selector: opt(...Object.keys(CAR_PAINT).map(k => [k, cap(k)]))}, {name: 'vehicle', selector: {text: {}}}, {name: 'image', selector: {text: {}}}, {name: 'model_url', selector: {text: {}}}, {name: 'calm', selector: {boolean: {}}}];
       f.addEventListener('value-changed', e => {
         const next = {...e.detail.value}; Object.keys(next).forEach(k => { if (next[k] === '' || next[k] == null) delete next[k]; });
         this._config = next; this.dispatchEvent(new CustomEvent('config-changed', {detail: {config: next}, bubbles: true, composed: true}));
