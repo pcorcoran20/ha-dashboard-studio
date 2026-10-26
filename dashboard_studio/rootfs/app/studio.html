@@ -514,7 +514,10 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .dash.calm .ds-f{transition:none}
 
 /* touchscreen hub */
-.card:has(> .ts){padding:0; background:transparent; border-color:transparent; box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none}
+.dash[data-fun="pride"] .card:has(> .ts):not(.w-header):not(.bare){background:none; border-color:transparent}
+.dash[data-fun="pride"] .card:has(> .ts):not(.bare)::before{content:""; position:absolute; inset:calc(-1 * max(2px, var(--d-bw,1px))); padding:max(2px, var(--d-bw,1px)); border-radius:inherit; background:var(--d-flag); pointer-events:none;
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask:linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0)}
+.dgrid .card:has(> .ts){padding:0; background:transparent; border-color:transparent; box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none}
 .ts{--t-bg:linear-gradient(180deg, color-mix(in srgb, #46494e var(--t-op,100%), transparent) 0%, color-mix(in srgb, #2c2e32 var(--t-op,100%), transparent) 55%, color-mix(in srgb, #1d1e21 var(--t-op,100%), transparent) 100%); --t-ink:#1d1e21; --t-fg:#f5f5f5; --t-muted:rgba(255,255,255,.72); --t-line:rgba(255,255,255,.08); --t-bar:transparent; --t-tile:rgba(255,255,255,.06); --t-menu:#2b2d31;
   position:relative; display:flex; flex-direction:column; min-height:440px; border-radius:var(--d-radius); overflow:hidden; background:var(--t-bg); color:var(--t-fg); box-shadow:0 14px 40px rgba(0,0,0,.35); font-family:var(--d-font)}
 .ts.ts-theme .ts-l, .ts.ts-theme .ts-room, .ts.ts-theme .ts-src b{text-shadow:0 1px 2px color-mix(in srgb, var(--d-base) 60%, transparent)}
@@ -551,7 +554,7 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .ts-tr button.big{width:46px; height:46px; background:color-mix(in srgb, var(--t-fg) 12%, transparent)}
 .ts-tr button:hover{background:color-mix(in srgb, var(--t-fg) 14%, transparent)}
 .ts-pw{align-self:end; width:40px; height:40px; border-radius:50%; border:1px solid var(--t-line); background:none; display:grid; place-items:center}
-.ts-tiles{display:grid; grid-template-columns:repeat(auto-fill, minmax(118px, 1fr)); gap:10px}
+.ts-tiles{display:grid; grid-template-columns:repeat(auto-fill, minmax(118px, 1fr)); grid-auto-rows:calc(136px * var(--d-fs,1)); gap:10px}
 .ts-tile{aspect-ratio:1.1; border:1px solid var(--t-line); background:var(--t-tile); border-radius:calc(var(--d-radius) * .8 + 6px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:12px; min-width:0; transition:transform .15s ease, background .2s}
 .ts-tile:hover{background:color-mix(in srgb, var(--t-fg) 11%, transparent); transform:translateY(-2px)}
 .ts-ico{width:54px; height:54px; border-radius:50%; display:grid; place-items:center; background:color-mix(in srgb, var(--t-fg) 12%, transparent); box-shadow:inset 0 1px 0 rgba(255,255,255,.14)}
@@ -561,14 +564,16 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .ts.ic-warm{--t-on:#ffc94d; --t-on-ink:#3a2a00}
 .ts-tile.on .ts-ico{background:var(--t-on); color:var(--t-on-ink); box-shadow:0 0 20px color-mix(in srgb, var(--t-on) 32%, transparent)}
 .ts-tile.warn .ts-ico{background:#ff8a7a; color:#3a0c05}
-.ts.clear{box-shadow:none; border:0; -webkit-backdrop-filter:none; backdrop-filter:none; --t-tile:rgba(22,24,28,.46); --t-line:rgba(255,255,255,.13); text-shadow:0 1px 3px rgba(0,0,0,.55)}
-.ts.ts-theme.clear{--t-tile:color-mix(in srgb, var(--d-base) 62%, transparent); --t-line:color-mix(in srgb, var(--d-text) 12%, transparent); text-shadow:0 1px 2px color-mix(in srgb, var(--d-base) 70%, transparent)}
+.ts.clear{box-shadow:none; border:0; -webkit-backdrop-filter:none; backdrop-filter:none; --t-tile:rgba(255,255,255,.08); --t-line:rgba(255,255,255,.16); text-shadow:0 1px 3px rgba(0,0,0,.55)}
+.ts.ts-theme.clear{--t-tile:color-mix(in srgb, var(--d-base) 30%, transparent); --t-line:color-mix(in srgb, var(--d-text) 12%, transparent); text-shadow:0 1px 2px color-mix(in srgb, var(--d-base) 70%, transparent)}
 .ts.clear :is(.ts-tile, .ts-np, .ts-room){background:var(--t-tile); border:1px solid var(--t-line); -webkit-backdrop-filter:blur(16px) saturate(1.4); backdrop-filter:blur(16px) saturate(1.4)}
 .ts.clear :is(.ts-tile, .ts-room):hover{background:color-mix(in srgb, var(--t-tile) 80%, var(--t-fg) 12%)}
 .ts.clear .ts-menu{text-shadow:none}
 .ts-ring{width:54px; height:54px; border-radius:50%; display:grid; place-items:center; border:3px solid var(--d-accent); background:color-mix(in srgb, #000 35%, transparent); color:#fff; box-shadow:0 0 16px color-mix(in srgb, var(--d-accent) 35%, transparent)}
 .ts-ring b{font-family:var(--d-display); font-size:calc(19px * var(--d-fs,1)); font-weight:600}
-.ts-l{font-size:calc(14.5px * var(--d-fs,1)); font-weight:600}
+.ts-l{font-size:calc(14.5px * var(--d-fs,1)); font-weight:600; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ts-tile{aspect-ratio:auto; height:100%; min-height:0; overflow:hidden; line-height:1.3}
+.ts-ring{box-sizing:border-box}
 .ts-s{font-size:calc(12px * var(--d-fs,1)); color:var(--t-muted); max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .ts-quick{display:flex; flex-wrap:wrap; gap:8px}
 .ts-bottom{display:flex; justify-content:space-between; align-items:center; padding:12px 20px 14px; background:var(--t-bar); font-size:calc(16px * var(--d-fs,1)); font-weight:500; font-variant-numeric:tabular-nums}
@@ -2923,7 +2928,7 @@ function hubTilesHTML(b, ri, rooms, chips){
 }
 /* touchscreen layout: room name at the top center opens the room list; now playing; a grid of big tiles; clock and weather below */
 const TOUCH_TILES = [['watch','Watch','tv'], ['listen','Listen','music'], ['light','Lighting','bulb'], ['climate','Comfort','thermo'], ['shade','Shades','blinds'],
-  ['lock','Security','shield'], ['camera','Cameras','cam'], ['fan','Fans','fan'], ['switch','Outlets','plug'], ['quick','Quick buttons','tiles']];
+  ['lock','Security','shield'], ['camera','Cameras','cam'], ['fan','Fans','fan'], ['switch','Outlets','plug'], ['quick','Shortcuts','tiles']];
 const isTVd = d => /(^|[._ ])(tv|roku|apple_?tv|shield|chromecast|fire_?tv|android_?tv|television)([._ ]|$)/i.test(`${d.entity || ''} ${d.name || ''}`);
 const touchMenu = new Set();
 function touchNowPlaying(b){
@@ -2943,7 +2948,7 @@ function hubTouch(b, ri, rooms){
   const menu = open ? `<button class="ts-scrim" data-act="ts-menu" aria-label="Close the room list"></button><div class="ts-menu" role="listbox" aria-label="Rooms">${[[-1, 'All rooms'], ...rooms.map((r, i) => [i, r.name])].map(([i, n]) => `<button class="${i === ri ? 'on' : ''}" role="option" aria-selected="${i === ri}" data-act="ts-pick" data-r="${i}">${esc(n)}</button>`).join('')}</div>` : '';
   let body;
   if (b.view === 'quick') {
-    body = `<div class="hub-head"><div class="hub-title">Quick buttons</div></div><div class="ts-quick"><button class="hub-gn" data-act="hub-gn">${ic('moon')}<span><b>Good night</b><small>${esc(gnSummary(b))}</small></span></button>
+    body = `<div class="hub-head"><div class="hub-title">Shortcuts</div></div><div class="ts-quick"><button class="hub-gn" data-act="hub-gn">${ic('moon')}<span><b>Good night</b><small>${esc(gnSummary(b))}</small></span></button>
       ${(b.scenes || []).map(s => `<button class="hub-scene${b.activeScene === s.id ? ' on' : ''}" data-act="hub-scene" data-s="${esc(s.id)}">${ic('sparkle')}${esc(s.name)}</button>`).join('')}</div>`;
   } else if (b.view && hubDevices(b, b.view).length) body = hubDetailHTML(b, ri, rooms);
   else {

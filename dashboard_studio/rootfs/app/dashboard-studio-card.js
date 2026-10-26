@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '0.8.0';
+const STUDIO_VERSION = '0.8.1';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -58,7 +58,7 @@ const catOf = t => (t === 'lock' || t === 'alarm') ? 'security' : t;
 /* touchscreen layout tiles, in screen order */
 const TOUCH = [['watch', 'Watch', 'mdi:television'], ['listen', 'Listen', 'mdi:speaker'], ['light', 'Lighting', 'mdi:lightbulb'], ['climate', 'Comfort', 'mdi:thermostat'],
   ['shade', 'Shades', 'mdi:blinds'], ['security', 'Security', 'mdi:shield-home'], ['camera', 'Cameras', 'mdi:cctv'], ['fan', 'Fans', 'mdi:fan'],
-  ['switch', 'Outlets', 'mdi:power-socket-us'], ['quick', 'Quick buttons', 'mdi:gesture-tap-button']];
+  ['switch', 'Outlets', 'mdi:power-socket-us'], ['quick', 'Shortcuts', 'mdi:gesture-tap-button']];
 const isTV = x => x.st?.attributes?.device_class === 'tv' || /(^|[._ ])(tv|roku|apple_?tv|shield|chromecast|fire_?tv|android_?tv|television)([._ ]|$)/i.test(`${x.entity} ${x.name}`);
 const WX_ICON = {sunny: 'mdi:weather-sunny', 'clear-night': 'mdi:weather-night', partlycloudy: 'mdi:weather-partly-cloudy', cloudy: 'mdi:weather-cloudy', rainy: 'mdi:weather-rainy',
   pouring: 'mdi:weather-pouring', snowy: 'mdi:weather-snowy', 'snowy-rainy': 'mdi:weather-snowy-rainy', lightning: 'mdi:weather-lightning', 'lightning-rainy': 'mdi:weather-lightning-rainy',
@@ -394,7 +394,7 @@ class DashboardStudioHub extends HTMLElement {
     if (!this._hass) body = '<p class="hint">Connecting to Home Assistant…</p>';
     else if (!rooms.length) body = '<p class="hint">No rooms yet. Give your devices an area in Settings › Areas, labels & zones, and they show up here by themselves.</p>';
     else if (this._view === 'quick') {
-      body = `<div class="head"><div><div class="title">Quick buttons</div></div></div><div class="quick">${this._quickButtons()}</div>`;
+      body = `<div class="head"><div><div class="title">Shortcuts</div></div></div><div class="quick">${this._quickButtons()}</div>`;
     }
     else if (this._view && this._devices(this._view).length) {
       const cat = CATS.find(x => x[0] === this._view) || TOUCH.find(x => x[0] === this._view), L = this._devices(this._view);
@@ -484,8 +484,8 @@ ha-card.ts.ts-theme{color:var(--primary-text-color);background:color-mix(in srgb
   --s-soft:color-mix(in srgb,var(--s-text) 6%,transparent);--s-soft2:color-mix(in srgb,var(--s-text) 11%,transparent);--t-bar:transparent;--t-tile:color-mix(in srgb,var(--s-text) 7%,transparent);
   --t-menu:color-mix(in srgb,var(--primary-background-color,#fff) 96%,var(--s-text) 4%)}
 ha-card.ts.ts-theme .ts-l,ha-card.ts.ts-theme .ts-room,ha-card.ts.ts-theme .ts-src b{text-shadow:0 1px 2px color-mix(in srgb,var(--primary-background-color,#fff) 60%,transparent)}
-ha-card.ts.clear{box-shadow:none;border:none;-webkit-backdrop-filter:none;backdrop-filter:none;--t-tile:rgba(22,24,28,.46);--s-line:rgba(255,255,255,.13);text-shadow:0 1px 3px rgba(0,0,0,.55)}
-ha-card.ts.ts-theme.clear{--t-tile:color-mix(in srgb,var(--primary-background-color,#fff) 62%,transparent);--s-line:color-mix(in srgb,var(--s-text) 12%,transparent);text-shadow:0 1px 2px color-mix(in srgb,var(--primary-background-color,#fff) 70%,transparent)}
+ha-card.ts.clear{box-shadow:none;border:none;-webkit-backdrop-filter:none;backdrop-filter:none;--t-tile:rgba(255,255,255,.08);--s-line:rgba(255,255,255,.16);text-shadow:0 1px 3px rgba(0,0,0,.55)}
+ha-card.ts.ts-theme.clear{--t-tile:color-mix(in srgb,var(--primary-background-color,#fff) 30%,transparent);--s-line:color-mix(in srgb,var(--s-text) 12%,transparent);text-shadow:0 1px 2px color-mix(in srgb,var(--primary-background-color,#fff) 70%,transparent)}
 ha-card.ts.clear :is(.ts-tile,.ts-np,.ts-room){background:var(--t-tile);border:1px solid var(--s-line);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4)}
 ha-card.ts.clear :is(.ts-tile,.ts-room):hover{background:color-mix(in srgb,var(--t-tile) 80%,var(--s-text) 12%)}
 ha-card.ts.clear .ts-menu{text-shadow:none}
@@ -522,7 +522,7 @@ ha-card.ts.full{min-height:calc(100vh - var(--header-height,56px) - 16px)}
 .ts-tr button.big{width:48px;height:48px;background:var(--s-soft2)}
 .ts-tr button:hover{background:var(--s-soft2)}
 .ts-pw{align-self:end;width:42px;height:42px;border-radius:50%;border:1px solid var(--s-line);background:none;display:grid;place-items:center}
-.ts-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:10px}
+.ts-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));grid-auto-rows:140px;gap:10px}
 .ts-tile{aspect-ratio:1.1;border:1px solid var(--s-line);background:var(--t-tile);border-radius:calc(var(--s-r)*.8 + 6px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px;min-width:0;transition:transform .15s ease,background .2s}
 .ts-tile:hover{background:var(--s-soft2);transform:translateY(-2px)}
 .ts-ico{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:var(--s-soft2);box-shadow:inset 0 1px 0 rgba(255,255,255,.14)}
@@ -531,7 +531,9 @@ ha-card.ts.full{min-height:calc(100vh - var(--header-height,56px) - 16px)}
 .ts-tile.warn .ts-ico{background:#ff8a7a;color:#3a0c05}
 .ts-ring{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;border:3px solid var(--s-accent);background:rgba(0,0,0,.35);color:#fff;box-shadow:0 0 16px color-mix(in srgb,var(--s-accent) 35%,transparent)}
 .ts-ring b{font-size:20px;font-weight:600}
-.ts-l{font-size:14.5px;font-weight:600}
+.ts-l{font-size:14.5px;font-weight:600;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ts-tile{aspect-ratio:auto;height:100%;min-height:0;overflow:hidden;line-height:1.3}
+.ts-ring{box-sizing:border-box}
 .ts-s{font-size:12px;color:var(--s-muted);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ts-bottom{display:flex;justify-content:space-between;align-items:center;padding:12px 20px 14px;background:var(--t-bar);font-size:16px;font-weight:500;font-variant-numeric:tabular-nums}
 .ts-wx{display:flex;align-items:center;gap:6px}

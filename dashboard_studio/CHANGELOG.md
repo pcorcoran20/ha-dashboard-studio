@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.1
+
+- Touchscreen tiles are always the same size. Long names shorten with "…" instead of making a tile taller.
+- See-through tiles are clear glass by default, not dark.
+- With the Pride theme, the hub keeps its rainbow border and is see-through inside.
+- The Quick buttons tile is now called **Shortcuts**.
+
 ## 0.8.0
 
 - A simpler Studio. A start screen asks what you want to do: build from your home, start from a style, or start with a blank page. Open it again with **Start** at the bottom left.
