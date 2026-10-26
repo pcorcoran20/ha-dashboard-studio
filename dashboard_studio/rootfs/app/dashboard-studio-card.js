@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '0.11.0';
+const STUDIO_VERSION = '1.0.0';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -1450,6 +1450,7 @@ const CAR_STYLE = `
  *   vehicle: my_model_y       # optional: the car's name in its entity IDs
  *   image: /local/my-car.png  # optional: your own picture instead of the drawing
  *   model_url: /local/tesla/model_y.glb   # optional: a real 3D car you made with Tesla Model Extractor
+ *   tesla_view: false         # optional: when Tesla View is installed the card shows it; false keeps the drawing
  *   entities:                 # optional: set any of these by hand
  *     battery: sensor.my_model_y_battery_level
  */
@@ -1492,6 +1493,12 @@ function findVehicle(hass, cfg) {
   return {...out, ...(cfg.entities || {})};
 }
 
+/* Tesla View (github.com/koenhendriks/tesla-view) renders the car the way the Tesla app does.
+   When it's installed and has an asset pack, the vehicle card shows it in place of the drawing */
+let tvPacks;
+const teslaViewReady = () => tvPacks = tvPacks || fetch('/tesla_view_assets/index.json', {cache: 'no-store'})
+  .then(r => r.ok ? r.json() : null).then(i => !!i && Object.keys(i.models || {}).length > 0).catch(() => false);
+
 class DashboardStudioVehicle extends HTMLElement {
   constructor() {
     super();
@@ -1511,6 +1518,7 @@ class DashboardStudioVehicle extends HTMLElement {
 
   set hass(hass) {
     const old = this._hass; this._hass = hass;
+    if (this._tv) this._tv.hass = hass;
     if (!this._e || old?.entities !== hass.entities) this._e = findVehicle(hass, this._config);
     if (!old || Object.values(this._e).some(id => old.states[id] !== hass.states[id])) this._render();
   }
@@ -1572,9 +1580,13 @@ class DashboardStudioVehicle extends HTMLElement {
     const inT = this._n('inside') ?? clim?.attributes.current_temperature, outT = this._n('outside');
     const heat = climOn && (clim.state === 'heat' || clim.attributes.hvac_action === 'heating' || (inT != null && clim.attributes.temperature > inT));
     const open = k => this._s(k)?.state === 'open';
-    const url = c.model_url || c.glb, use3d = url && !(this._3d?.url === url && this._3d.error);
+    if (c.tesla_view !== false && this._tvOk === undefined && customElements.get('tesla-view-card')) {
+      this._tvOk = null; teslaViewReady().then(ok => { this._tvOk = ok; this._render(); });
+    }
+    const useTv = this._tvOk === true && c.tesla_view !== false;
+    const url = !useTv && (c.model_url || c.glb), use3d = url && !(this._3d?.url === url && this._3d.error);
     const flags = [chg && 'charging', this._s('sentry')?.state === 'on' && 'sentry', climOn && 'climate ' + (heat ? 'heat' : 'cool')].filter(Boolean).join(' ');
-    const car = use3d ? `<div class="car-photo v3d ${flags}" data-v3d>${this._3d?.renderer ? '' : '<div class="v3d-wait">Loading your 3D car…</div>'}<i class="cp-glow"></i><i class="cp-eye"></i><i class="cp-air"></i></div>`
+    const car = useTv ? '<div class="v-tv" data-tv></div>' : use3d ? `<div class="car-photo v3d ${flags}" data-v3d>${this._3d?.renderer ? '' : '<div class="v3d-wait">Loading your 3D car…</div>'}<i class="cp-glow"></i><i class="cp-eye"></i><i class="cp-air"></i></div>`
       : (url ? '<p class="hint v-3derr">Couldn’t load the 3D car, so here is the drawing. Check the model_url.</p>' : '') + carVisual({image: c.image, model: c.model, color: c.color, charging: chg, climate: climOn ? (heat ? 'heat' : 'cool') : '', sentry: this._s('sentry')?.state === 'on',
       lights: lockS === 'unlocked' || climOn, frunk: open('frunk'), trunk: open('trunk'), port: open('charge_port'), label: c.name || 'Car'}, this._uid);
     const name = c.name || h.states[this._e.battery]?.attributes.friendly_name?.replace(/ battery( level)?$/i, '') || (c.vehicle ? cap(c.vehicle) : 'My car');
@@ -1600,6 +1612,18 @@ class DashboardStudioVehicle extends HTMLElement {
       ${ctl ? `<div class="v-ctl">${ctl}</div>` : ''}
       ${info ? `<div class="v-info">${esc(info)}</div>` : ''}
       ${this._msg ? `<div class="v-msg" role="status">${esc(this._msg)}</div>` : ''}</ha-card>`;
+    const tvSlot = useTv && this.shadowRoot.querySelector('[data-tv]');
+    if (tvSlot) {
+      if (!this._tv) {
+        /* hand Tesla View the car's device, plus every entity this card found, so it maps the same things */
+        const e = this._e, dev = h.entities?.[e.battery]?.device_id || h.entities?.[e.lock]?.device_id;
+        const ents = Object.fromEntries([['frunk', e.frunk], ['trunk', e.trunk], ['charge_port', e.charge_port], ['charging', e.charging], ['lock', e.lock]].filter(([, v]) => v));
+        this._tv = document.createElement('tesla-view-card');
+        this._tv.setConfig({type: 'custom:tesla-view-card', ...(dev ? {device_id: dev} : {}), entities: ents, hotspots: true, theme: 'auto', aspect_ratio: '16:9', ...(typeof c.tesla_view === 'object' ? c.tesla_view : {})});
+      }
+      this._tv.hass = h;
+      tvSlot.append(this._tv);
+    }
     const slot = use3d && this.shadowRoot.querySelector('[data-v3d]');
     if (slot) {
       if (!this._3d || this._3d.url !== url) {
@@ -1646,6 +1670,8 @@ button{font:inherit;color:inherit;cursor:pointer}
 ha-card.calm *{animation:none!important;transition:none!important}
 ha-card.bare{background:none;box-shadow:none;border:none;padding:4px 0 0}
 .v-3derr{font-size:12px}
+.v-tv{margin:0 -6px}
+.v-tv tesla-view-card{display:block;--ha-card-background:transparent;--card-background-color:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0}
 `;
 
 /* visual editor for the vehicle card */

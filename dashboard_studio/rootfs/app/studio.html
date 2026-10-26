@@ -736,6 +736,17 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .v-info{font-size:calc(12px * var(--d-fs,1)); color:var(--d-muted); text-align:center}
 @keyframes vShine{to{background-position:-200% 0}}
 .dash.calm .car *, .dash.calm .v-bar i{animation:none !important}
+.tv-step{display:flex; align-items:center; gap:10px; margin-bottom:4px}
+.tv-step span{width:24px; height:24px; border-radius:50%; display:grid; place-items:center; background:var(--magic); color:#fff; font-size:12px; font-weight:700}
+.tv-bar{margin:6px 0}
+.tv-bar i{background:var(--magic)}
+.tv-bar.busy i{width:30%; animation:tvBusy 1.4s ease-in-out infinite}
+@keyframes tvBusy{0%{left:-30%} 100%{left:100%}}
+.tv-log{max-height:220px; overflow:auto; font-size:11px; white-space:pre-wrap}
+.tv-err{color:#d23b3b; font-weight:500}
+.tv-ok{display:flex; align-items:center; gap:8px; font-size:16px}
+.tv-ok svg.i{color:var(--magic)}
+.tv-ol{margin:0; padding-left:18px; display:flex; flex-direction:column; gap:6px; font-size:13px}
 .v-paints{display:grid; grid-template-columns:1fr 1fr; gap:6px}
 .v-paints button{border:1px solid var(--line); background:var(--bg); border-radius:9px; padding:6px 8px; display:flex; align-items:center; gap:8px; font-size:12px; text-align:left}
 .v-paints button[aria-pressed="true"]{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent)}
@@ -932,6 +943,11 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
           <h3><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Touchscreen home <span class="newtag">New</span></h3>
           <p class="hint">A home page with big tiles for each device type, like a wall touchscreen. Tap a tile to control everything of that type, room by room.</p>
           <div class="btnrow"><button class="btn magic" id="touchBtn">Create touchscreen home</button></div>
+        </div>
+        <div class="group" id="tvGroup" hidden>
+          <h3><svg class="i" viewBox="0 0 24 24"><path d="M3 16v-3l2.5-5h13L21 13v3z"/><path d="M3 13h18"/><circle cx="7.5" cy="17" r="1.8"/><circle cx="16.5" cy="17" r="1.8"/></svg>Real 3D Tesla <span class="newtag">New</span></h3>
+          <p class="hint">Your car, the way the Tesla app shows it. The add-on gets the app from your phone, makes your car and sets up Tesla View.</p>
+          <div class="btnrow"><button class="btn magic" id="tvGroupBtn">Set up my real 3D Tesla</button></div>
         </div>
         <div class="group" id="aiGroup" hidden>
           <h3><svg class="i" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>Ask Claude</h3>
@@ -2455,6 +2471,7 @@ insp.addEventListener('change', e => {
   if (e.target.id === 'moveTo' && e.target.value) { commit(); const dest = state.pages.find(p => p.id === e.target.value); B().splice(idx(b.id),1); dest.blocks.push(b); selected = null; renderDash(); renderInsp(); save(); toast('Moved to ' + dest.name); }
 });
 insp.addEventListener('click', e => {
+  if (e.target.closest('#tvSetup')) { openTesla(); return; }
   { const b = find(selected), vm = e.target.closest('[data-vmodel]'), vp = e.target.closest('[data-vpaint]');
     const t = b?.type === 'hub' ? b.car : b, hc = e.target.closest('[data-hcar]');
     if (t && e.target.closest('#vImgClear')) { commit(); t.image = ''; renderDash(); renderInsp(); save(); return; }
@@ -3567,6 +3584,10 @@ function vehEditorHTML(b){
       <p class="hint">${b.image?.startsWith('data:') ? `For Home Assistant, select <b>Save it</b> and put the file in <code>/config/www/</code>.` : 'A side view on a plain or see-through background looks best. Charging, sentry and climate still glow on top.'}</p></div>
     <div class="field"><label for="vGlb">3D car (optional)</label><input type="text" id="vGlb" class="mono" placeholder="/local/tesla/model_y.glb" value="${esc(b.glb || '')}" spellcheck="false">
       <p class="hint">Make a 3D file of your car with <a href="https://github.com/koenhendriks/tesla-model-extractor" target="_blank" rel="noopener">Tesla Model Extractor</a> from your own copy of the Tesla app. Put the GLB file in <code>/config/www/tesla/</code> and type its link here. The frunk, trunk and charge port open in 3D to match your car, and you can drag to turn it.</p></div>
+    <div class="field"><span class="lbl2">Real 3D Tesla</span>
+      ${window.STUDIO_ADDON ? `<div class="btnrow"><button class="btn magic" id="tvSetup">${ic('sparkle')}Set up my real 3D Tesla</button></div>
+      <p class="hint">Shows your car the way the Tesla app does, with <a href="https://github.com/koenhendriks/tesla-view" target="_blank" rel="noopener">Tesla View</a>. The add-on gets the app from your phone, makes your car and installs everything.</p>`
+      : `<p class="hint">In the Dashboard Studio add-on, one button sets up <a href="https://github.com/koenhendriks/tesla-view" target="_blank" rel="noopener">Tesla View</a> so your card shows the car the way the Tesla app does.</p>`}</div>
     <p class="hint">In Home Assistant the card finds your car by itself (Tesla Fleet, Teslemetry, Tessie and similar). Fill in the car name only if you have more than one car. Tap the buttons here to try them.</p>`;
 }
 R.dualshade = b => {
@@ -3971,6 +3992,106 @@ $('welcomeBtn').addEventListener('click', openWelcome);
 function syncAll(){ nameIn.value = state.name || ''; renderThemes(); renderDash(); renderInsp(); syncSmart(); renderEggs(); renderUnits(); renderFxPanel(); }
 renderLib(); setPane('preview'); setDevice(device); syncAll(); syncHistory(); playEnter();
 { let seen = false; try { seen = !!localStorage.getItem(WKEY); } catch(e) {} if (!seen) setTimeout(openWelcome, 400); }
+
+/* ---------- real 3D Tesla: phone or file → asset pack → Tesla View, all in the add-on ---------- */
+const TESLA_PKG = 'com.teslamotors.tesla';
+let tvPoll = null;
+const tvApi = async (path, opts) => { const r = await fetch('api/tesla/' + path, opts); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || `status ${r.status}`); return j; };
+const mb = n => (n / 1e6).toFixed(n > 1e8 ? 0 : 1) + ' MB';
+function loadAdb(){ return window.StudioAdb ? Promise.resolve() : new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'adb.js'; sc.onload = ok; sc.onerror = () => bad(new Error('Couldn’t load the phone helper')); document.head.append(sc); }); }
+/* send a file to the add-on in pieces, so even a big app goes through */
+async function tvSend(name, src, total, reset, onProg){
+  const CH = 8 << 20; let off = 0;
+  const post = async parts => {
+    const r = await fetch(`api/tesla/upload?name=${encodeURIComponent(name)}&offset=${off}${reset && off === 0 ? '&reset=1' : ''}`, {method:'POST', body:new Blob(parts)});
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'The upload stopped');
+    off += parts.reduce((a, x) => a + (x.size ?? x.length), 0); onProg(off, total);
+  };
+  if (src instanceof Blob) { for (let o = 0; o < src.size; o += CH) await post([src.slice(o, o + CH)]); return; }
+  const rd = src.getReader(); let buf = [], len = 0;
+  for (;;) { const {done, value} = await rd.read(); if (done) break; buf.push(value.slice()); len += value.length; if (len >= CH) { await post(buf); buf = []; len = 0; } }
+  if (len) await post(buf);
+}
+function openTesla(){
+  if (!window.STUDIO_ADDON) { toast('This works in the Dashboard Studio add-on'); return; }
+  const usb = window.isSecureContext && 'usb' in navigator;
+  const carNames = allBlocks().flatMap(b => b.type === 'vehicle' ? [b] : b.type === 'hub' && b.car?.show ? [b.car] : []).map(c => (VEH_MODELS.find(m => m[0] === c.model) || [])[1]).filter(Boolean);
+  openModal({title:'Set up my real 3D Tesla', body:'<div id="tvBody"><p class="hint">Checking your Home Assistant…</p></div>', mount(){
+    const body = $('tvBody');
+    const step = (n, t) => `<div class="tv-step"><span>${n}</span><b>${t}</b></div>`;
+    const logBox = j => j.log?.length ? `<details class="twg"><summary>Show details</summary><div class="twb"><pre class="code tv-log">${esc(j.log.slice(-40).join('\n'))}</pre></div></details>` : '';
+    const show = html => { body.innerHTML = html; };
+    const fail = (msg, again = true) => show(`<p class="tv-err">${esc(msg)}</p>${again ? '<div class="btnrow"><button class="btn" data-tv="restart">Try again</button></div>' : ''}`);
+    let st;
+    const intro = () => {
+      if (!st.supported) return show(`<p>Your Home Assistant runs on <b>${esc(st.arch)}</b>. Making the car needs an x86 computer, like a mini PC, because one of the tools only exists for x86.</p>
+        <p class="hint">You can still do it on a computer: make the asset pack with <a href="https://github.com/koenhendriks/tesla-model-extractor" target="_blank" rel="noopener">Tesla Model Extractor</a>'s desktop app, then upload it in Tesla View. The Vehicle card picks it up by itself.</p>`);
+      if (st.job?.state === 'scan' || st.job?.state === 'build') return watch();
+      if (st.job?.state === 'scanned' && st.job.vehicles?.length) return pick(st.job);
+      show(`${step(1, 'Get the Tesla app')}
+        <div class="wel">${usb ? `<button data-tv="phone" class="hero"><span class="wi">${ic('plug')}</span><span><b>Get it from my phone</b><small>Plug your Android phone into this computer with a USB cable</small></span><span class="go">${ic('right')}</span></button>` : ''}
+        <button data-tv="file"><span class="wi">${ic('plus')}</span><span><b>Upload the app file</b><small>A .apk, .apks, .apkm or .xapk file you saved from your phone</small></span><span class="go">${ic('right')}</span></button>
+        ${st.files?.length ? `<button data-tv="reuse"><span class="wi">${ic('bolt')}</span><span><b>Use the file you sent before</b><small>${esc(st.files.map(f => f.name).join(', '))}</small></span><span class="go">${ic('right')}</span></button>` : ''}</div>
+        <input type="file" id="tvFile" accept=".apk,.apks,.apkm,.xapk" hidden>
+        ${usb ? `<details class="twg"><summary>First time with your phone?</summary><div class="twb"><ol class="tv-ol"><li>On the phone, open <b>Settings › About phone</b> and tap <b>Build number</b> 7 times.</li><li>Go back to <b>Settings › Developer options</b> (sometimes under <b>System</b>) and turn on <b>USB debugging</b>.</li><li>Plug the phone in. When it asks <b>Allow USB debugging?</b>, tap <b>Allow</b>.</li><li>If Android Studio or adb is running on this computer, close it first.</li></ol></div></details>`
+          : `<p class="hint">To get the app straight from your phone, open Home Assistant with https in Chrome or Edge on a computer.</p>`}
+        ${st.free_gb && st.free_gb < 3 ? `<p class="tv-err">Only ${st.free_gb} GB free. This needs about 3 GB while it works.</p>` : `<p class="hint">It needs about 3 GB of space while it works, and cleans up after. Nothing leaves your Home Assistant.</p>`}`);
+    };
+    const progress = (label, done, total) => show(`${step(1, 'Get the Tesla app')}<p>${esc(label)}</p><div class="v-bar tv-bar"><i style="width:${total ? Math.min(100, done / total * 100) : 5}%"></i></div><p class="hint">${mb(done)}${total ? ' of ' + mb(total) : ''}</p>`);
+    const scan = async () => { try { await tvApi('scan', {method:'POST'}); watch(); } catch(e) { fail(e.message); } };
+    const fromPhone = async () => {
+      try {
+        await loadAdb();
+        const say = {pick:'Pick your phone in the box the browser shows.', allow:'Look at your phone and tap Allow on “Allow USB debugging?”.', find:'Finding the Tesla app on your phone…'};
+        let first = true;
+        await StudioAdb.pullApp(TESLA_PKG, k => show(`${step(1, 'Get the Tesla app')}<p>${say[k]}</p>`), async (name, size, stream) => {
+          await tvSend(name, stream, size, first, (d, t) => progress(`Copying ${name}`, d, t)); first = false;
+        });
+        scan();
+      } catch(e) {
+        const why = {no_device:'No phone was picked.', busy:'Another program is using the phone. Close Android Studio or run “adb kill-server” on this computer, unplug the phone, plug it back in and try again.',
+          not_installed:'The Tesla app isn’t on this phone.', no_webusb:'This browser can’t talk to phones. Use Chrome or Edge on a computer.'}[e.code];
+        fail(why || `Couldn’t copy the app from your phone: ${e.message}. If your phone asked to allow USB debugging, tap Allow and try again.`);
+      }
+    };
+    const fromFile = async f => { try { await tvSend(f.name, f, f.size, true, (d, t) => progress(`Sending ${f.name}`, d, t)); scan(); } catch(e) { fail(e.message); } };
+    const pick = j => {
+      const want = v => carNames.some(n => v.name.toLowerCase().includes(n.toLowerCase()));
+      const anyWant = j.vehicles.some(want);
+      show(`${step(2, 'Pick your car')}<p class="hint">${esc(j.step || '')}. Tick the ones you drive.</p>
+        <div class="ab-list">${j.vehicles.map((v, i) => `<label class="switch"><span><b>${esc(v.name)}</b><small>${esc(v.id)}${v.size ? ' · ' + mb(v.size) : ''}</small></span><input type="checkbox" data-tvcar="${esc(v.id)}" ${(anyWant ? want(v) : i === 0) ? 'checked' : ''}></label>`).join('')}</div>
+        <div class="btnrow"><button class="btn magic" data-tv="build">${ic('sparkle')}Make my car</button><button class="btn" data-tv="restart">Start over</button></div>`);
+    };
+    const watch = () => {
+      clearInterval(tvPoll);
+      const tick = async () => {
+        let j; try { j = (await tvApi('status')).job; } catch(e) { return; }
+        if (j.state === 'scan' || j.state === 'build') show(`${step(j.state === 'scan' ? 2 : 3, j.state === 'scan' ? 'Reading the app' : 'Making your car')}<p>${esc(j.step)}</p><div class="v-bar tv-bar busy"><i></i></div>${logBox(j)}`);
+        else if (j.state === 'scanned') { clearInterval(tvPoll); pick(j); }
+        else if (j.state === 'done') { clearInterval(tvPoll); show(`<p class="tv-ok">${ic('sparkle')}<b>Your real 3D Tesla is ready</b></p>
+          <p>Tesla View is set up with ${esc((j.done?.models || []).join(', '))}. ${j.done?.fresh ? 'Home Assistant restarted once to start it. ' : ''}Your Vehicle card and the hub’s car view show it now. Reload any Home Assistant tabs you have open.</p>
+          <p class="hint">The copy of the Tesla app and the work files are deleted. Keep the car for yourself: it is Tesla’s artwork.</p>${logBox(j)}`); }
+        else if (j.state === 'error') { clearInterval(tvPoll); fail(j.error); body.insertAdjacentHTML('beforeend', logBox(j)); }
+      };
+      tick(); tvPoll = setInterval(tick, 2000);
+    };
+    const click = async e => {
+      const b = e.target.closest('[data-tv]'); if (!b) return; const a = b.dataset.tv;
+      if (a === 'phone') fromPhone();
+      if (a === 'file') $('tvFile').click();
+      if (a === 'reuse') scan();
+      if (a === 'restart') { clearInterval(tvPoll); try { await tvApi('clear', {method:'POST'}); st = await tvApi('status'); intro(); } catch(err) { fail(err.message, false); } }
+      if (a === 'build') { const models = [...body.querySelectorAll('[data-tvcar]:checked')].map(x => x.dataset.tvcar); if (!models.length) return toast('Tick at least one car');
+        try { await tvApi('build', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({models})}); watch(); } catch(err) { fail(err.message); } }
+    };
+    const change = e => { if (e.target.id === 'tvFile' && e.target.files?.[0]) fromFile(e.target.files[0]); };
+    body.addEventListener('click', click); body.addEventListener('change', change);
+    tvApi('status').then(j => { st = j; intro(); }).catch(e => fail(`Couldn’t reach the add-on: ${e.message}`, false));
+    return () => clearInterval(tvPoll);
+  }});
+}
+$('tvGroupBtn').addEventListener('click', openTesla);
+if (window.STUDIO_ADDON) $('tvGroup').hidden = false;
 
 /* ---------- running inside Home Assistant as an add-on ---------- */
 async function haLoad(announce){

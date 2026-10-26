@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.0 🎉
+
+The first big release. Everything below 1.0 is still here, plus:
+
+- **Real 3D Tesla, in one go.** **Magic › Real 3D Tesla** gets the Tesla app from your phone over USB (or from a file you upload), makes your car with Tesla Model Extractor, installs Tesla View, adds your car, restarts Home Assistant once and finishes the setup. It needs Home Assistant on an x86 computer. See the docs.
+- The Vehicle card and the Control hub's car view use Tesla View by themselves when it's installed. They hand it your car's device and entities. Set `tesla_view: false` to keep the drawing.
+- The add-on now uses a Debian base image, so it can run the extractor. The first update takes longer to build.
+
+### Everything Dashboard Studio does, in short
+
+- A drag and drop Studio with themes (including Pride and duck themes with easter eggs), a start screen, and an icon menu: Add, Style, Effects and Magic.
+- One-click Install to Home Assistant: dashboard, theme, cards, scripts, scenes and the sunset automation.
+- Auto-build a page for every room from your areas, plus a touchscreen home.
+- Cards: the Control hub (tiles or touchscreen, with a car tile), dual shades, the Tesla-style vehicle card, and effects (moving backgrounds, page, touch and on/off animations).
+
 ## 0.11.0
 
 - **Your car in the hub:** the Control hub has a car tile with the battery level. Tap it for the full Tesla-style view. The hub card finds your car by itself. It shows on All rooms and in a room like Garage or Driveway. Set `vehicle: false` to hide it.

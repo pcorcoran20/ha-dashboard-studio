@@ -34,6 +34,25 @@ To pick up new devices, go to **Magic › My entities › Reload from Home Assis
 
 Your designs are saved inside the add-on, so they survive restarts and show up on every device you open the Studio on.
 
+## Real 3D Tesla
+
+**Magic › Real 3D Tesla**, or **Set up my real 3D Tesla** in a Vehicle block, shows your car the way the Tesla app does, with [Tesla View](https://github.com/koenhendriks/tesla-view). The add-on does every step:
+
+1. **Gets the Tesla app.** Plug your Android phone into your computer and select **Get it from my phone**, or upload an app file (`.apk`, `.apks`, `.apkm` or `.xapk`) you saved yourself.
+2. **Reads the app** with [Tesla Model Extractor](https://github.com/koenhendriks/tesla-model-extractor) and shows the cars inside it. Your car is ticked already.
+3. **Makes your car**, installs Tesla View, adds your car to it, restarts Home Assistant once (only the first time) and finishes Tesla View's setup.
+4. **Cleans up.** The copy of the app and the work files are deleted.
+
+After that, the Vehicle card and the Control hub's car view show the Tesla View car by themselves. Set `tesla_view: false` on a card to keep the drawing.
+
+What you need:
+
+- **Home Assistant on an x86 computer**, like a mini PC, NUC or virtual machine. One of the tools only exists for x86, so this doesn't work on a Raspberry Pi, Home Assistant Green or Yellow. On those, make the asset pack on a computer with the extractor's desktop app and upload it in Tesla View.
+- **About 3 GB of free space** while it works. The first read of the app takes a few minutes.
+- **To get the app from your phone:** Home Assistant opened with `https://` in Chrome or Edge on a computer, and USB debugging on. The Studio shows how to turn it on. If Android Studio or `adb` runs on that computer, close it first so the browser can reach the phone.
+
+The car is Tesla's artwork, made from your own copy of the app, so keep it for yourself and don't share it. Tesla View is installed into `custom_components/tesla_view`. To get its updates through HACS, add it there as a custom repository. HACS takes over the existing install.
+
 ## Install your dashboard
 
 Select **Export**, then **Install to Home Assistant**. The add-on then:
@@ -71,6 +90,8 @@ The add-on only writes:
 - Pictures and `dashboard-studio-card.js` in `/config/www`
 - Scripts, scenes and automations whose IDs it made (`good_night`, `studio_…` scenes, `studio_sunset_switch`), through Home Assistant's own editors
 - The one dashboard at your chosen URL
+
+- If you use **Real 3D Tesla**: `custom_components/tesla_view` and your car in `/config/tesla_view`, and it restarts Home Assistant once to start Tesla View
 
 It never edits `configuration.yaml` or any of your other files.
 

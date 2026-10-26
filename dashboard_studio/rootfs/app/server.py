@@ -37,7 +37,9 @@ from pathlib import Path
 import yaml
 from aiohttp import ClientSession, ClientTimeout, web
 
-VERSION = os.environ.get("STUDIO_VERSION", "0.11.0")
+import tesla
+
+VERSION = os.environ.get("STUDIO_VERSION", "1.0.0")
 def _token():
     """The Supervisor's token, from the environment or from where s6 keeps the container's environment."""
     tok = os.environ.get("SUPERVISOR_TOKEN", "")
@@ -290,6 +292,10 @@ async def install(request):
     return web.json_response({"report": report, "url": f"/{url}"})
 
 
+async def adb_js(_request):
+    return web.FileResponse(APP / "adb.js", headers={"Cache-Control": "no-cache"})
+
+
 async def ping(_request):
     return web.json_response({"ok": True, "version": VERSION})
 
@@ -310,6 +316,8 @@ def make_app():
     app.router.add_get("/api/design", design_get)
     app.router.add_put("/api/design", design_put)
     app.router.add_post("/api/install", install)
+    app.router.add_get("/adb.js", adb_js)
+    tesla.setup(app, DATA, CONFIG, CORE, TOKEN)
     app.on_startup.append(on_startup)
     app.on_cleanup.append(on_cleanup)
     return app

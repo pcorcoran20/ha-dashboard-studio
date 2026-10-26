@@ -191,6 +191,12 @@ entities:
                                        # charge_port, sentry, shift, location
 ```
 
+### Tesla View: the car exactly like the app
+
+If [Tesla View](https://github.com/koenhendriks/tesla-view) is installed with an asset pack, the vehicle card shows Tesla View's car in place of the drawing, with the app's lighting, charge cable and tap targets. The card hands it your car's device and the entities it found. Set `tesla_view: false` to keep the drawing, or set it to Tesla View options like `{paint: Quicksilver, camera: charging}`.
+
+The Dashboard Studio add-on can set all of it up for you: **Magic › Real 3D Tesla**. It needs Home Assistant on an x86 computer. See the [add-on docs](dashboard_studio/DOCS.md#real-3d-tesla).
+
 ### Your own picture, or a real 3D car
 
 - `image: /local/my-car.png` shows your own picture instead of the drawing. A side view on a plain or see-through background looks best.
