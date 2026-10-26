@@ -85,6 +85,13 @@ def _index(p: Paths):
         return None
 
 
+def _kept(p: Paths):
+    try:
+        return json.loads((p.work / "vehicles.json").read_text(encoding="utf-8")) if p.recovered.exists() else None
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
 async def status(request):
     p: Paths = request.app["tesla"]
     idx = _index(p) or {}
@@ -94,7 +101,7 @@ async def status(request):
         "supported": supported(), "arch": platform.machine(),
         "tesla_view": (p.tv / "manifest.json").exists(),
         "models": [{"id": k, "name": v.get("name") or k} for k, v in (idx.get("models") or {}).items()],
-        "files": files, "free_gb": round(free / 1e9, 1),
+        "files": files, "free_gb": round(free / 1e9, 1), "kept": _kept(p),
         "job": {**JOB, "log": JOB["log"][-60:]},
     })
 
@@ -179,6 +186,7 @@ async def scan(request):
             data = json.loads(text[text.index("{"):])
             JOB["vehicles"] = [{"id": v["id"], "name": v.get("name") or v["id"], "size": v.get("raw_bytes")}
                                for v in data.get("vehicles", []) if v.get("present")]
+            (p.work / "vehicles.json").write_text(json.dumps({"vehicles": JOB["vehicles"], "app_version": data.get("app_version")}), encoding="utf-8")
             JOB["paints"] = data.get("paints") or []
             JOB.update(state="scanned", step=f"Found {len(JOB['vehicles'])} cars in Tesla app {data.get('app_version') or ''}".strip())
         except Exception as err:  # noqa: BLE001
@@ -189,10 +197,10 @@ async def scan(request):
     return web.json_response({"ok": True})
 
 
-async def _core(request, method, path, body=None, timeout=30):
-    core, token = request.app["tesla_core"]
+async def _core(app, method, path, body=None, timeout=30):
+    core, token = app["tesla_core"]
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    async with request.app["session"].request(method, f"{core}/api{path}", headers=headers, json=body, timeout=ClientTimeout(total=timeout)) as r:
+    async with app["session"].request(method, f"{core}/api{path}", headers=headers, json=body, timeout=ClientTimeout(total=timeout)) as r:
         text = await r.text()
         if r.status >= 400:
             raise RuntimeError(f"Home Assistant said {r.status}: {text[:200]}")
@@ -242,12 +250,12 @@ def _install_packs(p: Paths):
     return names
 
 
-async def _wait_for_core(request, timeout=600):
+async def _wait_for_core(app, timeout=600):
     start = time.time()
     await asyncio.sleep(15)
     while time.time() - start < timeout:
         try:
-            cfg = await _core(request, "GET", "/config", timeout=10)
+            cfg = await _core(app, "GET", "/config", timeout=10)
             if cfg and cfg.get("state") in (None, "RUNNING"):
                 return cfg
         except Exception:  # noqa: BLE001
@@ -256,16 +264,16 @@ async def _wait_for_core(request, timeout=600):
     raise RuntimeError("Home Assistant took too long to restart. Open Settings › Devices & services › Tesla View to finish.")
 
 
-async def _ensure_entry(request):
-    entries = await _core(request, "GET", "/config/config_entries/entry?domain=tesla_view") or []
+async def _ensure_entry(app):
+    entries = await _core(app, "GET", "/config/config_entries/entry?domain=tesla_view") or []
     entries = [e for e in entries if e.get("domain") == "tesla_view"]
     if entries:
-        await _core(request, "POST", f"/config/config_entries/entry/{entries[0]['entry_id']}/reload")
+        await _core(app, "POST", f"/config/config_entries/entry/{entries[0]['entry_id']}/reload")
         _say("Reloaded Tesla View")
         return
-    flow = await _core(request, "POST", "/config/config_entries/flow", {"handler": "tesla_view", "show_advanced_options": False})
+    flow = await _core(app, "POST", "/config/config_entries/flow", {"handler": "tesla_view", "show_advanced_options": False})
     if flow.get("type") == "form":
-        flow = await _core(request, "POST", f"/config/config_entries/flow/{flow['flow_id']}", {})
+        flow = await _core(app, "POST", f"/config/config_entries/flow/{flow['flow_id']}", {})
     if flow.get("type") != "create_entry":
         raise RuntimeError(f"Tesla View's setup stopped at '{flow.get('step_id') or flow.get('reason')}'. Finish it in Settings › Devices & services.")
     _say("Set up Tesla View")
@@ -280,6 +288,7 @@ async def build(request):
         return web.json_response({"error": "Already working on it."}, status=409)
     body = await request.json()
     models = [m for m in (body.get("models") or []) if SAFE_MODEL.match(str(m))]
+    keep = bool(body.get("keep"))
     if not models:
         return web.json_response({"error": "Pick at least one car."}, status=400)
     _begin("build", "Making your car")
@@ -290,6 +299,8 @@ async def build(request):
             p.out.mkdir(parents=True)
             # reuse the project the scan already recovered, so the slow part runs only once
             source = str(p.recovered) if p.recovered.exists() else str(_bundle(p))
+            if not JOB.get("vehicles") and _kept(p):
+                JOB["vehicles"] = _kept(p)["vehicles"]
             await _run(p, "extract", source, "--models", ",".join(models), "-o", str(p.out), "--yes")
             fresh = not (p.tv / "manifest.json").exists()
             JOB["step"] = "Installing Tesla View"
@@ -297,23 +308,24 @@ async def build(request):
                 await _install_tesla_view(request, p)
             JOB["step"] = "Adding your car to Tesla View"
             added = await asyncio.get_running_loop().run_in_executor(None, _install_packs, p)
-            if fresh:
-                JOB["step"] = "Restarting Home Assistant so Tesla View can start"
-                _say("Restarting Home Assistant")
-                try:
-                    await _core(request, "POST", "/services/homeassistant/restart", {})
-                except Exception:  # noqa: BLE001
-                    pass  # the connection drops while it restarts
-                await _wait_for_core(request)
-            JOB["step"] = "Finishing Tesla View's setup"
-            await _ensure_entry(request)
             JOB["step"] = "Cleaning up"
-            shutil.rmtree(p.inbox, ignore_errors=True)
-            shutil.rmtree(p.recovered, ignore_errors=True)
             shutil.rmtree(p.out, ignore_errors=True)
-            _say("Removed the copy of the Tesla app and the work files")
+            if keep and p.recovered.exists():
+                shutil.rmtree(p.inbox, ignore_errors=True)  # the read app is all that's needed to add more cars
+                _say("Kept the read app, so you can add more cars later without sending it again")
+            else:
+                shutil.rmtree(p.inbox, ignore_errors=True)
+                shutil.rmtree(p.recovered, ignore_errors=True)
+                (p.work / "vehicles.json").unlink(missing_ok=True)
+                _say("Removed the copy of the Tesla app and the work files")
             names = {v["id"]: v["name"] for v in (JOB.get("vehicles") or [])}
-            JOB.update(state="done", step="Your real 3D Tesla is ready", done={"models": [names.get(m, m) for m in added], "fresh": fresh})
+            JOB["done"] = {"models": [names.get(m, m) for m in added], "fresh": fresh}
+            if fresh:
+                # Home Assistant only finds a new integration when it starts, so ask before restarting it
+                JOB.update(state="restart", step="Tesla View is installed. Home Assistant needs to restart once to start it.")
+                _say("Waiting for you to choose when Home Assistant restarts")
+                return
+            await _finish(request.app)
         except Exception as err:  # noqa: BLE001
             log.exception("Tesla build failed")
             JOB.update(state="error", error=str(err))
@@ -322,12 +334,81 @@ async def build(request):
     return web.json_response({"ok": True})
 
 
+async def _finish(app):
+    JOB.update(state="build", step="Finishing Tesla View's setup")
+    await _ensure_entry(app)
+    JOB.update(state="done", step="Your real 3D Tesla is ready")
+
+
+async def _tesla_view_found(app):
+    try:
+        handlers = await _core(app, "GET", "/config/config_entries/flow_handlers", timeout=10) or []
+    except Exception:  # noqa: BLE001
+        return False
+    return "tesla_view" in handlers
+
+
+async def restart(request):
+    """Restart Home Assistant now, or wait and finish after the next restart, whenever that is."""
+    if JOB["state"] not in ("restart", "later"):
+        return web.json_response({"error": "Nothing is waiting for a restart."}, status=409)
+    now = bool((await request.json()).get("now"))
+    app = request.app
+
+    async def go():
+        try:
+            if now:
+                JOB.update(state="build", step="Restarting Home Assistant. This takes a minute or two.")
+                _say("Restarting Home Assistant")
+                try:
+                    await _core(app, "POST", "/services/homeassistant/restart", {})
+                except Exception:  # noqa: BLE001
+                    pass  # the connection drops while it restarts
+                await _wait_for_core(app)
+                await _finish(app)
+                return
+            JOB.update(state="later", step="Waiting for your next Home Assistant restart. Setup finishes by itself after that.")
+            _say("Will finish after the next restart")
+            while JOB["state"] == "later":
+                if await _tesla_view_found(app):
+                    await _finish(app)
+                    return
+                await asyncio.sleep(30)
+        except Exception as err:  # noqa: BLE001
+            log.exception("Tesla View setup failed")
+            JOB.update(state="error", error=str(err))
+
+    app["tesla_task"] = asyncio.create_task(go())
+    return web.json_response({"ok": True})
+
+
+async def _resume(app):
+    """After the add-on itself restarts: if Tesla View and a car are installed but not set up yet, finish once Home Assistant finds it."""
+    p: Paths = app["tesla"]
+    await asyncio.sleep(20)
+    for _ in range(240):
+        if JOB["state"] not in ("idle", "later") or not (p.tv / "manifest.json").exists() or not (_index(p) or {}).get("models"):
+            return
+        try:
+            entries = await _core(app, "GET", "/config/config_entries/entry?domain=tesla_view", timeout=10) or []
+            if any(e.get("domain") == "tesla_view" for e in entries):
+                return
+            if await _tesla_view_found(app):
+                await _ensure_entry(app)
+                log.info("Finished Tesla View's setup")
+                return
+        except Exception:  # noqa: BLE001
+            pass
+        await asyncio.sleep(60)
+
+
 async def clear(request):
     p: Paths = request.app["tesla"]
-    if JOB["state"] in ("scan", "build"):
+    if JOB["state"] in ("scan", "build", "restart", "later"):
         return web.json_response({"error": "Please wait until the current step finishes."}, status=409)
     for d in (p.inbox, p.recovered, p.out):
         shutil.rmtree(d, ignore_errors=True)
+    (p.work / "vehicles.json").unlink(missing_ok=True)
     _begin("idle", "")
     JOB.update(vehicles=None)
     return web.json_response({"ok": True})
@@ -341,3 +422,8 @@ def setup(app, data: Path, config: Path, core: str, token: str):
     app.router.add_post("/api/tesla/scan", scan)
     app.router.add_post("/api/tesla/build", build)
     app.router.add_post("/api/tesla/clear", clear)
+    app.router.add_post("/api/tesla/restart", restart)
+
+    async def resume(app):
+        app["tesla_resume"] = asyncio.create_task(_resume(app))
+    app.on_startup.append(resume)

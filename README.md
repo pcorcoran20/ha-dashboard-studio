@@ -181,7 +181,11 @@ model: model_3        # model_3, model_y, model_s, model_x or cybertruck
 color: ultra_red      # pearl_white, solid_black, midnight_silver, stealth_grey, quicksilver, deep_blue, ultra_red, stainless, or any color like '#2f6df6'
 ```
 
-If you have more than one car, set `vehicle` to the car's name in its entity IDs. For `sensor.ruby_battery_level`, that's `ruby`. To pick an entity yourself, add it under `entities`:
+If you have more than one car, pick it in the visual editor under **Your car**, which sets `device`. Or set `vehicle` to the car's name in its entity IDs.
+
+While the car charges, the drawing shows a Supercharger stall during fast charging, and a Wall Connector otherwise. Set `charger` to `supercharger`, `wall_connector` or `none` to choose. With Tesla View, the card switches to Tesla View's charging camera while the car charges.
+
+Without `device`, the card finds your first car by itself. For `sensor.ruby_battery_level`, that's `ruby`. To pick an entity yourself, add it under `entities`:
 
 ```yaml
 vehicle: ruby

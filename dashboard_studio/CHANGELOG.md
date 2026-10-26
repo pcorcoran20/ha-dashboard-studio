@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.0
+
+- **Real 3D Tesla asks before restarting.** Choose **Restart now** or **Restart later**. With later, the add-on finishes Tesla View's setup by itself after your next restart.
+- **Several cars at once.** Tick every car you drive, or use **Select all**, and they're all made in one go. **Keep the app ready for more cars** saves the read app, so **Add more cars** works later without sending the app again. **Delete the saved app** frees the space.
+- **Pick your car.** With more than one car, the Studio and the card's visual editor list your cars, so you don't have to type entity names. On the card it's `device`.
+- **Your design matches your car.** After the wizard, the cars in your design switch to the models you made, and the Studio shows which ones appear as your real 3D Tesla.
+- **Charging scenes.** The drawing shows a Supercharger stall when your car is fast charging, and a Wall Connector at home. Choose one yourself with `charger`. With Tesla View, the card switches to its charging camera while the car charges, so you see the app's charge cable plugged in.
+- Fix: **Show details** stays open while the log updates.
+- Fix: the Vehicle card switches to Tesla View even when Tesla View's card loads after it.
+
 ## 1.0.0 🎉
 
 The first big release. Everything below 1.0 is still here, plus:

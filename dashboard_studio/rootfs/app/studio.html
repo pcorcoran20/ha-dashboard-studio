@@ -683,6 +683,7 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .car .car-tail{stroke:#ff4a4a;opacity:.55}
 .car .car-port{fill:#2b2d31;transition:fill .3s}
 .car .car-port.open{fill:#9be7b0}
+.car.charging .car-lamp{animation:carPulse 1.4s ease-in-out infinite;filter:drop-shadow(0 0 5px #4ade80)}
 .car.charging .car-port{fill:#4ade80;filter:drop-shadow(0 0 6px #4ade80);animation:carPulse 1.4s ease-in-out infinite}
 .car .car-flow{animation:carFlow .9s linear infinite}
 .car .car-air{opacity:0}
@@ -719,7 +720,9 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .v-bat{display:flex; align-items:center; gap:2px; color:var(--d-muted)}
 .v-bat b{font-family:var(--d-display); font-size:calc(26px * var(--d-fs,1)); font-weight:600; color:var(--d-text); font-variant-numeric:tabular-nums}
 .v-bat svg.i{width:18px; height:18px; color:#4ade80}
-.v-car{margin:0 -6px}
+.v-car{margin:0 -6px; position:relative}
+.v-tvtag{position:absolute; top:0; left:50%; transform:translateX(-50%); z-index:2; display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:99px; font-size:calc(11.5px * var(--d-fs,1)); font-weight:600; background:color-mix(in srgb, var(--d-text) 12%, transparent); color:var(--d-text); white-space:nowrap}
+.v-tvtag svg.i{width:13px; height:13px; color:var(--d-accent)}
 .v-range{display:flex; flex-direction:column; gap:6px}
 .v-bar{position:relative; height:10px; border-radius:99px; background:color-mix(in srgb, var(--d-text) 10%, transparent); overflow:hidden}
 .v-bar i{position:absolute; left:0; top:0; bottom:0; border-radius:99px; background:var(--d-text); opacity:.85; transition:width .8s ease}
@@ -2474,6 +2477,8 @@ insp.addEventListener('click', e => {
   if (e.target.closest('#tvSetup')) { openTesla(); return; }
   { const b = find(selected), vm = e.target.closest('[data-vmodel]'), vp = e.target.closest('[data-vpaint]');
     const t = b?.type === 'hub' ? b.car : b, hc = e.target.closest('[data-hcar]');
+    const vc = e.target.closest('[data-vchg]');
+    if (t && vc) { commit(); t.charger = vc.dataset.vchg; renderDash(); renderInsp(); save(); return; }
     if (t && e.target.closest('#vImgClear')) { commit(); t.image = ''; renderDash(); renderInsp(); save(); return; }
     if (b && hc) { commit(); b.car = {...structuredClone(CATALOG.hub.d.car), ...(b.car || {}), show:hc.dataset.hcar === 'on'}; if (b.view === 'car') b.view = null; renderDash(); renderInsp(); save(); return; }
     if (t && vm) { commit(); t.model = vm.dataset.vmodel; if (/^Model [3SXY]$|^Cybertruck$/.test(t.title)) t.title = VEH_MODELS.find(x => x[0] === t.model)[1]; renderDash(); renderInsp(); save(); return; }
@@ -3401,11 +3406,20 @@ function carSVG(o, uid) {
     + `<circle cx="${x}" cy="${y}" r="${(s.r * .16).toFixed(1)}" fill="#24262b" stroke="#8d939b" stroke-width=".8"/><circle cx="${x - s.r * .25}" cy="${y - s.r * .3}" r="${(s.r * .5).toFixed(1)}" fill="#fff" opacity=".06"/>`;
   const [ax, ay, aw, ah] = s.air, airC = o.climate === 'heat' ? '#ff9a5c' : '#7cc8ff';
   const waves = [0, 1, 2].map(i => { const y = ay + ah * (.35 + i * .25); let d = `M${ax} ${y.toFixed(1)}`; for (let x = 0; x < aw; x += 24) d += ' q 6 -5 12 0 t 12 0'; return `<path class="car-air" d="${d}" stroke="${airC}" style="animation-delay:${i * .5}s"/>`; }).join('');
-  const [px, py] = s.port;
-  const cable = o.charging ? `<path d="M${px} ${py} C${px - 14} ${py + 12} ${px - 26} ${py + 30} ${px - 30} 152" stroke="#26282d" stroke-width="5" fill="none" stroke-linecap="round"/>
-    <path class="car-flow" d="M${px} ${py} C${px - 14} ${py + 12} ${px - 26} ${py + 30} ${px - 30} 152" stroke="#4ade80" stroke-width="2.4" fill="none" stroke-dasharray="4 10" stroke-linecap="round"/>` : '';
+  const [px, py] = s.port, chg = o.charging && (o.charger === 'supercharger' || o.charger === 'wall') ? o.charger : '';
+  /* a Supercharger stall or a Wall Connector stands next to the car while it charges */
+  const plug = chg === 'supercharger' ? [-41, 92] : [-47, 99];
+  const cd = chg ? `M${px} ${py} C${px - 18} ${py + 44} ${plug[0] + 22} ${plug[1] + 46} ${plug[0]} ${plug[1]}` : `M${px} ${py} C${px - 14} ${py + 12} ${px - 26} ${py + 30} ${px - 30} 152`;
+  const lamp = o.charging ? '#4ade80' : '#7cc8ff';
+  const station = chg === 'supercharger'
+    ? `<g class="car-station"><rect x="-68" y="142" width="40" height="6" rx="2" fill="#8c9199"/><path d="M-63 144 L-63 52 Q-63 26 -48 26 Q-33 26 -33 52 L-33 144 Z" fill="#eceef1" stroke="#c4c8ce" stroke-width="1"/>
+      <path d="M-57 136 L-57 56 Q-57 36 -48 36 Q-39 36 -39 56 L-39 136 Z" fill="#23262c"/><rect class="car-lamp" x="-50" y="42" width="4" height="26" rx="2" fill="${lamp}"/><circle cx="-41" cy="92" r="4" fill="#3a3d43"/></g>`
+    : chg === 'wall' ? `<g class="car-station"><rect x="-74" y="18" width="10" height="130" fill="#000" opacity=".12"/><rect x="-62" y="62" width="26" height="40" rx="11" fill="#eceef1" stroke="#c4c8ce" stroke-width="1"/>
+      <rect x="-58" y="66" width="18" height="16" rx="7" fill="#2a2d33"/><rect class="car-lamp" x="-54" y="86" width="10" height="3" rx="1.5" fill="${lamp}"/><circle cx="-47" cy="99" r="3.4" fill="#3a3d43"/></g>` : '';
+  const cable = o.charging ? `${station}<path d="${cd}" stroke="#26282d" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path class="car-flow" d="${cd}" stroke="#4ade80" stroke-width="2.4" fill="none" stroke-dasharray="4 10" stroke-linecap="round"/>` : '';
   const cls = ['car', o.charging && 'charging', o.climate && 'climate', o.sentry && 'sentry', o.lights && 'lights'].filter(Boolean).join(' ');
-  return `<svg class="${cls}" viewBox="0 0 400 154" role="img" aria-label="${o.label || 'Car'}">
+  return `<svg class="${cls}" viewBox="${chg ? '-80 0 480 154' : '0 0 400 154'}" role="img" aria-label="${o.label || 'Car'}">
     <defs><linearGradient id="${id}b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${carMix(c, '#ffffff', .3)}"/><stop offset=".45" stop-color="${carMix(c, '#ffffff', 0)}"/><stop offset="1" stop-color="${carMix(c, '#000000', .42)}"/></linearGradient>
       <linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2e3946"/><stop offset=".55" stop-color="#0e1218"/><stop offset="1" stop-color="#1b232d"/></linearGradient>
       <radialGradient id="${id}rim" cx=".4" cy=".35"><stop offset="0" stop-color="#d4d8dd"/><stop offset=".6" stop-color="#8c9199"/><stop offset="1" stop-color="#4b4f56"/></radialGradient>
@@ -3550,20 +3564,28 @@ const VEH_PAINTS = [['pearl_white','Pearl White'], ['solid_black','Solid Black']
 R.vehicle = (b, uid) => {
   const heat = b.climate && b.inside < 20, rng = isF() ? Math.round(b.range) + ' mi' : Math.round(b.range * 1.609) + ' km';
   const u3 = b.glb && !cars3dBad.has(b.glb), cid = uid || b.id;
+  const chgKind = b.charger === 'none' ? '' : b.charger === 'supercharger' ? 'supercharger' : 'wall';
   const car = u3 ? `<div class="car-photo v3d${b.charging ? ' charging' : ''}${b.sentry ? ' sentry' : ''}${b.climate ? ' climate ' + (heat ? 'heat' : 'cool') : ''}" data-v3d="${esc(cid)}" data-url="${esc(b.glb)}" data-st="${esc(JSON.stringify({frunk:b.frunk, trunk:b.trunk, charge_port:b.port || b.charging}))}">${cars3d.get(cid + '|' + b.glb)?.renderer ? '' : '<div class="v3d-wait">Loading your 3D car…</div>'}<i class="cp-glow"></i><i class="cp-eye"></i><i class="cp-air"></i></div>`
-    : (b.glb ? '<p class="d-label">Couldn’t load the 3D car here, so this is the drawing.</p>' : '') + carVisual({image:b.image, model:b.model, color:b.paint, charging:b.charging, climate:b.climate ? (heat ? 'heat' : 'cool') : '', sentry:b.sentry, lights:!b.locked || b.climate, frunk:b.frunk, trunk:b.trunk, port:b.port, label:b.title}, uid || b.id);
+    : (b.glb ? '<p class="d-label">Couldn’t load the 3D car here, so this is the drawing.</p>' : '') + carVisual({image:b.image, model:b.model, color:b.paint, charger:chgKind, charging:b.charging, climate:b.climate ? (heat ? 'heat' : 'cool') : '', sentry:b.sentry, lights:!b.locked || b.climate, frunk:b.frunk, trunk:b.trunk, port:b.port, label:b.title}, uid || b.id);
   const btn = (k, icon, label, on) => `<button class="vc${on ? ' on' : ''}" data-act="car" data-v="${k}" aria-pressed="${!!on}"><span>${ic(icon)}</span>${label}</button>`;
   return `<div class="v-top"><div><div class="d-name">${esc(b.title)}</div><div class="v-st">${b.charging ? 'Charging' : `Parked at home · ${b.locked ? 'Locked' : 'Unlocked'}`}</div></div>
       <div class="v-bat${b.charging ? ' chg' : ''}"><b>${b.battery}</b>%${b.charging ? ic('bolt') : ''}</div></div>
-    <div class="v-car">${car}</div>
+    <div class="v-car">${b.tv ? `<span class="v-tvtag">${ic('sparkle')}Shows as your real 3D Tesla in Home Assistant</span>` : ''}${car}</div>
     <div class="v-range"><div class="v-bar${b.charging ? ' chg' : ''}"><i style="width:${b.battery}%"></i><em style="left:${b.limit}%"></em></div>
       <div class="v-rl"><span>${rng}</span><span>${b.charging ? 'Charging · 11 kW · 25 min left to ' + b.limit + '%' : 'Charge limit ' + b.limit + '%'}</span></div></div>
     <div class="v-ctl">${btn('lock', b.locked ? 'lock' : 'unlock', b.locked ? 'Locked' : 'Unlocked', !b.locked)}${btn('climate', 'fan', b.climate ? (heat ? 'Heating' : 'Cooling') : 'Climate', b.climate)}${btn('frunk', 'frunk', 'Frunk', b.frunk)}${btn('trunk', 'trunk', 'Trunk', b.trunk)}${btn('port', 'plug', 'Charge port', b.port)}${btn('charge', 'bolt', b.charging ? 'Stop' : 'Charge', b.charging)}${btn('sentry', 'shield', 'Sentry', b.sentry)}</div>
     <div class="v-info">Inside ${tC(b.inside, 0)}° · Outside ${tC(b.outside, 0)}°</div>`;
 };
 const vehImgName = b => `car-${slug(b.title || 'car')}.webp`;
-const vehImgOut = b => ({...(b.image ? {image:b.image.startsWith('data:') ? '/local/' + vehImgName(b) : b.image} : {}), ...(b.glb ? {model_url:b.glb} : {})});
+const vehImgOut = b => ({...(b.device ? {device:b.device} : {}), ...(b.charger && b.charger !== 'auto' ? {charger:b.charger} : {}), ...(b.image ? {image:b.image.startsWith('data:') ? '/local/' + vehImgName(b) : b.image} : {}), ...(b.glb ? {model_url:b.glb} : {})});
 insp.addEventListener('change', e => {
+  if (e.target.id === 'vDev') {
+    const blk = find(selected), t = blk?.type === 'hub' ? blk.car : blk; if (!t) return;
+    commit(); t.device = e.target.value; const d = carDevices().find(c => c.id === t.device);
+    if (d && (/^Model [3SXY]$|^Cybertruck$/.test(t.title) || !t.title)) t.title = d.name;
+    if (d) { const k = (TV_MODEL.find(([re]) => re.test(d.model + ' ' + d.name)) || [])[1]; if (k) t.model = k; }
+    renderDash(); renderInsp(); save(); return;
+  }
   if (e.target.id !== 'vImg' || !e.target.files?.[0]) return;
   const blk = find(selected), t = blk?.type === 'hub' ? blk.car : blk; if (!t) return;
   const img = new Image(), url = URL.createObjectURL(e.target.files[0]);
@@ -3574,10 +3596,26 @@ insp.addEventListener('change', e => {
   };
   img.onerror = () => toast('That file isn’t a picture the browser can open'); img.src = url;
 });
+/* cars in Home Assistant: devices from a Tesla integration, or with a battery level and a lock, climate or frunk */
+const CAR_PLATFORMS = ['tesla_fleet', 'teslemetry', 'tessie', 'tesla_custom'];
+function carDevices(){
+  const dev = window.__haDev; if (!dev) return [];
+  const by = {};
+  Object.entries(dev).forEach(([id, d]) => { if (d) (by[d] = by[d] || []).push(id); });
+  return Object.entries(by).filter(([d, ids]) => ids.some(i => CAR_PLATFORMS.includes(window.__haPlat?.[i])) ||
+      (ids.some(i => /^sensor\..*_battery_level$/.test(i)) && ids.some(i => /^(lock|climate)\./.test(i) || /^cover\..*_frunk$/.test(i))))
+    .map(([d]) => ({id:d, name:window.__haDevices?.[d]?.name || d, model:window.__haDevices?.[d]?.model || ''}));
+}
+const CHARGERS = [['auto','Find it'], ['supercharger','Supercharger'], ['wall_connector','Wall Connector'], ['none','Only the cable']];
 function vehEditorHTML(b){
-  return `<div class="field"><span class="lbl2">Model</span><div class="seg" role="group" aria-label="Model">${VEH_MODELS.map(([k, l]) => `<button data-vmodel="${k}" aria-pressed="${b.model === k}">${l}</button>`).join('')}</div></div>
+  const cars = carDevices();
+  return `${cars.length ? `<div class="field"><label for="vDev">Your car</label><select id="vDev"><option value="">Find it by itself</option>${cars.map(c => `<option value="${esc(c.id)}" ${b.device === c.id ? 'selected' : ''}>${esc(c.name)}${c.model ? ' · ' + esc(c.model) : ''}</option>`).join('')}</select>
+      <p class="hint">${cars.length > 1 ? `Found ${cars.length} cars. Pick the one for this card.` : 'Found your car in Home Assistant.'}</p></div>` : ''}
+    <div class="field"><span class="lbl2">Model</span><div class="seg" role="group" aria-label="Model">${VEH_MODELS.map(([k, l]) => `<button data-vmodel="${k}" aria-pressed="${b.model === k}">${l}</button>`).join('')}</div></div>
     <div class="field"><span class="lbl2">Paint</span><div class="v-paints">${VEH_PAINTS.map(([k, l]) => `<button data-vpaint="${k}" aria-pressed="${b.paint === k}" title="${l}"><i style="background:${carMix(k, '#fff', 0)}"></i>${l}</button>`).join('')}</div>
     <div class="crow"><label for="vPaint">Custom paint</label><input type="color" class="colorpick" id="vPaint" value="${toHex(carMix(b.paint, '#fff', 0))}"></div></div>
+    <div class="field"><span class="lbl2">While it charges, show</span><div class="seg" role="group" aria-label="Charger">${CHARGERS.map(([k, l]) => `<button data-vchg="${k}" aria-pressed="${(b.charger || 'auto') === k}">${l}</button>`).join('')}</div>
+      <p class="hint">Find it shows a Supercharger when your car is fast charging, and a Wall Connector at home.</p></div>
     <div class="field"><span class="lbl2">Car picture (optional)</span>
       <div class="btnrow"><label class="btn" for="vImg">${ic('plus')}Upload a picture</label><input type="file" id="vImg" accept="image/*" hidden>${b.image?.startsWith('data:') ? `<a class="btn" download="${vehImgName(b)}" href="${b.image}">Save it</a>` : ''}${b.image ? '<button class="btn" id="vImgClear">Use the drawing</button>' : ''}</div>
       <input type="text" id="vImgUrl" class="mono" placeholder="or a link, like /local/my-car.png" value="${b.image && !b.image.startsWith('data:') ? esc(b.image) : ''}" spellcheck="false">
@@ -4012,6 +4050,23 @@ async function tvSend(name, src, total, reset, onProg){
   for (;;) { const {done, value} = await rd.read(); if (done) break; buf.push(value.slice()); len += value.length; if (len >= CH) { await post(buf); buf = []; len = 0; } }
   if (len) await post(buf);
 }
+/* after the wizard: point every car in the design at the car you made, so the model matches */
+const TV_MODEL = [[/cyber/i, 'cybertruck'], [/model ?3|highland/i, 'model_3'], [/model ?y|juniper|bayberry/i, 'model_y'], [/model ?s/i, 'model_s'], [/model ?x/i, 'model_x']];
+function applyTvCars(names){
+  const keys = [...new Set((names || []).map(n => (TV_MODEL.find(([re]) => re.test(n)) || [])[1]).filter(Boolean))];
+  if (!keys.length) return;
+  const cars = state.pages.flatMap(pg => pg.blocks).flatMap(b => b.type === 'vehicle' ? [b] : b.type === 'hub' && b.car?.show ? [b.car] : []);
+  if (!cars.length) return;
+  commit();
+  /* with several cars, each car in the design gets the next one that isn't used yet */
+  const free = keys.filter(k => !cars.some(c => c.model === k));
+  cars.forEach(c => {
+    if (!keys.includes(c.model)) { const auto = /^Model [3SXY]$|^Cybertruck$/.test(c.title); c.model = free.shift() || keys[0]; if (auto) c.title = VEH_MODELS.find(m => m[0] === c.model)[1]; }
+    c.tv = true;
+  });
+  state.tvCars = names; renderDash(); renderInsp(); save();
+  toast(`Your car${cars.length === 1 ? ' is' : 's are'} set to ${keys.map(k => VEH_MODELS.find(m => m[0] === k)[1]).join(' and ')}`);
+}
 function openTesla(){
   if (!window.STUDIO_ADDON) { toast('This works in the Dashboard Studio add-on'); return; }
   const usb = window.isSecureContext && 'usb' in navigator;
@@ -4019,22 +4074,38 @@ function openTesla(){
   openModal({title:'Set up my real 3D Tesla', body:'<div id="tvBody"><p class="hint">Checking your Home Assistant…</p></div>', mount(){
     const body = $('tvBody');
     const step = (n, t) => `<div class="tv-step"><span>${n}</span><b>${t}</b></div>`;
-    const logBox = j => j.log?.length ? `<details class="twg"><summary>Show details</summary><div class="twb"><pre class="code tv-log">${esc(j.log.slice(-40).join('\n'))}</pre></div></details>` : '';
-    const show = html => { body.innerHTML = html; };
+    /* the details stay open, and keep scrolling to the newest line, while the log updates */
+    let logOpen = false, shown = '';
+    const logBox = j => j.log?.length ? `<details class="twg" id="tvLog" ${logOpen ? 'open' : ''}><summary>Show details</summary><div class="twb"><pre class="code tv-log">${esc(j.log.slice(-40).join('\n'))}</pre></div></details>` : '';
+    body.addEventListener('toggle', e => { if (e.target.id === 'tvLog') logOpen = e.target.open; }, true);
+    const live = (key, html, j) => {
+      if (shown === key && body.querySelector('.tv-live')) {
+        body.querySelector('.tv-live').textContent = j.step || '';
+        const pre = body.querySelector('.tv-log');
+        if (pre) { const end = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 8; pre.textContent = j.log.slice(-40).join('\n'); if (end) pre.scrollTop = pre.scrollHeight; }
+        else if (j.log?.length) body.insertAdjacentHTML('beforeend', logBox(j));
+        return;
+      }
+      shown = key; show(html);
+      const pre = body.querySelector('.tv-log'); if (pre) pre.scrollTop = pre.scrollHeight;
+    };
+    const show = html => { body.innerHTML = html; shown = ''; };
     const fail = (msg, again = true) => show(`<p class="tv-err">${esc(msg)}</p>${again ? '<div class="btnrow"><button class="btn" data-tv="restart">Try again</button></div>' : ''}`);
     let st;
     const intro = () => {
       if (!st.supported) return show(`<p>Your Home Assistant runs on <b>${esc(st.arch)}</b>. Making the car needs an x86 computer, like a mini PC, because one of the tools only exists for x86.</p>
         <p class="hint">You can still do it on a computer: make the asset pack with <a href="https://github.com/koenhendriks/tesla-model-extractor" target="_blank" rel="noopener">Tesla Model Extractor</a>'s desktop app, then upload it in Tesla View. The Vehicle card picks it up by itself.</p>`);
-      if (st.job?.state === 'scan' || st.job?.state === 'build') return watch();
+      if (['scan', 'build', 'restart', 'later'].includes(st.job?.state)) return watch();
       if (st.job?.state === 'scanned' && st.job.vehicles?.length) return pick(st.job);
       show(`${step(1, 'Get the Tesla app')}
         <div class="wel">${usb ? `<button data-tv="phone" class="hero"><span class="wi">${ic('plug')}</span><span><b>Get it from my phone</b><small>Plug your Android phone into this computer with a USB cable</small></span><span class="go">${ic('right')}</span></button>` : ''}
         <button data-tv="file"><span class="wi">${ic('plus')}</span><span><b>Upload the app file</b><small>A .apk, .apks, .apkm or .xapk file you saved from your phone</small></span><span class="go">${ic('right')}</span></button>
+        ${st.kept ? `<button data-tv="kept" class="hero"><span class="wi">${ic('car')}</span><span><b>Add more cars</b><small>From the Tesla app you saved${st.kept.app_version ? ' (' + esc(st.kept.app_version) + ')' : ''}. No need to send it again</small></span><span class="go">${ic('right')}</span></button>` : ''}
         ${st.files?.length ? `<button data-tv="reuse"><span class="wi">${ic('bolt')}</span><span><b>Use the file you sent before</b><small>${esc(st.files.map(f => f.name).join(', '))}</small></span><span class="go">${ic('right')}</span></button>` : ''}</div>
         <input type="file" id="tvFile" accept=".apk,.apks,.apkm,.xapk" hidden>
         ${usb ? `<details class="twg"><summary>First time with your phone?</summary><div class="twb"><ol class="tv-ol"><li>On the phone, open <b>Settings › About phone</b> and tap <b>Build number</b> 7 times.</li><li>Go back to <b>Settings › Developer options</b> (sometimes under <b>System</b>) and turn on <b>USB debugging</b>.</li><li>Plug the phone in. When it asks <b>Allow USB debugging?</b>, tap <b>Allow</b>.</li><li>If Android Studio or adb is running on this computer, close it first.</li></ol></div></details>`
           : `<p class="hint">To get the app straight from your phone, open Home Assistant with https in Chrome or Edge on a computer.</p>`}
+        ${st.kept ? '<div class="btnrow"><button class="btn" data-tv="forget">Delete the saved app</button></div>' : ''}
         ${st.free_gb && st.free_gb < 3 ? `<p class="tv-err">Only ${st.free_gb} GB free. This needs about 3 GB while it works.</p>` : `<p class="hint">It needs about 3 GB of space while it works, and cleans up after. Nothing leaves your Home Assistant.</p>`}`);
     };
     const progress = (label, done, total) => show(`${step(1, 'Get the Tesla app')}<p>${esc(label)}</p><div class="v-bar tv-bar"><i style="width:${total ? Math.min(100, done / total * 100) : 5}%"></i></div><p class="hint">${mb(done)}${total ? ' of ' + mb(total) : ''}</p>`);
@@ -4058,18 +4129,26 @@ function openTesla(){
     const pick = j => {
       const want = v => carNames.some(n => v.name.toLowerCase().includes(n.toLowerCase()));
       const anyWant = j.vehicles.some(want);
-      show(`${step(2, 'Pick your car')}<p class="hint">${esc(j.step || '')}. Tick the ones you drive.</p>
+      show(`${step(2, 'Pick your cars')}<p class="hint">${esc(j.step || '')}. Tick every car you drive: they're all made in one go.</p>
+        <div class="btnrow"><button class="btn" data-tv="all">Select all</button><button class="btn" data-tv="none">Select none</button></div>
         <div class="ab-list">${j.vehicles.map((v, i) => `<label class="switch"><span><b>${esc(v.name)}</b><small>${esc(v.id)}${v.size ? ' · ' + mb(v.size) : ''}</small></span><input type="checkbox" data-tvcar="${esc(v.id)}" ${(anyWant ? want(v) : i === 0) ? 'checked' : ''}></label>`).join('')}</div>
-        <div class="btnrow"><button class="btn magic" data-tv="build">${ic('sparkle')}Make my car</button><button class="btn" data-tv="restart">Start over</button></div>`);
+        <label class="switch"><span><b>Keep the app ready for more cars</b><small>Add another car later without sending the app again. Uses about 1.5 GB</small></span><input type="checkbox" id="tvKeep" checked></label>
+        <div class="btnrow"><button class="btn magic" data-tv="build">${ic('sparkle')}Make my cars</button><button class="btn" data-tv="restart">Start over</button></div>`);
     };
     const watch = () => {
       clearInterval(tvPoll);
       const tick = async () => {
         let j; try { j = (await tvApi('status')).job; } catch(e) { return; }
-        if (j.state === 'scan' || j.state === 'build') show(`${step(j.state === 'scan' ? 2 : 3, j.state === 'scan' ? 'Reading the app' : 'Making your car')}<p>${esc(j.step)}</p><div class="v-bar tv-bar busy"><i></i></div>${logBox(j)}`);
+        if (j.state === 'scan' || j.state === 'build') live(j.state, `${step(j.state === 'scan' ? 2 : 3, j.state === 'scan' ? 'Reading the app' : 'Making your car')}<p class="tv-live">${esc(j.step)}</p><div class="v-bar tv-bar busy"><i></i></div>${logBox(j)}`, j);
+        else if (j.state === 'restart') live('restart', `${step(4, 'Restart Home Assistant?')}<p>Your car is ready and Tesla View is installed. Home Assistant needs to restart once so it can start Tesla View. It takes a minute or two, and your dashboards come back by themselves.</p>
+          <div class="btnrow"><button class="btn magic" data-tv="restartnow">Restart now</button><button class="btn" data-tv="restartlater">Restart later</button></div>
+          <p class="hint">If you pick later, restart whenever you like. The add-on finishes Tesla View's setup by itself after that.</p>${logBox(j)}`, j);
+        else if (j.state === 'later') live('later', `${step(4, 'Waiting for a restart')}<p class="tv-live">${esc(j.step)}</p>
+          <p class="hint">Restart from <b>Settings › System</b>, then the power button at the top right. Or restart now:</p>
+          <div class="btnrow"><button class="btn magic" data-tv="restartnow">Restart now</button></div>${logBox(j)}`, j);
         else if (j.state === 'scanned') { clearInterval(tvPoll); pick(j); }
-        else if (j.state === 'done') { clearInterval(tvPoll); show(`<p class="tv-ok">${ic('sparkle')}<b>Your real 3D Tesla is ready</b></p>
-          <p>Tesla View is set up with ${esc((j.done?.models || []).join(', '))}. ${j.done?.fresh ? 'Home Assistant restarted once to start it. ' : ''}Your Vehicle card and the hub’s car view show it now. Reload any Home Assistant tabs you have open.</p>
+        else if (j.state === 'done') { clearInterval(tvPoll); if (!body.dataset.applied) { body.dataset.applied = '1'; applyTvCars(j.done?.models); } show(`<p class="tv-ok">${ic('sparkle')}<b>Your real 3D Tesla is ready</b></p>
+          <p>Tesla View is set up with ${esc((j.done?.models || []).join(', '))}. Your Vehicle card and the hub’s car view show it now. Reload any Home Assistant tabs you have open.</p>
           <p class="hint">The copy of the Tesla app and the work files are deleted. Keep the car for yourself: it is Tesla’s artwork.</p>${logBox(j)}`); }
         else if (j.state === 'error') { clearInterval(tvPoll); fail(j.error); body.insertAdjacentHTML('beforeend', logBox(j)); }
       };
@@ -4080,9 +4159,14 @@ function openTesla(){
       if (a === 'phone') fromPhone();
       if (a === 'file') $('tvFile').click();
       if (a === 'reuse') scan();
+      if (a === 'kept') pick({vehicles:st.kept.vehicles, step:`Your saved Tesla app${st.kept.app_version ? ' ' + st.kept.app_version : ''}`});
+      if (a === 'all' || a === 'none') body.querySelectorAll('[data-tvcar]').forEach(x => x.checked = a === 'all');
+      if (a === 'forget') { try { await tvApi('clear', {method:'POST'}); st = await tvApi('status'); intro(); toast('Deleted the saved app'); } catch(err) { fail(err.message, false); } }
+      if (a === 'restartnow' || a === 'restartlater') {
+        try { await tvApi('restart', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({now:a === 'restartnow'})}); watch(); } catch(err) { fail(err.message); } }
       if (a === 'restart') { clearInterval(tvPoll); try { await tvApi('clear', {method:'POST'}); st = await tvApi('status'); intro(); } catch(err) { fail(err.message, false); } }
       if (a === 'build') { const models = [...body.querySelectorAll('[data-tvcar]:checked')].map(x => x.dataset.tvcar); if (!models.length) return toast('Tick at least one car');
-        try { await tvApi('build', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({models})}); watch(); } catch(err) { fail(err.message); } }
+        try { await tvApi('build', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({models, keep:!!$('tvKeep')?.checked})}); watch(); } catch(err) { fail(err.message); } }
     };
     const change = e => { if (e.target.id === 'tvFile' && e.target.files?.[0]) fromFile(e.target.files[0]); };
     body.addEventListener('click', click); body.addEventListener('change', change);
@@ -4102,11 +4186,16 @@ async function haLoad(announce){
     window.__haNames = Object.fromEntries(j.entities.map(e => [e.entity_id, e.name]));
     window.__haArea = Object.fromEntries(j.entities.map(e => [e.entity_id, e.area]));
     window.__haAreaNames = Object.fromEntries(j.areas.map(a => [a.id, a.name]));
+    window.__haDev = Object.fromEntries(j.entities.map(e => [e.entity_id, e.device]));
+    window.__haPlat = Object.fromEntries(j.entities.map(e => [e.entity_id, e.platform]));
+    window.__haDevices = Object.fromEntries((j.devices || []).map(d => [d.id, d]));
     state.entities = parseEntities(j.entities.map(e => e.entity_id).join(' '));
     chip.classList.remove('off'); chip.innerHTML = `<i></i>${esc(j.location || 'Home Assistant')}`;
     chip.title = `Connected to Home Assistant ${j.version || ''} · ${state.entities.length} entities · ${j.areas.length} areas`;
     syncSmart(); renderInsp(); save();
     if (announce) toast(`Loaded ${state.entities.length} entities and ${j.areas.length} areas`);
+    /* a car made with the Tesla wizard before: make the design match it */
+    if (!state.tvCars) tvApi('status').then(t => { if (t.models?.length) applyTvCars(t.models.map(m => m.name || m.id)); }).catch(() => {});
   } catch(e) {
     chip.classList.add('off'); chip.innerHTML = '<i></i>Not connected';
     chip.title = 'The add-on couldn’t reach Home Assistant: ' + e.message;

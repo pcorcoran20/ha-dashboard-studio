@@ -39,7 +39,7 @@ from aiohttp import ClientSession, ClientTimeout, web
 
 import tesla
 
-VERSION = os.environ.get("STUDIO_VERSION", "1.0.0")
+VERSION = os.environ.get("STUDIO_VERSION", "1.1.0")
 def _token():
     """The Supervisor's token, from the environment or from where s6 keeps the container's environment."""
     tok = os.environ.get("SUPERVISOR_TOKEN", "")
@@ -144,6 +144,7 @@ async def ha_info(request):
         entities = await c.call("config/entity_registry/list")
         devices = await c.call("config/device_registry/list")
     device_area = {d["id"]: d.get("area_id") for d in devices}
+    ent_reg = {e["entity_id"]: e for e in entities}
     known_areas = {a["area_id"] for a in areas}
     entity_area = {e["entity_id"]: e.get("area_id") or device_area.get(e.get("device_id")) for e in entities}
     # leave out leftovers: entities from removed devices, and hidden, disabled or settings-only entities
@@ -157,8 +158,12 @@ async def ha_info(request):
             "name": s.get("attributes", {}).get("friendly_name") or s["entity_id"],
             "state": s.get("state"),
             "area": entity_area.get(s["entity_id"]) if entity_area.get(s["entity_id"]) in known_areas else None,
+            "device": ent_reg.get(s["entity_id"], {}).get("device_id"),
+            "platform": ent_reg.get(s["entity_id"], {}).get("platform"),
         } for s in states],
         "areas": [{"id": a["area_id"], "name": a["name"]} for a in areas],
+        "devices": [{"id": d["id"], "name": d.get("name_by_user") or d.get("name") or "", "model": d.get("model"), "maker": d.get("manufacturer")}
+                    for d in devices if not d.get("disabled_by")],
         "unit": (cfg.get("unit_system") or {}).get("temperature"),
         "location": cfg.get("location_name"),
         "version": cfg.get("version"),

@@ -40,8 +40,9 @@ Your designs are saved inside the add-on, so they survive restarts and show up o
 
 1. **Gets the Tesla app.** Plug your Android phone into your computer and select **Get it from my phone**, or upload an app file (`.apk`, `.apks`, `.apkm` or `.xapk`) you saved yourself.
 2. **Reads the app** with [Tesla Model Extractor](https://github.com/koenhendriks/tesla-model-extractor) and shows the cars inside it. Your car is ticked already.
-3. **Makes your car**, installs Tesla View, adds your car to it, restarts Home Assistant once (only the first time) and finishes Tesla View's setup.
-4. **Cleans up.** The copy of the app and the work files are deleted.
+3. **Makes your cars.** Tick every car you drive, and they're all made in one go. The add-on installs Tesla View and adds your cars to it.
+4. **Asks before restarting.** The first time only, Home Assistant needs to restart once to start Tesla View. Choose **Restart now** or **Restart later**. With later, the add-on finishes Tesla View's setup by itself after your next restart.
+5. **Cleans up.** The copy of the app is deleted. If you tick **Keep the app ready for more cars**, the add-on keeps the read app (about 1.5 GB). Then **Add more cars** works later without sending the app again, and **Delete the saved app** removes it.
 
 After that, the Vehicle card and the Control hub's car view show the Tesla View car by themselves. Set `tesla_view: false` on a card to keep the drawing.
 
