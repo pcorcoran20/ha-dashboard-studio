@@ -1,3 +1,24 @@
+# ╭──────────────────────────────────────────────────────╮
+# │                                                      │
+# │          ,,                                          │
+# │        <(o )___           ✦ PATRICK'S NEST ✦         │
+# │         ( ._> /           quackomation for HA        │
+# │          `---'            hatched with love          │
+# │      __       __       __                            │
+# │    <(o )__  <(o )__  <(o )__    (the interns)        │
+# │     (._>/    (._>/    (._>/     unpaid. underfoot.   │
+# │  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  │
+# │                                                      │
+# │   file     : build.yaml                              │
+# │   author   : Patrick (and the interns)               │
+# │   hatched  : 2026-10-26                              │
+# │   license  : Muscovy Public License (joke, see       │
+# │              LICENSE file for the real one)          │
+# │   status   : no ducks harmed. all fed. one is        │
+# │              sitting on the keyboard.                │
+# │                                                      │
+# ╰──────────────────────────────────────────────────────╯
+
 build_from:
   aarch64: ghcr.io/home-assistant/aarch64-base:3.20
   amd64: ghcr.io/home-assistant/amd64-base:3.20

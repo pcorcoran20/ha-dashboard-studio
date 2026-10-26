@@ -1,3 +1,24 @@
+// ╭──────────────────────────────────────────────────────╮
+// │                                                      │
+// │          ,,                                          │
+// │        <(o )___           ✦ PATRICK'S NEST ✦         │
+// │         ( ._> /           quackomation for HA        │
+// │          `---'            hatched with love          │
+// │      __       __       __                            │
+// │    <(o )__  <(o )__  <(o )__    (the interns)        │
+// │     (._>/    (._>/    (._>/     unpaid. underfoot.   │
+// │  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  │
+// │                                                      │
+// │   file     : dashboard-studio-card.js                │
+// │   author   : Patrick (and the interns)               │
+// │   hatched  : 2026-10-26                              │
+// │   license  : Muscovy Public License (joke, see       │
+// │              LICENSE file for the real one)          │
+// │   status   : no ducks harmed. all fed. one is        │
+// │              sitting on the keyboard.                │
+// │                                                      │
+// ╰──────────────────────────────────────────────────────╯
+
 /*
  * Dashboard Studio hub card for Home Assistant
  * A touchscreen-style home screen: room chips, big category tiles, per-room device controls,
@@ -16,7 +37,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '0.1.0';
+const STUDIO_VERSION = '0.2.0';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -416,9 +437,287 @@ input[type=range]{width:100%;accent-color:var(--s-active);margin:0}
 button:focus-visible{outline:2px solid var(--s-accent);outline-offset:2px}
 `;
 
+/*
+ * Dashboard Studio effects card
+ * Puts a moving background behind the dashboard and adds card effects to the other cards on the view.
+ * The card itself is invisible outside edit mode. Add one per view.
+ *
+ *   type: custom:dashboard-studio-fx
+ *   background: aurora        # off, aurora, stars, snow, rain, bokeh, waves, sky, hue, weather
+ *   weather_entity: weather.home
+ *   strength: 70              # 10 to 100
+ *   speed: 1                  # 0.25 to 2
+ *   layer: behind             # behind the cards, or front (over them, taps pass through)
+ *   card_effects:
+ *     float_in: true
+ *     tilt: false
+ *     glowing_edges: false
+ *     light_glow: true
+ */
+const FX_NAMES = {off: 'Off', aurora: 'Aurora', stars: 'Starry night', snow: 'Snowfall', rain: 'Rain', bokeh: 'Bokeh lights', waves: 'Waves', sky: 'Sky by time of day', hue: 'Color shift', weather: 'Follows the weather'};
+const HA_WEATHER = {
+  sunny: 'sunny', 'clear-night': 'night', partlycloudy: 'partly', cloudy: 'cloudy', fog: 'cloudy', windy: 'cloudy', 'windy-variant': 'cloudy',
+  rainy: 'rain', pouring: 'rain', hail: 'rain', lightning: 'storm', 'lightning-rainy': 'storm', snowy: 'snow', 'snowy-rainy': 'snow', exceptional: 'cloudy'
+};
+const rnd = (a, b) => a + Math.random() * (b - a);
+function parseRGB(c) {
+  c = String(c || '').trim();
+  let m = c.match(/^#([0-9a-f]{3,8})$/i);
+  if (m) { let h = m[1]; if (h.length <= 4) h = [...h].map(x => x + x).join(''); const n = parseInt(h.slice(0, 6), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+  m = c.match(/^rgba?\(([^)]+)\)$/i);
+  if (m) { const p = m[1].split(/[\s,/]+/).filter(Boolean).map(parseFloat); return p.slice(0, 3); }
+  return null;
+}
+const alpha = (c, a) => { const p = parseRGB(c) || [255, 255, 255]; return `rgba(${p.map(Math.round).join(',')},${a})`; };
+const luma = c => { const p = parseRGB(c) || [0, 0, 0]; return (0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2]) / 255; };
+
+/* each effect has init(W, H, P) and draw(ctx, state, W, H, t, P); t is seconds, already scaled by speed */
+const ENG = {
+  aurora: {init: (W, H, P) => ({b: [P.acc, P.act, P.dark ? '#7b5cff' : '#ff9ec7', P.dark ? '#00c2a8' : '#9be7ff'].map((c, i) => ({c, ph: i * 1.7, r: Math.max(W, H) * rnd(.35, .55)}))}),
+    draw(x, s, W, H, t) { for (const b of s.b) { const cx = W * (.5 + .42 * Math.sin(t * .13 + b.ph)), cy = H * (.5 + .36 * Math.cos(t * .11 + b.ph * 1.3));
+      const g = x.createRadialGradient(cx, cy, 0, cx, cy, b.r); g.addColorStop(0, alpha(b.c, .42)); g.addColorStop(1, alpha(b.c, 0)); x.fillStyle = g; x.fillRect(0, 0, W, H); } }},
+  stars: {init: (W, H, P) => ({s: Array.from({length: Math.min(400, Math.round(W * H / 9000))}, () => ({x: rnd(0, W), y: rnd(0, H), r: rnd(.4, 1.6) * P.dpr, f: rnd(.5, 2), p: rnd(0, 6)})), shoot: null, next: 3}),
+    draw(x, s, W, H, t, P) {
+      x.fillStyle = P.fg; for (const a of s.s) { x.globalAlpha = .25 + .75 * Math.abs(Math.sin(t * a.f + a.p)); x.beginPath(); x.arc(a.x, a.y, a.r, 0, 7); x.fill(); } x.globalAlpha = 1;
+      if (t > s.next && !s.shoot) { s.shoot = {x: rnd(W * .3, W), y: rnd(0, H * .35), t0: t}; s.next = t + rnd(4, 9); }
+      if (s.shoot) { const k = (t - s.shoot.t0) / .9; if (k > 1) s.shoot = null; else {
+        const len = 150 * P.dpr, sx = s.shoot.x - k * W * .3, sy = s.shoot.y + k * H * .2, g = x.createLinearGradient(sx, sy, sx + len, sy - len * .6);
+        g.addColorStop(0, alpha(P.fg, .9 * (1 - k))); g.addColorStop(1, alpha(P.fg, 0)); x.strokeStyle = g; x.lineWidth = 2 * P.dpr; x.beginPath(); x.moveTo(sx, sy); x.lineTo(sx + len, sy - len * .6); x.stroke(); } } }},
+  snow: {init: (W, H, P) => ({f: Array.from({length: Math.min(350, Math.round(W * H / 11000))}, () => ({x: rnd(0, W), y: rnd(0, H), r: rnd(1, 3.2) * P.dpr, v: rnd(.4, 1.1), p: rnd(0, 6)}))}),
+    draw(x, s, W, H, t, P) { x.fillStyle = P.fg; for (const f of s.f) { const y = (f.y + t * f.v * 60 * P.dpr) % (H + 10), xx = f.x + Math.sin(t * .8 + f.p) * 14 * P.dpr;
+      x.globalAlpha = .35 + f.r / (5 * P.dpr); x.beginPath(); x.arc(xx, y, f.r, 0, 7); x.fill(); } x.globalAlpha = 1; }},
+  rain: {init: (W, H, P) => ({d: Array.from({length: Math.min(500, Math.round(W * H / 7000))}, () => ({x: rnd(0, W), y: rnd(0, H), l: rnd(10, 22) * P.dpr, v: rnd(6, 10)}))}),
+    draw(x, s, W, H, t, P) { x.strokeStyle = alpha(P.fg, .32); x.lineWidth = 1.2 * P.dpr; x.beginPath();
+      for (const d of s.d) { const y = (d.y + t * d.v * 90 * P.dpr) % (H + 30) - 30, xx = ((d.x - y * .15) % W + W) % W; x.moveTo(xx, y); x.lineTo(xx - d.l * .15, y + d.l); } x.stroke(); }},
+  bokeh: {init: (W, H, P) => ({o: Array.from({length: 22}, (_, i) => ({x: rnd(0, W), y: rnd(0, H), r: rnd(20, 70) * P.dpr, v: rnd(.2, .6), c: [P.acc, P.act, P.fg][i % 3], p: rnd(0, 6)}))}),
+    draw(x, s, W, H, t, P) { for (const o of s.o) { const span = H + o.r * 2, y = ((o.y - t * o.v * 40 * P.dpr) % span + span) % span - o.r, xx = o.x + Math.sin(t * .3 + o.p) * 30 * P.dpr;
+      const g = x.createRadialGradient(xx, y, 0, xx, y, o.r); g.addColorStop(0, alpha(o.c, .3)); g.addColorStop(.7, alpha(o.c, .12)); g.addColorStop(1, alpha(o.c, 0));
+      x.fillStyle = g; x.beginPath(); x.arc(xx, y, o.r, 0, 7); x.fill(); } }},
+  waves: {init: () => ({}), draw(x, s, W, H, t, P) {
+    [[P.acc, .16, .66, 1], [P.act, .13, .75, 1.4], [P.fg, .07, .84, .8]].forEach(([c, a, base, f], i) => {
+      x.fillStyle = alpha(c, a); x.beginPath(); x.moveTo(0, H);
+      for (let px = 0; px <= W; px += 8 * P.dpr) x.lineTo(px, H * base + Math.sin(px / W * Math.PI * (2 + i) + t * f + i) * H * .035 + Math.sin(px / W * 9 + t * f * 1.7) * H * .01);
+      x.lineTo(W, H); x.closePath(); x.fill(); }); }},
+  sky: {init: () => ({}), draw(x, s, W, H) {
+    const now = new Date(), h = now.getHours() + now.getMinutes() / 60;
+    const k = h >= 5 && h < 7 ? ['#3a4a8c', '#ffb38a'] : h >= 7 && h < 17 ? ['#5aa8f0', '#cfe9ff'] : h >= 17 && h < 19.5 ? ['#3b2a6b', '#ff8a5c'] : ['#070b1e', '#1d2650'];
+    const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, k[0]); g.addColorStop(1, k[1]); x.fillStyle = g; x.fillRect(0, 0, W, H);
+    const day = h >= 6 && h < 19, f = day ? (h - 6) / 13 : ((h + 24 - 19) % 24) / 11;
+    const cx = W * (.08 + .84 * f), cy = H * (.5 - Math.sin(f * Math.PI) * .42), r = Math.min(W, H) * .05;
+    const gl = x.createRadialGradient(cx, cy, 0, cx, cy, r * 5); gl.addColorStop(0, day ? 'rgba(255,240,180,0.7)' : 'rgba(220,230,255,0.4)'); gl.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = gl; x.fillRect(0, 0, W, H); x.fillStyle = day ? '#fff4c2' : '#e8eeff'; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill(); }},
+  hue: {init: () => ({}), draw(x, s, W, H, t) { const a = (t * 18) % 360, g = x.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, `hsla(${a},75%,58%,.6)`); g.addColorStop(.5, `hsla(${a + 60},75%,58%,.6)`); g.addColorStop(1, `hsla(${a + 120},75%,58%,.6)`); x.fillStyle = g; x.fillRect(0, 0, W, H); }},
+  sun: {init: () => ({}), draw(x, s, W, H, t, P) { const cx = W * .86, cy = H * .1, R = Math.min(W, H) * .7;
+    const g = x.createRadialGradient(cx, cy, 0, cx, cy, R); g.addColorStop(0, 'rgba(255,214,120,0.55)'); g.addColorStop(1, 'rgba(255,214,120,0)'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+    x.save(); x.translate(cx, cy); x.rotate(t * .05); x.strokeStyle = 'rgba(255,225,150,0.08)'; x.lineWidth = 26 * P.dpr;
+    for (let i = 0; i < 12; i++) { x.rotate(Math.PI / 6); x.beginPath(); x.moveTo(0, 0); x.lineTo(R, 0); x.stroke(); } x.restore(); }},
+  moon: {init: () => ({}), draw(x, s, W, H) { const cx = W * .84, cy = H * .13, r = Math.min(W, H) * .045;
+    const g = x.createRadialGradient(cx, cy, 0, cx, cy, r * 6); g.addColorStop(0, 'rgba(220,230,255,0.45)'); g.addColorStop(1, 'rgba(220,230,255,0)'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+    x.fillStyle = '#eef2ff'; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill(); }},
+  clouds: {init: (W, H) => ({c: Array.from({length: 7}, () => ({x: rnd(0, W), y: rnd(H * .02, H * .45), s: rnd(.6, 1.3) * Math.min(W, H) * .11, v: rnd(.3, .8)}))}),
+    draw(x, s, W, H, t, P) { x.fillStyle = P.dark ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.7)';
+      for (const c of s.c) { const span = W + c.s * 5, cx = ((c.x + t * c.v * 20 * P.dpr) % span) - c.s * 2.5;
+        [[0, 0, 1], [c.s * .8, -c.s * .25, .8], [c.s * 1.5, 0, .9], [c.s * .7, c.s * .2, .85]].forEach(([dx, dy, k]) => { x.beginPath(); x.arc(cx + dx, c.y + dy, c.s * k * .6, 0, 7); x.fill(); }); } }},
+  /* one slow, soft flash every 6 to 11 seconds: never a strobe */
+  lightning: {init: () => ({next: rnd(4, 8), at: -9}),
+    draw(x, s, W, H, t) { if (t > s.next) { s.at = t; s.next = t + rnd(6, 11); } const k = t - s.at; if (k >= 0 && k < .5) { x.fillStyle = `rgba(255,255,255,${(.16 * (1 - k / .5)).toFixed(3)})`; x.fillRect(0, 0, W, H); } }}
+};
+const combo = (...ks) => ({init: (W, H, P) => ks.map(k => ENG[k].init(W, H, P)), draw: (x, s, W, H, t, P) => ks.forEach((k, i) => ENG[k].draw(x, s[i], W, H, t, P))});
+Object.assign(ENG, {w_sunny: combo('sun'), w_partly: combo('sun', 'clouds'), w_cloudy: combo('clouds', 'clouds'), w_rain: combo('clouds', 'rain'),
+  w_storm: combo('clouds', 'rain', 'lightning'), w_snow: combo('clouds', 'snow'), w_night: combo('stars', 'moon')});
+
+/* walk every shadow root below a node; used to find the other cards on the page */
+function deepAll(root, test, out = [], depth = 0) {
+  if (!root || depth > 30) return out;
+  for (const n of root.querySelectorAll('*')) { if (test(n)) out.push(n); if (n.shadowRoot) deepAll(n.shadowRoot, test, out, depth + 1); }
+  return out;
+}
+const inDialog = path => path.some(n => n.tagName && /DIALOG/.test(n.tagName));
+
+class DashboardStudioFx extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({mode: 'open'});
+    this._t = 0; this._last = 0; this._anims = []; this._glowed = new Set();
+    this._onMove = e => this._tilt(e);
+    this._onLeave = () => this._untilt();
+    this._onResize = () => { clearTimeout(this._rt); this._rt = setTimeout(() => this._start(true), 150); };
+    this._onVis = () => { if (!document.hidden) this._start(true); };
+  }
+
+  static getStubConfig() { return {background: 'aurora', strength: 70, card_effects: {float_in: true, light_glow: true}}; }
+
+  setConfig(config) {
+    const bg = config?.background ?? 'aurora';
+    if (!FX_NAMES[bg]) throw new Error(`background must be one of: ${Object.keys(FX_NAMES).join(', ')}`);
+    this._config = {strength: 70, speed: 1, layer: 'behind', ...config, background: bg,
+      card_effects: {float_in: true, tilt: false, glowing_edges: false, light_glow: true, ...(config.card_effects || {})}};
+    this._renderStub();
+    if (this.isConnected) this._start(true);
+  }
+
+  set hass(hass) {
+    const old = this._hass; this._hass = hass;
+    const w = this._config?.weather_entity;
+    if (!old || (w && old.states[w] !== hass.states[w])) this._start();
+  }
+
+  set editMode(v) { this._edit = !!v; this._renderStub(); }
+  set preview(v) { this._prev = !!v; this._renderStub(); }
+
+  getCardSize() { return this._edit || this._prev ? 1 : 0; }
+  getGridOptions() { return {columns: 12, rows: 'auto'}; }
+
+  _quiet() { return !!this._config?.calm || matchMedia('(prefers-reduced-motion: reduce)').matches; }
+
+  _renderStub() {
+    if (!this._config) return;
+    const show = this._edit || this._prev;
+    const fx = Object.entries(this._config.card_effects).filter(([, v]) => v).map(([k]) => k.replace(/_/g, ' '));
+    this.style.display = show ? '' : 'none';
+    this.shadowRoot.innerHTML = show ? `<style>ha-card{padding:12px 16px;display:flex;align-items:center;gap:12px;font-size:13px}
+      ha-icon{color:var(--primary-color)} b{display:block;font-size:14px} span{color:var(--secondary-text-color)}</style>
+      <ha-card><ha-icon icon="mdi:creation"></ha-icon><div><b>Dashboard Studio effects</b>
+      <span>${esc(FX_NAMES[this._config.background])}${fx.length ? ' · ' + esc(fx.join(', ')) : ''}. This card is hidden outside edit mode.</span></div></ha-card>` : '';
+  }
+
+  connectedCallback() {
+    window.addEventListener('resize', this._onResize);
+    document.addEventListener('visibilitychange', this._onVis);
+    window.addEventListener('pointermove', this._onMove, {passive: true});
+    document.addEventListener('pointerleave', this._onLeave);
+    this._start(true);
+    clearTimeout(this._fit); this._fit = setTimeout(() => this._cardFx(true), 350);
+    this._glowTick = setInterval(() => this._lightGlow(), 2000);
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener('resize', this._onResize);
+    document.removeEventListener('visibilitychange', this._onVis);
+    window.removeEventListener('pointermove', this._onMove);
+    document.removeEventListener('pointerleave', this._onLeave);
+    clearInterval(this._glowTick); clearTimeout(this._fit);
+    cancelAnimationFrame(this._raf); this._raf = 0;
+    this._canvas?.remove(); this._canvas = null;
+    if (this._restoreBg !== undefined) { document.documentElement.style.removeProperty('--lovelace-background'); this._restoreBg = undefined; }
+    this._anims.forEach(a => a.cancel()); this._anims = [];
+    this._untilt();
+    this._glowed.forEach(c => { c.style.removeProperty('box-shadow'); }); this._glowed.clear();
+  }
+
+  _palette() {
+    const cs = getComputedStyle(this);
+    const acc = cs.getPropertyValue('--primary-color').trim() || '#03a9f4';
+    const act = cs.getPropertyValue('--state-light-active-color').trim() || acc;
+    const bg = cs.getPropertyValue('--primary-background-color').trim() || '#ffffff';
+    const dark = luma(bg) < .5;
+    return {acc, act, dark, fg: dark ? '#ffffff' : (cs.getPropertyValue('--primary-text-color').trim() || '#212121')};
+  }
+
+  _key() {
+    const bg = this._config.background;
+    if (bg !== 'weather') return bg;
+    const st = this._hass?.states[this._config.weather_entity];
+    return 'w_' + (HA_WEATHER[st?.state] || 'partly');
+  }
+
+  _start(force) {
+    if (!this.isConnected || !this._config) return;
+    const key = this._key(), sig = key + '|' + this._config.layer;
+    if (!force && sig === this._sig) return;
+    this._sig = sig;
+    cancelAnimationFrame(this._raf); this._raf = 0;
+    if (key === 'off') { this._canvas?.remove(); this._canvas = null; return; }
+    const behind = this._config.layer !== 'front';
+    if (!this._canvas) {
+      this._canvas = document.createElement('canvas');
+      this._canvas.setAttribute('aria-hidden', 'true');
+      document.body.append(this._canvas);
+    }
+    const c = this._canvas;
+    if (behind) {
+      /* move the theme's background onto the canvas, then let the view show through to it */
+      const root = document.documentElement, cs = getComputedStyle(root);
+      if (this._restoreBg === undefined) this._restoreBg = cs.getPropertyValue('--lovelace-background');
+      const base = this._restoreBg.trim() || cs.getPropertyValue('--primary-background-color').trim();
+      root.style.setProperty('--lovelace-background', 'transparent');
+      c.style.cssText = `position:fixed;inset:0;width:100vw;height:100vh;z-index:-1;pointer-events:none;background:${base}`;
+    } else {
+      c.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;z-index:5;pointer-events:none';
+    }
+    const P = {...this._palette(), dpr: Math.min(1.5, devicePixelRatio || 1)};
+    const W = c.width = Math.round(innerWidth * P.dpr), H = c.height = Math.round(innerHeight * P.dpr);
+    const eng = ENG[key]; if (!eng) return;
+    const st = eng.init(W, H, P), x = c.getContext('2d');
+    const op = Math.max(.1, Math.min(1, (this._config.strength ?? 70) / 100)), speed = Math.max(.25, Math.min(2, +this._config.speed || 1));
+    const frame = now => {
+      this._t += Math.min(50, now - (this._last || now)) / 1000 * speed; this._last = now;
+      x.clearRect(0, 0, W, H); x.globalAlpha = 1; x.save(); x.globalAlpha = op; eng.draw(x, st, W, H, this._t, P); x.restore();
+      this._raf = !this._quiet() && !document.hidden && this.isConnected ? requestAnimationFrame(frame) : 0;
+    };
+    this._last = 0; frame(performance.now());
+  }
+
+  _cards() {
+    return deepAll(document.body, n => n.tagName === 'HA-CARD' && n.getRootNode() !== this.shadowRoot)
+      .filter(c => { const r = c.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+  }
+
+  _cardFx() {
+    const fx = this._config?.card_effects || {}; if (!this.isConnected || this._quiet()) return;
+    const cards = this._cards();
+    if (fx.float_in) cards.slice(0, 40).forEach((c, i) => this._anims.push(c.animate(
+      [{opacity: 0, transform: 'translateY(18px) scale(.97)'}, {opacity: 1, transform: 'none'}],
+      {duration: 550, delay: Math.min(i, 16) * 45, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards'})));
+    if (fx.glowing_edges) {
+      const acc = this._palette().acc;
+      cards.forEach((c, i) => this._anims.push(c.animate(
+        [{boxShadow: `0 0 0 1px ${alpha(acc, .15)}, 0 0 0 ${alpha(acc, 0)}`}, {boxShadow: `0 0 0 1.5px ${alpha(acc, .55)}, 0 0 22px ${alpha(acc, .3)}`}],
+        {duration: 3200, delay: (i % 6) * 400, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out'})));
+    }
+  }
+
+  _tilt(e) {
+    if (!this._config?.card_effects?.tilt || e.pointerType === 'touch' || this._quiet()) return;
+    const path = e.composedPath();
+    if (inDialog(path)) return this._untilt();
+    const card = path.find(n => n.tagName === 'HA-CARD');
+    if (this._tilted && this._tilted !== card) this._untilt();
+    if (!card || card.getRootNode() === this.shadowRoot) return;
+    const r = card.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+    card.style.transition = 'transform .2s ease';
+    card.style.transform = `perspective(900px) rotateX(${((.5 - py) * 6).toFixed(2)}deg) rotateY(${((px - .5) * 8).toFixed(2)}deg)`;
+    this._tilted = card;
+  }
+
+  _untilt() { if (this._tilted) { this._tilted.style.removeProperty('transform'); this._tilted = null; } }
+
+  _lightGlow() {
+    if (!this._hass || !this._config?.card_effects?.light_glow) return;
+    const now = new Set();
+    deepAll(document.body, n => /^HUI-.*-CARD$/.test(n.tagName) && (n._config || n.config)?.entity?.startsWith('light.')).forEach(el => {
+      const st = this._hass.states[(el._config || el.config).entity], card = el.shadowRoot?.querySelector('ha-card');
+      if (!card) return;
+      if (st?.state === 'on') {
+        const rgb = st.attributes.rgb_color, c = rgb ? `rgb(${rgb.join(',')})` : this._palette().act;
+        const k = st.attributes.brightness != null ? .25 + .55 * st.attributes.brightness / 255 : .6;
+        card.style.boxShadow = `0 14px 60px -8px ${alpha(c, k.toFixed(2))}`;
+        now.add(card);
+      }
+    });
+    this._glowed.forEach(c => { if (!now.has(c)) c.style.removeProperty('box-shadow'); });
+    this._glowed = now;
+  }
+}
+
 if (!customElements.get('dashboard-studio-hub')) customElements.define('dashboard-studio-hub', DashboardStudioHub);
+if (!customElements.get('dashboard-studio-fx')) customElements.define('dashboard-studio-fx', DashboardStudioFx);
 window.customCards = window.customCards || [];
 if (!window.customCards.some(c => c.type === 'dashboard-studio-hub')) {
   window.customCards.push({type: 'dashboard-studio-hub', name: 'Dashboard Studio hub', description: 'Touchscreen-style home screen with rooms, device tiles, scenes, an alarm keypad and a Good night button.', preview: false});
+}
+if (!window.customCards.some(c => c.type === 'dashboard-studio-fx')) {
+  window.customCards.push({type: 'dashboard-studio-fx', name: 'Dashboard Studio effects', description: 'Moving backgrounds (including live weather) and card effects for the whole view. Invisible outside edit mode.', preview: false});
 }
 console.info(`%c DASHBOARD STUDIO %c ${STUDIO_VERSION} `, 'background:#4352f0;color:#fff;font-weight:700;border-radius:4px 0 0 4px;padding:2px 6px', 'background:#15171c;color:#fff;border-radius:0 4px 4px 0;padding:2px 6px');

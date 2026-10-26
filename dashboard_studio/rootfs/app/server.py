@@ -1,3 +1,24 @@
+# ╭──────────────────────────────────────────────────────╮
+# │                                                      │
+# │          ,,                                          │
+# │        <(o )___           ✦ PATRICK'S NEST ✦         │
+# │         ( ._> /           quackomation for HA        │
+# │          `---'            hatched with love          │
+# │      __       __       __                            │
+# │    <(o )__  <(o )__  <(o )__    (the interns)        │
+# │     (._>/    (._>/    (._>/     unpaid. underfoot.   │
+# │  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  │
+# │                                                      │
+# │   file     : server.py                               │
+# │   author   : Patrick (and the interns)               │
+# │   hatched  : 2026-10-26                              │
+# │   license  : Muscovy Public License (joke, see       │
+# │              LICENSE file for the real one)          │
+# │   status   : no ducks harmed. all fed. one is        │
+# │              sitting on the keyboard.                │
+# │                                                      │
+# ╰──────────────────────────────────────────────────────╯
+
 """Dashboard Studio add-on server.
 
 Serves the Studio builder through Home Assistant ingress and gives it a small, safe API:
@@ -16,7 +37,7 @@ from pathlib import Path
 import yaml
 from aiohttp import ClientSession, ClientTimeout, web
 
-VERSION = os.environ.get("STUDIO_VERSION", "0.1.0")
+VERSION = os.environ.get("STUDIO_VERSION", "0.2.0")
 TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
 CORE = os.environ.get("STUDIO_CORE", "http://supervisor/core")
 APP = Path(__file__).parent

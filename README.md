@@ -113,6 +113,28 @@ good_night:
 - If a device shows "Not found", check its entity ID in **Settings › Devices & services › Entities**.
 - The card needs Home Assistant 2024.8 or newer.
 
+
+## The effects card
+
+`custom:dashboard-studio-fx` adds a moving background behind the whole view, plus effects on the other cards. It's invisible outside edit mode, so add one per view and put it anywhere.
+
+```yaml
+type: custom:dashboard-studio-fx
+background: weather          # off, aurora, stars, snow, rain, bokeh, waves, sky, hue, weather
+weather_entity: weather.home # for background: weather. It follows your live weather
+strength: 70                 # 10 to 100
+speed: 1                     # 0.25 to 2
+layer: behind                # behind the cards, or front (over them, taps still pass through)
+card_effects:
+  float_in: true             # cards float in when the view opens
+  tilt: false                # cards lean toward your pointer
+  glowing_edges: false       # a soft glow pulses around each card
+  light_glow: true           # tile cards for lights glow in the light's own color
+calm: false                  # true turns off motion. Reduced-motion settings are respected too
+```
+
+If you set `layer: behind` and don't see the background, your theme or another custom card may be painting over it. Try `layer: front`.
+
 ## License
 
 MIT

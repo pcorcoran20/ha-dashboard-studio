@@ -1,3 +1,26 @@
+<!--
+  ╭──────────────────────────────────────────────────────╮
+  │                                                      │
+  │          ,,                                          │
+  │        <(o )___           ✦ PATRICK'S NEST ✦         │
+  │         ( ._> /           quackomation for HA        │
+  │          `---'            hatched with love          │
+  │      __       __       __                            │
+  │    <(o )__  <(o )__  <(o )__    (the interns)        │
+  │     (._>/    (._>/    (._>/     unpaid. underfoot.   │
+  │  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  │
+  │                                                      │
+  │   file     : studio.html                             │
+  │   author   : Patrick (and the interns)               │
+  │   hatched  : 2026-10-26                              │
+  │   license  : Muscovy Public License (joke, see       │
+  │              LICENSE file for the real one)          │
+  │   status   : no ducks harmed. all fed. one is        │
+  │              sitting on the keyboard.                │
+  │                                                      │
+  ╰──────────────────────────────────────────────────────╯
+-->
+
 <title>Hearth Dashboard Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2160,10 +2183,19 @@ function visYaml(b){
 }
 const cardOut = b => ({...cardYaml(b), grid_options:{columns:SPAN[b.size]}, visibility:visYaml(b), card_mod:cardMod(b)});
 const themeName = k => 'Studio ' + getTheme(k).label + (k === 'pride' ? ' ' + (FLAGS[state.prideFlag] || FLAGS.rainbow).name : '');
+const fxActive = () => state.fx.bg !== 'off' || ['enter','tilt','edges','spill'].some(k => state.fx[k]);
+const usesStudioCard = () => allBlocks().some(b => b.type === 'hub') || fxActive();
+function fxCardYaml(){
+  if (!state.useCards || !fxActive()) return [];
+  const f = state.fx, w = allBlocks().find(b => b.type === 'weather');
+  return [{type:'custom:dashboard-studio-fx', background:f.bg, ...(f.bg === 'weather' ? {weather_entity:w?.entity || 'weather.home'} : {}),
+    strength:f.intensity, speed:+(f.speed / 100).toFixed(2),
+    card_effects:{float_in:!!f.enter, tilt:!!f.tilt, glowing_edges:!!f.edges, light_glow:!!f.spill}, ...(state.calm ? {calm:true} : {}), grid_options:{columns:12}}];
+}
 function dashObj(){
   const views = state.pages.map((p, i) => ({title:p.name || 'Page ' + (i+1), path:slug(p.name || 'page' + (i+1)), type:'sections', max_columns:4,
     theme: state.night.on ? undefined : themeName(state.theme),
-    sections:[{type:'grid', column_span:4, cards:p.blocks.map(cardOut)}]}));
+    sections:[{type:'grid', column_span:4, cards:[...p.blocks.map(cardOut), ...fxCardYaml()]}]}));
   /* every control hub adds hidden subviews: one per device category and one per room */
   const theme = state.night.on ? undefined : themeName(state.theme);
   if (!state.useCards) allBlocks().filter(b => b.type === 'hub').forEach(b => {
@@ -2240,7 +2272,7 @@ function stepsHTML(){
     ${state.wall ? '<li>Save your wallpaper photo as <code>/config/www/wallpaper.jpg</code>. HA serves it at <code>/local/wallpaper.jpg</code>.</li>' : ''}
     ${allBlocks().some(b => b.type === 'floorplan') ? '<li>Open the <b>Floor plan image</b> tab and save each plan in <code>/config/www/</code> with the file name it shows. Your room lights sit on top as tappable icons.</li>' : ''}
     ${allBlocks().some(b => b.type === 'hub') ? `<li>Paste the <b>Good night script</b> tab into <code>/config/scripts.yaml</code>${allBlocks().some(b => b.type === 'hub' && b.scenes?.length) ? ' and the <b>Scenes</b> tab into <code>/config/scenes.yaml</code>' : ''}. Then go to <b>Developer tools &rsaquo; YAML</b> and reload scripts and scenes. If those files already have things in them, add yours at the end.</li>` : ''}
-    ${allBlocks().some(b => b.type === 'hub') ? (state.useCards
+    ${usesStudioCard() ? (state.useCards
       ? `<li>Install the <b>Dashboard Studio card</b>: in HACS, add its GitHub repository under <b>Custom repositories</b> (type <b>Dashboard</b>) and download it. Or copy <code>dashboard-studio-card.js</code> into <code>/config/www/</code> and add <code>/local/dashboard-studio-card.js</code> as a <b>JavaScript module</b> under <b>Settings &rsaquo; Dashboards &rsaquo; Resources</b>. Then reload your browser.</li>`
       : `<li>When you create the dashboard, set its URL to <code>${esc(dashUrl())}</code>. The Control hub buttons open hidden pages at that address, one per category and one per room.</li>`) : ''}
     <li>Go to <b>Settings &rsaquo; Dashboards &rsaquo; Add dashboard &rsaquo; New dashboard from scratch</b>, open it, tap the pencil, then the three dots &rsaquo; <b>Raw configuration editor</b>.</li>
@@ -2288,7 +2320,7 @@ function openExport(tab='dash'){
     if (t === 'steps') $('mBody').innerHTML = stepsHTML();
     else {
       const [name, text] = files[t]();
-      const cardToggle = t === 'dash' && allBlocks().some(b => b.type === 'hub') ? `<label class="switch"><span><b>Use the Dashboard Studio card</b><small>Exports the Control hub as the live card from HACS, so it looks and works like the preview. Turn off to use only built-in HA cards.</small></span><input type="checkbox" id="useCardsIn" ${state.useCards ? 'checked' : ''}></label>` : '';
+      const cardToggle = t === 'dash' && usesStudioCard() ? `<label class="switch"><span><b>Use the Dashboard Studio card</b><small>Exports the Control hub and your moving background and card effects as the live Dashboard Studio cards, so they look and work like the preview. Turn off to use only built-in HA cards.</small></span><input type="checkbox" id="useCardsIn" ${state.useCards ? 'checked' : ''}></label>` : '';
       const urlField = cardToggle + (t === 'dash' && !state.useCards && allBlocks().some(b => b.type === 'hub') ? `<div class="field"><label for="dashUrlIn">Dashboard URL in Home Assistant</label><input type="text" class="mono" id="dashUrlIn" value="${esc(dashUrl())}" spellcheck="false"><p class="hint">Use this exact URL when you create the dashboard, so the Control hub buttons open the right pages. It needs a dash in it, like <code>home-studio</code>.</p></div>` : '');
       $('mBody').innerHTML = urlField + (t === 'plan' ? `${plans.length > 1 ? `<div class="field"><label for="planPick">Floor plan</label><select id="planPick">${plans.map((p,i) => `<option value="${i}" ${i===planI?'selected':''}>${esc(p.title)}</option>`).join('')}</select></div>` : ''}
         <p class="hint">Save this as <code>/config/www/${esc(name)}</code>. The dashboard card already points at <code>/local/${esc(name)}</code>.</p>` : '') + `<pre class="code" id="codeOut">${esc(text)}</pre>`;
@@ -2828,7 +2860,7 @@ function renderFxPanel(){
   $('fxInt').value = state.fx.intensity; $('fxIntV').textContent = state.fx.intensity + '%';
   $('fxSpd').value = state.fx.speed; $('fxSpdV').textContent = (state.fx.speed/100).toFixed(2).replace(/\.?0+$/, '') + '×';
   $('fxToggles').innerHTML = FXT.map(([k,l,d]) => `<label class="switch"><span><b>${l}</b><small>${d}</small></span><input type="checkbox" data-fxt="${k}" ${state.fx[k]?'checked':''}></label>`).join('');
-  $('fxNote').innerHTML = `Effects play here in the studio and in Wall mode. Home Assistant can’t run them without custom code, so they don’t export.${state.calm ? ' <b>Calm mode is on, so motion is paused.</b>' : ''}`;
+  $('fxNote').innerHTML = `These play in Home Assistant too, through the Dashboard Studio effects card. Turn on <b>Use the Dashboard Studio card</b> in Export. Pointer shine stays in the studio only.${state.calm ? ' <b>Calm mode is on, so motion is paused.</b>' : ''}`;
 }
 $('fxBgs').addEventListener('click', e => { const b = e.target.closest('[data-fxbg]'); if (!b) return; commit(); state.fx.bg = b.dataset.fxbg; renderFxPanel(); fxSync(true); save(); });
 $('fxInt').addEventListener('input', e => { commit('fxint'); state.fx.intensity = +e.target.value; $('fxIntV').textContent = state.fx.intensity + '%'; $('bgfx').style.opacity = state.fx.intensity/100; save(); });
@@ -2988,7 +3020,7 @@ async function installToHA(){
   allBlocks().filter(b => b.type === 'floorplan').forEach(b => files.push({path:'www/' + planFile(b), text:floorplanSVG(b)}));
   const payload = {
     dashboard:{url_path:dashUrl(), title:state.name || 'Home', icon:'mdi:view-dashboard', config:dashObj()},
-    themes:themesOut(), files, card:hubs && !!state.useCards,
+    themes:themesOut(), files, card:usesStudioCard() && !!state.useCards,
     scripts:hubs ? scriptsOut() : {}, scenes:hubs ? scenesOut() : [], automations:state.night.on ? [autoObj()] : []
   };
   try {
