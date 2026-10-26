@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- Fix: the add-on now receives its Home Assistant access token, so the Studio connects to your devices (the dot turns green) and Install works.
+
 ## 0.2.0
 
 - New Dashboard Studio effects card: moving backgrounds (aurora, stars, snow, rain, bokeh, waves, sky, color shift, and live weather) and card effects (float in, 3D tilt, glowing edges, lights glowing in their own color).

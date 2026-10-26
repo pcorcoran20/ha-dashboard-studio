@@ -37,8 +37,21 @@ from pathlib import Path
 import yaml
 from aiohttp import ClientSession, ClientTimeout, web
 
-VERSION = os.environ.get("STUDIO_VERSION", "0.2.0")
-TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
+VERSION = os.environ.get("STUDIO_VERSION", "0.2.1")
+def _token():
+    """The Supervisor's token, from the environment or from where s6 keeps the container's environment."""
+    tok = os.environ.get("SUPERVISOR_TOKEN", "")
+    if not tok:
+        for f in ("/run/s6/container_environment/SUPERVISOR_TOKEN", "/var/run/s6/container_environment/SUPERVISOR_TOKEN"):
+            try:
+                tok = Path(f).read_text(encoding="utf-8").strip()
+                break
+            except OSError:
+                continue
+    return tok
+
+
+TOKEN = _token()
 CORE = os.environ.get("STUDIO_CORE", "http://supervisor/core")
 APP = Path(__file__).parent
 DATA = Path(os.environ.get("STUDIO_DATA", "/data"))
@@ -298,6 +311,6 @@ def make_app():
 
 if __name__ == "__main__":
     if not TOKEN:
-        log.warning("No SUPERVISOR_TOKEN. Home Assistant features won't work outside the add-on.")
+        log.error("Couldn't find the Supervisor token, so the Studio can't reach Home Assistant. Check that the add-on is up to date, then restart it.")
     log.info("Dashboard Studio %s is ready. Open it from the Home Assistant sidebar.", VERSION)
     web.run_app(make_app(), host="0.0.0.0", port=8099, print=None, access_log=None)
