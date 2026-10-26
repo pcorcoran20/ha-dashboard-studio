@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.1.0';
+const STUDIO_VERSION = '1.1.1';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -1463,6 +1463,8 @@ const CAR_STYLE = `
  *   image: /local/my-car.png  # optional: your own picture instead of the drawing
  *   model_url: /local/tesla/model_y.glb   # optional: a real 3D car you made with Tesla Model Extractor
  *   tesla_view: false         # optional: when Tesla View is installed the card shows it; false keeps the drawing
+ *   tesla_view_look: dark     # dark blends Tesla View into the card; light is the app's light mode
+ *   tesla_view_brightness: 1.25
  *   entities:                 # optional: set any of these by hand
  *     battery: sensor.my_model_y_battery_level
  */
@@ -1509,13 +1511,22 @@ function findVehicle(hass, cfg) {
 
 /* Tesla View (github.com/koenhendriks/tesla-view) renders the car the way the Tesla app does.
    When it's installed and has an asset pack, the vehicle card shows it in place of the drawing */
-let tvPacks, tvAsked = 0;
+let tvPacks, tvAsked = 0, tvIndex = null;
+/* our model names, a device's model ("Model C" is the Cybertruck) and Tesla View's pack models, all as one key */
+const CAR_KEY = [[/cyber|model ?c\b/i, 'cybertruck'], [/model ?3|highland/i, 'model_3'], [/model ?y|juniper|bayberry/i, 'model_y'], [/model ?s\b/i, 'model_s'], [/model ?x\b/i, 'model_x']];
+const carKey = t => (CAR_KEY.find(([re]) => re.test(String(t || '').replace(/_/g, ' '))) || [])[1];
+/* the pack model that matches the car: by id, codename, alias or name */
+function tvModelFor(key) {
+  const models = Object.entries(tvIndex?.models || {}); if (!key || !models.length) return null;
+  const hit = models.find(([id, m]) => [id, m.codename, m.name, ...(m.aliases || []), m.api_match?.model_key].some(v => carKey(v) === key));
+  return hit ? hit[0] : null;
+}
 /* only a yes is kept: a no is asked again after a minute, so a car added later still shows up */
 const teslaViewReady = () => {
   if (!tvPacks || (tvPacks.no && Date.now() - tvAsked > 60000)) {
     tvAsked = Date.now();
     tvPacks = fetch('/tesla_view_assets/index.json', {cache: 'no-store'}).then(r => r.ok ? r.json() : null)
-      .then(i => !!i && Object.keys(i.models || {}).length > 0).catch(() => false).then(ok => { if (!ok) tvPacks.no = true; return ok; });
+      .then(i => { tvIndex = i; return !!i && Object.keys(i.models || {}).length > 0; }).catch(() => false).then(ok => { if (!ok) tvPacks.no = true; return ok; });
   }
   return tvPacks;
 };
@@ -1533,7 +1544,7 @@ class DashboardStudioVehicle extends HTMLElement {
   static getStubConfig() { return {model: 'model_y', color: 'pearl_white'}; }
   static getConfigElement() { return document.createElement('dashboard-studio-vehicle-editor'); }
 
-  setConfig(config) { this._config = {model: 'model_y', color: 'pearl_white', ...config}; this._e = null; this._render(); }
+  setConfig(config) { this._modelSet = !!config?.model; this._config = {model: 'model_y', color: 'pearl_white', ...config}; this._e = null; this._render(); }
 
   connectedCallback() { clearTimeout(this._drop); }
   /* free the 3D view when the card goes away for good */
@@ -1542,7 +1553,11 @@ class DashboardStudioVehicle extends HTMLElement {
   set hass(hass) {
     const old = this._hass; this._hass = hass;
     if (this._tv) this._tv.hass = hass;
-    if (!this._e || old?.entities !== hass.entities) this._e = findVehicle(hass, this._config);
+    if (!this._e || old?.entities !== hass.entities) {
+      this._e = findVehicle(hass, this._config);
+      const dev = this._config.device || hass.entities?.[this._e.battery]?.device_id, k = carKey(hass.devices?.[dev]?.model);
+      if (!this._modelSet && k) this._config = {...this._config, model: k};
+    }
     if (!old || Object.values(this._e).some(id => old.states[id] !== hass.states[id])) this._render();
   }
 
@@ -1655,12 +1670,19 @@ class DashboardStudioVehicle extends HTMLElement {
       const own = typeof c.tesla_view === 'object' ? c.tesla_view : {}, cam = own.camera || (chg ? 'charging' : 'parked');
       if (!this._tv || this._tvCam !== cam) {
         const e = this._e, dev = c.device || h.entities?.[e.battery]?.device_id || h.entities?.[e.lock]?.device_id;
+        /* tell Tesla View which car: its own setting, else the car's device model, else the model picked here */
+        const tvModel = own.model || tvModelFor(carKey(h.devices?.[dev]?.model)) || tvModelFor(carKey(c.model));
         const ents = Object.fromEntries([['frunk', e.frunk], ['trunk', e.trunk], ['charge_port', e.charge_port], ['charging', e.charging], ['lock', e.lock]].filter(([, v]) => v));
         this._tv = this._tv || document.createElement('tesla-view-card');
-        this._tv.setConfig({type: 'custom:tesla-view-card', ...(dev ? {device_id: dev} : {}), entities: ents, hotspots: true, theme: 'auto', aspect_ratio: '16:9', ...own, camera: cam});
+        this._tv.setConfig({type: 'custom:tesla-view-card', ...(dev ? {device_id: dev} : {}), ...(tvModel ? {model: tvModel} : {}), entities: ents, hotspots: true,
+          theme: c.tesla_view_look === 'light' ? 'light' : 'dark', aspect_ratio: '16:9', ...own, camera: cam});
         this._tvCam = cam;
       }
       this._tv.hass = h;
+      /* Tesla View draws on a solid box: lift the car a little, and fade the box's edges into this card */
+      const lift = Math.max(.6, Math.min(2, Number(c.tesla_view_brightness ?? 1.25) || 1.25));
+      tvSlot.classList.toggle('blend', c.tesla_view_look !== 'light' && c.tesla_view_blend !== false);
+      this._tv.style.filter = lift === 1 ? '' : `brightness(${lift})`;
       tvSlot.append(this._tv);
     }
     const slot = use3d && this.shadowRoot.querySelector('[data-v3d]');
@@ -1710,6 +1732,7 @@ ha-card.calm *{animation:none!important;transition:none!important}
 ha-card.bare{background:none;box-shadow:none;border:none;padding:4px 0 0}
 .v-3derr{font-size:12px}
 .v-tv{margin:0 -6px}
+.v-tv.blend tesla-view-card{-webkit-mask-image:radial-gradient(ellipse 62% 60% at 50% 52%,#000 62%,transparent 100%);mask-image:radial-gradient(ellipse 62% 60% at 50% 52%,#000 62%,transparent 100%)}
 .v-tv tesla-view-card{display:block;--ha-card-background:transparent;--card-background-color:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0}
 `;
 
@@ -1723,11 +1746,13 @@ class DashboardStudioVehicleEditor extends HTMLElement {
     if (!this._form) {
       this.innerHTML = '<p style="margin:0 0 12px;color:var(--secondary-text-color)">The card finds your car by itself. With more than one car, pick which one under Your car.</p>';
       const f = this._form = document.createElement('ha-form');
-      const L = {name: 'Name', device: 'Your car', charger: 'Charger to show while charging', model: 'Model', color: 'Paint', vehicle: "Or: the car's name in its entity IDs (like my_model_y)", image: 'Car picture (optional, a link like /local/my-car.png)', model_url: '3D car from Tesla Model Extractor (optional, like /local/tesla/model_y.glb)', calm: 'Turn off animations'};
+      const L = {tesla_view_look: 'Tesla View look', tesla_view_brightness: 'Tesla View brightness', name: 'Name', device: 'Your car', charger: 'Charger to show while charging', model: 'Model', color: 'Paint', vehicle: "Or: the car's name in its entity IDs (like my_model_y)", image: 'Car picture (optional, a link like /local/my-car.png)', model_url: '3D car from Tesla Model Extractor (optional, like /local/tesla/model_y.glb)', calm: 'Turn off animations'};
       f.computeLabel = s => L[s.name] || s.name;
       f.schema = [{name: 'device', selector: {device: {filter: ['tesla_fleet', 'teslemetry', 'tessie', 'tesla_custom'].map(integration => ({integration}))}}},
         {name: 'name', selector: {text: {}}}, {name: 'model', selector: opt(['model_3', 'Model 3'], ['model_y', 'Model Y'], ['model_s', 'Model S'], ['model_x', 'Model X'], ['cybertruck', 'Cybertruck'])},
-        {name: 'color', selector: opt(...Object.keys(CAR_PAINT).map(k => [k, cap(k)]))}, {name: 'charger', selector: opt(['auto', 'Find it by itself'], ['supercharger', 'Supercharger'], ['wall_connector', 'Wall Connector'], ['none', 'Only the cable'])},
+        {name: 'color', selector: opt(...Object.keys(CAR_PAINT).map(k => [k, cap(k)]))}, {name: 'tesla_view_look', selector: opt(['dark', 'Blend into the card (app dark mode)'], ['light', 'Light (app light mode)'])},
+        {name: 'tesla_view_brightness', selector: {number: {min: .6, max: 2, step: .05, mode: 'slider'}}},
+        {name: 'charger', selector: opt(['auto', 'Find it by itself'], ['supercharger', 'Supercharger'], ['wall_connector', 'Wall Connector'], ['none', 'Only the cable'])},
         {name: 'vehicle', selector: {text: {}}}, {name: 'image', selector: {text: {}}}, {name: 'model_url', selector: {text: {}}}, {name: 'calm', selector: {boolean: {}}}];
       f.addEventListener('value-changed', e => {
         const next = {...e.detail.value}; Object.keys(next).forEach(k => { if (next[k] === '' || next[k] == null) delete next[k]; });

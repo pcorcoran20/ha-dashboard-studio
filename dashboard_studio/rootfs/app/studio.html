@@ -2426,6 +2426,7 @@ insp.addEventListener('input', e => {
   if (e.target.id === 'pgName') { commit('pgname'); page().name = e.target.value; renderPages(); save(); return; }
   const b = find(selected); if (!b) return;
   if (e.target.dataset.hsc) { const s = b.scenes?.[+e.target.dataset.hsc]; if (!s) return; commit('hsc' + e.target.dataset.hsc); s.name = e.target.value; renderDash(); save(); return; }
+  if (e.target.id === 'vLift') { commit('vlift'); const t = b.type === 'hub' ? b.car : b; t.tvLift = +e.target.value / 100; $('vLiftV').textContent = e.target.value + '%'; save(); return; }
   if (e.target.id === 'vGlb') { commit('vglb'); const t = b.type === 'hub' ? b.car : b; t.glb = e.target.value.trim(); cars3dBad.delete(t.glb); clearTimeout(window.__glbT); window.__glbT = setTimeout(renderDash, 600); save(); return; }
   if (e.target.id === 'vImgUrl') { commit('vimg'); (b.type === 'hub' ? b.car : b).image = e.target.value.trim(); renderDash(); save(); return; }
   if (e.target.id === 'vPaint') { commit('vpaint'); (b.type === 'hub' ? b.car : b).paint = e.target.value; renderDash(); save(); return; }
@@ -2477,6 +2478,8 @@ insp.addEventListener('click', e => {
   if (e.target.closest('#tvSetup')) { openTesla(); return; }
   { const b = find(selected), vm = e.target.closest('[data-vmodel]'), vp = e.target.closest('[data-vpaint]');
     const t = b?.type === 'hub' ? b.car : b, hc = e.target.closest('[data-hcar]');
+    const vl = e.target.closest('[data-vlook]');
+    if (t && vl) { commit(); t.tvLook = vl.dataset.vlook; renderInsp(); save(); return; }
     const vc = e.target.closest('[data-vchg]');
     if (t && vc) { commit(); t.charger = vc.dataset.vchg; renderDash(); renderInsp(); save(); return; }
     if (t && e.target.closest('#vImgClear')) { commit(); t.image = ''; renderDash(); renderInsp(); save(); return; }
@@ -3577,7 +3580,7 @@ R.vehicle = (b, uid) => {
     <div class="v-info">Inside ${tC(b.inside, 0)}° · Outside ${tC(b.outside, 0)}°</div>`;
 };
 const vehImgName = b => `car-${slug(b.title || 'car')}.webp`;
-const vehImgOut = b => ({...(b.device ? {device:b.device} : {}), ...(b.charger && b.charger !== 'auto' ? {charger:b.charger} : {}), ...(b.image ? {image:b.image.startsWith('data:') ? '/local/' + vehImgName(b) : b.image} : {}), ...(b.glb ? {model_url:b.glb} : {})});
+const vehImgOut = b => ({...(b.tvLook === 'light' ? {tesla_view_look:'light'} : {}), ...(b.tvLift != null && b.tvLift !== 1.25 ? {tesla_view_brightness:b.tvLift} : {}), ...(b.device ? {device:b.device} : {}), ...(b.charger && b.charger !== 'auto' ? {charger:b.charger} : {}), ...(b.image ? {image:b.image.startsWith('data:') ? '/local/' + vehImgName(b) : b.image} : {}), ...(b.glb ? {model_url:b.glb} : {})});
 insp.addEventListener('change', e => {
   if (e.target.id === 'vDev') {
     const blk = find(selected), t = blk?.type === 'hub' ? blk.car : blk; if (!t) return;
@@ -3622,6 +3625,9 @@ function vehEditorHTML(b){
       <p class="hint">${b.image?.startsWith('data:') ? `For Home Assistant, select <b>Save it</b> and put the file in <code>/config/www/</code>.` : 'A side view on a plain or see-through background looks best. Charging, sentry and climate still glow on top.'}</p></div>
     <div class="field"><label for="vGlb">3D car (optional)</label><input type="text" id="vGlb" class="mono" placeholder="/local/tesla/model_y.glb" value="${esc(b.glb || '')}" spellcheck="false">
       <p class="hint">Make a 3D file of your car with <a href="https://github.com/koenhendriks/tesla-model-extractor" target="_blank" rel="noopener">Tesla Model Extractor</a> from your own copy of the Tesla app. Put the GLB file in <code>/config/www/tesla/</code> and type its link here. The frunk, trunk and charge port open in 3D to match your car, and you can drag to turn it.</p></div>
+    ${b.tv ? `<div class="field"><span class="lbl2">Tesla View look</span><div class="seg" role="group" aria-label="Tesla View look">${[['dark','Blend into the card'], ['light','Light, like the app']].map(([k, l]) => `<button data-vlook="${k}" aria-pressed="${(b.tvLook || 'dark') === k}">${l}</button>`).join('')}</div>
+      <label class="lbl2" for="vLift">Brightness <b id="vLiftV">${Math.round((b.tvLift ?? 1.25) * 100)}%</b></label><input type="range" id="vLift" min="60" max="200" step="5" value="${Math.round((b.tvLift ?? 1.25) * 100)}">
+      <p class="hint">Tesla View draws the car on a dark box like the app's dark mode. Blend fades its edges into your card and lifts the car a little.</p></div>` : ''}
     <div class="field"><span class="lbl2">Real 3D Tesla</span>
       ${window.STUDIO_ADDON ? `<div class="btnrow"><button class="btn magic" id="tvSetup">${ic('sparkle')}Set up my real 3D Tesla</button></div>
       <p class="hint">Shows your car the way the Tesla app does, with <a href="https://github.com/koenhendriks/tesla-view" target="_blank" rel="noopener">Tesla View</a>. The add-on gets the app from your phone, makes your car and installs everything.</p>`
@@ -4051,7 +4057,7 @@ async function tvSend(name, src, total, reset, onProg){
   if (len) await post(buf);
 }
 /* after the wizard: point every car in the design at the car you made, so the model matches */
-const TV_MODEL = [[/cyber/i, 'cybertruck'], [/model ?3|highland/i, 'model_3'], [/model ?y|juniper|bayberry/i, 'model_y'], [/model ?s/i, 'model_s'], [/model ?x/i, 'model_x']];
+const TV_MODEL = [[/cyber|model ?c\b/i, 'cybertruck'], [/model ?3|highland/i, 'model_3'], [/model ?y|juniper|bayberry/i, 'model_y'], [/model ?s/i, 'model_s'], [/model ?x/i, 'model_x']];
 function applyTvCars(names){
   const keys = [...new Set((names || []).map(n => (TV_MODEL.find(([re]) => re.test(n)) || [])[1]).filter(Boolean))];
   if (!keys.length) return;

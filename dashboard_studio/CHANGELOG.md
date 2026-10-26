@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1
+
+- Fix: Tesla View showed the first car in the pack (like a Model S) instead of yours. The card now tells Tesla View which car to show: from your car's device model ("Model C" is the Cybertruck), or the model picked in the Studio. Set `tesla_view: {model: …}` to choose one yourself.
+- Tesla View looks brighter and fits the card. By default its dark box fades into the card and the car is lifted a little. Choose **Light, like the app** for the app's light mode, and set the brightness in the Studio or with `tesla_view_look` and `tesla_view_brightness`.
+- When no model is set, the drawing also uses your car's device model.
+
 ## 1.1.0
 
 - **Real 3D Tesla asks before restarting.** Choose **Restart now** or **Restart later**. With later, the add-on finishes Tesla View's setup by itself after your next restart.
