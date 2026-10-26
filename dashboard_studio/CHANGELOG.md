@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.0
+
+- **Garage 🏠** A new Garage card and **Car garage** block for homes with more than one car. Each car has its own bay: parked in its paint when it's home, or an empty bay that says where it is when it's away. A Wall Connector shows next to a car that's charging. Each bay shows the car's battery and whether it's charging, asleep or locked. The garage door slides over the bays to match your real door, and you can tap to open or close it. Tap a car to open its vehicle card. Leave out `cars` and it shows every car Home Assistant knows.
+- With more than one car, the Control hub's car tile becomes a **Garage** tile ("2 of 3 home"). Set `garage_door` on the hub to show your door there too.
+
 ## 1.3.0
 
 - **Asleep status 😴** The Vehicle card says **Parked · Asleep · Locked** while your car sleeps, and notes that what it shows is from before it fell asleep. A **Wake** button wakes it for fresh info. The hub's car tile says Asleep too. It uses the car's status sensor (Tesla Fleet and Teslemetry) and wake button. In the Studio, **Preview › Asleep** shows how it looks.

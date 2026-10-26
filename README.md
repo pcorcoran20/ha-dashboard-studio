@@ -220,6 +220,23 @@ While the car sleeps, the card says **Asleep** and shows a **Wake** button (from
 
 A button only shows up when the card finds its entity. Tap the car's name to open Home Assistant's more-info dialog.
 
+## The garage card
+
+`custom:dashboard-studio-garage` puts all your cars in a garage. A car that's home is parked in its bay, and one that's away leaves an empty bay that says where it is. Each bay shows the battery and whether the car is charging, asleep or locked. The garage door slides over the bays, and tapping a car opens its vehicle card.
+
+```yaml
+type: custom:dashboard-studio-garage
+name: Garage
+door: cover.garage_door      # optional: shown over the bays, tap Open or Close
+cars:                        # optional: leave out to show every car Home Assistant knows
+  - device: <device id>      # the visual editor lists your cars
+    name: Cybie
+    model: cybertruck
+    color: stainless
+```
+
+With more than one car, the Control hub's car tile becomes a Garage tile. Add `garage_door: cover.garage_door` to the hub to show the door there too.
+
 ## The effects card
 
 `custom:dashboard-studio-fx` adds a moving background behind the whole view, plus effects on the other cards. It's invisible outside edit mode, so add one per view and put it anywhere.

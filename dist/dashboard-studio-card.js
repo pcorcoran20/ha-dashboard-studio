@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.3.0';
+const STUDIO_VERSION = '1.4.0';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -154,17 +154,29 @@ class DashboardStudioHub extends HTMLElement {
     const old = this._hass;
     this._hass = hass;
     const filled = this._autoFill(hass);
-    if (this._carCfg() && (!this._carE || old?.entities !== hass.entities)) this._carE = findVehicle(hass, this._carCfg());
-    const car = this._view === 'car' ? [] : Object.values(this._carE || {});
+    if (this._carCfg() && (!this._carE || old?.entities !== hass.entities)) {
+      this._carE = findVehicle(hass, this._carCfg());
+      /* more than one car and none picked: the car tile becomes a garage */
+      const auto = this._config.vehicle === undefined || this._config.vehicle === true;
+      this._cars = auto ? findCars(hass).map(c => findVehicle(hass, c)) : [];
+    }
+    const car = this._view === 'car' ? [] : (this._cars?.length > 1 ? this._cars : [this._carE || {}]).flatMap(e => Object.values(e));
     if (filled || !old || [...this._watched(), ...car].some(e => old.states[e] !== hass.states[e]) || old.themes !== hass.themes) this._schedule();
-    const v = this._root?.querySelector('dashboard-studio-vehicle'); if (v) v.hass = hass;
+    const v = this._root?.querySelector('dashboard-studio-vehicle, dashboard-studio-garage'); if (v) v.hass = hass;
   }
 
   /* the car: found by itself unless vehicle is false. It shows on All rooms, and in a room that sounds like where it parks */
   _carCfg() { const v = this._config?.vehicle; return v === false ? null : typeof v === 'object' ? v : typeof v === 'string' ? {vehicle: v} : {}; }
   _hasCar() { return !!(this._carCfg() && this._carE?.battery); }
   _carHere() { return this._hasCar() && (this._room < 0 || /garage|driveway|carport|car/i.test(this._config.rooms[this._room]?.name || '')); }
+  _garage() { return this._cars?.length > 1; }
+
   _carInfo() {
+    if (this._garage()) {
+      const home = this._cars.filter(e => { const l = e.location && this._hass.states[e.location]?.state; return !l || l === 'home'; }).length;
+      const chg = this._cars.some(e => ['on', 'charging', 'true'].includes(String(e.charging && this._hass.states[e.charging]?.state).toLowerCase()));
+      return {bat: null, chg, garage: true, text: `${home} of ${this._cars.length} home${chg ? ' · Charging' : ''}`};
+    }
     const st = id => id && this._hass.states[id], e = this._carE, bat = Math.round(parseFloat(st(e.battery)?.state));
     const cs = st(e.charging)?.state?.toLowerCase(), chg = cs ? ['on', 'charging', 'true'].includes(cs) : st(e.charge_switch)?.state === 'on';
     const lock = st(e.lock)?.state, sleep = !chg && vehAsleep(st(e.awake));
@@ -459,7 +471,8 @@ class DashboardStudioHub extends HTMLElement {
       body = `<div class="head"><div><div class="title">Shortcuts</div></div></div><div class="quick">${this._quickButtons()}</div>`;
     }
     else if (this._view === 'car' && this._hasCar()) {
-      body = `${c.layout === 'touchscreen' ? '' : '<div class="head"><button class="ibtn" data-a="back" aria-label="Back"><ha-icon icon="mdi:chevron-left"></ha-icon></button></div>'}<dashboard-studio-vehicle class="hub-car"></dashboard-studio-vehicle>`;
+      const tag = this._garage() ? 'dashboard-studio-garage' : 'dashboard-studio-vehicle';
+      body = `${c.layout === 'touchscreen' ? '' : '<div class="head"><button class="ibtn" data-a="back" aria-label="Back"><ha-icon icon="mdi:chevron-left"></ha-icon></button></div>'}<${tag} class="hub-car"></${tag}>`;
     }
     else if (this._view && this._devices(this._view).length) {
       const cat = CATS.find(x => x[0] === this._view) || TOUCH.find(x => x[0] === this._view), L = this._devices(this._view);
@@ -517,6 +530,8 @@ class DashboardStudioHub extends HTMLElement {
     const card = this._root.querySelector('ha-card'), an = this._anim();
     const veh = card.querySelector('dashboard-studio-vehicle');
     if (veh) { veh.setConfig({...this._carCfg(), bare: true, calm: !!this._config.calm}); veh.hass = this._hass; }
+    const gar = card.querySelector('dashboard-studio-garage');
+    if (gar) { gar.setConfig({name: 'Garage', ...(this._config.garage_door ? {door: this._config.garage_door} : {}), bare: true, calm: !!this._config.calm}); gar.hass = this._hass; }
     card.classList.toggle('tap-press', an.tap === 'press' && !this._still());
     const on = new Map();
     card.querySelectorAll('.ts-tile, .tile, .row, .scene').forEach(el => {
@@ -578,7 +593,8 @@ class DashboardStudioHub extends HTMLElement {
       else s = this._catStatus(k);
       const temps = k === 'climate' ? this._devices('climate').map(x => x.st?.attributes.current_temperature).filter(v => v != null) : [];
       const ci = k === 'car' ? this._carInfo() : null;
-      if (ci) label = esc(this._carCfg().name || this._hass.states[this._carE.battery]?.attributes.friendly_name?.replace(/ battery( level)?$/i, '') || label);
+      if (ci) label = ci.garage ? 'Garage' : esc(this._carCfg().name || this._hass.states[this._carE.battery]?.attributes.friendly_name?.replace(/ battery( level)?$/i, '') || label);
+      if (ci?.garage) icon = 'mdi:garage-variant';
       const ico = ci && ci.bat != null ? `<span class="ts-ring${ci.chg ? ' chg' : ''}"><b>${ci.bat}</b></span>` : temps.length ? `<span class="ts-ring"><b>${Math.round(temps.reduce((a, v) => a + v, 0) / temps.length)}</b></span>` : `<span class="ts-ico"><ha-icon icon="${icon}"></ha-icon></span>`;
       return `<button class="ts-tile${s.active ? ' on' : ''}${s.warn ? ' warn' : ''}" data-a="cat" data-c="${k}">${ico}<span class="ts-l">${label}</span><span class="ts-s">${esc(s.text)}</span></button>`;
     }).join('');
@@ -1805,6 +1821,176 @@ ha-card.bare{background:none;box-shadow:none;border:none;padding:4px 0 0}
 .v-tv tesla-view-card{display:block;--ha-card-background:transparent;--card-background-color:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0}
 `;
 
+/*
+ * Dashboard Studio garage card
+ * Every car in its own bay: parked when it's home, an empty bay with where it is when it's away.
+ * A garage door slides over the bays, and tapping a car opens its vehicle card.
+ *
+ *   type: custom:dashboard-studio-garage
+ *   name: Garage
+ *   door: cover.garage_door   # optional
+ *   cars:                     # optional: leave out to use every car Home Assistant knows
+ *     - device: <device id>
+ *       name: Cybie
+ *       model: cybertruck
+ *       color: stainless
+ */
+/* every car-like device: from a Tesla integration, or with a battery level and a lock, climate or frunk */
+function findCars(hass) {
+  const ents = Object.values(hass.entities || {}), by = {};
+  ents.forEach(e => { if (e.device_id && hass.states[e.entity_id]) (by[e.device_id] = by[e.device_id] || []).push(e); });
+  return Object.entries(by).filter(([, es]) => es.some(e => /_battery_level$/.test(e.entity_id) && e.entity_id.startsWith('sensor.')) &&
+      (es.some(e => VEH_PLATFORMS.includes(e.platform)) || es.some(e => /^(lock|climate)\./.test(e.entity_id) || /^cover\..*_frunk$/.test(e.entity_id))))
+    .map(([id]) => ({device: id}));
+}
+
+class DashboardStudioGarage extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({mode: 'open'});
+    this._uid = Math.random().toString(36).slice(2, 7);
+    this.shadowRoot.addEventListener('click', e => this._onClick(e));
+  }
+
+  static getStubConfig() { return {name: 'Garage'}; }
+  static getConfigElement() { return document.createElement('dashboard-studio-garage-editor'); }
+
+  setConfig(config) { this._config = {name: 'Garage', ...config}; this._cars = null; this._open = null; this._render(); }
+
+  set hass(hass) {
+    const old = this._hass; this._hass = hass;
+    if (!this._cars || old?.entities !== hass.entities) this._find();
+    const v = this.shadowRoot.querySelector('dashboard-studio-vehicle'); if (v) v.hass = hass;
+    const watch = [this._config.door, ...this._cars.flatMap(c => Object.values(c.e))].filter(Boolean);
+    if (!old || watch.some(id => old.states[id] !== hass.states[id])) this._render();
+  }
+
+  getCardSize() { return 6; }
+  getGridOptions() { return {columns: 12, min_columns: 6}; }
+
+  _find() {
+    const h = this._hass, list = this._config.cars?.length ? this._config.cars : findCars(h);
+    this._cars = list.map((c, i) => {
+      const cfg = typeof c === 'string' ? {device: c} : c, e = findVehicle(h, cfg);
+      const dev = cfg.device || h.entities?.[e.battery]?.device_id, d = h.devices?.[dev] || {};
+      const name = cfg.name || d.name_by_user || d.name || h.states[e.battery]?.attributes.friendly_name?.replace(/ battery( level)?$/i, '') || `Car ${i + 1}`;
+      return {cfg: {...cfg, ...(dev ? {device: dev} : {}), name, model: cfg.model || carKey(d.model) || 'model_y'}, e, name, i};
+    });
+  }
+
+  _state(car) {
+    const s = id => id && this._hass.states[id], e = car.e;
+    const loc = s(e.location)?.state, home = !loc || loc === 'home';
+    const bat = Math.round(parseFloat(s(e.battery)?.state));
+    const cs = s(e.charging)?.state?.toLowerCase(), chg = cs ? ['on', 'charging', 'true'].includes(cs) : s(e.charge_switch)?.state === 'on';
+    const sleep = vehAsleep(s(e.awake)), lock = s(e.lock)?.state;
+    const where = home ? '' : loc === 'not_home' ? 'Away' : `At ${cap(loc)}`;
+    return {home, bat: isNaN(bat) ? null : bat, chg, text: home ? [chg ? 'Charging' : sleep ? 'Asleep' : lock === 'locked' ? 'Locked' : lock === 'unlocked' ? 'Unlocked' : ''].filter(Boolean).join('') : where};
+  }
+
+  _onClick(e) {
+    const b = e.target.closest('[data-a]'); if (!b || !this._hass) return;
+    if (b.dataset.a === 'car') { this._open = +b.dataset.i; this._render(); return; }
+    if (b.dataset.a === 'back') { this._open = null; this._render(); return; }
+    if (b.dataset.a === 'door' && this._config.door) this._hass.callService('cover', 'toggle', {entity_id: this._config.door}).catch(() => {});
+  }
+
+  _render() {
+    if (!this._config) return;
+    const c = this._config, h = this._hass;
+    if (!h || !this._cars) { this.shadowRoot.innerHTML = `<style>${GARAGE_STYLE}</style><ha-card><p class="hint">Connecting to Home Assistant…</p></ha-card>`; return; }
+    if (!this._cars.length) { this.shadowRoot.innerHTML = `<style>${GARAGE_STYLE}</style><ha-card><p class="hint">No cars found yet. Add your car's integration (like Tesla Fleet, Teslemetry or Tessie), or list them under <code>cars</code>.</p></ha-card>`; return; }
+    if (this._open != null && this._cars[this._open]) {
+      const car = this._cars[this._open];
+      this.shadowRoot.innerHTML = `<style>${GARAGE_STYLE}</style><ha-card class="detail${c.bare ? ' bare' : ''}"><div class="g-head"><button class="g-back" data-a="back" aria-label="Back to the garage"><ha-icon icon="mdi:chevron-left"></ha-icon></button><b>${esc(c.name)}</b></div><dashboard-studio-vehicle></dashboard-studio-vehicle></ha-card>`;
+      const v = this.shadowRoot.querySelector('dashboard-studio-vehicle');
+      v.setConfig({...car.cfg, bare: true, calm: !!c.calm}); v.hass = h;
+      return;
+    }
+    const door = c.door && h.states[c.door], ds = door?.state, shut = ds === 'closed' || ds === 'closing';
+    const sts = this._cars.map(car => this._state(car)), home = sts.filter(x => x.home).length;
+    const bays = this._cars.map((car, i) => {
+      const st = sts[i];
+      const art = st.home ? carVisual({image: car.cfg.image, model: car.cfg.model, color: car.cfg.color || 'pearl_white', charging: st.chg, charger: st.chg ? 'wall' : '', label: car.name}, this._uid + i)
+        : `<div class="g-away"><ha-icon icon="mdi:map-marker-outline"></ha-icon><span>${esc(st.text)}</span></div>`;
+      return `<button class="g-bay${st.home ? '' : ' away'}${st.chg ? ' chg' : ''}" data-a="car" data-i="${i}" aria-label="${esc(car.name)}"><span class="g-light"></span>${art}
+        <span class="g-name"><b>${esc(car.name)}</b><span>${st.bat != null ? `${st.bat}%` : ''}${st.bat != null && st.text ? ' · ' : ''}${esc(st.home ? st.text : 'Away')}</span></span></button>`;
+    }).join('');
+    this.shadowRoot.innerHTML = `<style>${GARAGE_STYLE}${CAR_STYLE}</style><ha-card class="${[c.calm ? 'calm' : '', c.bare ? 'bare' : ''].filter(Boolean).join(' ')}">
+      <div class="g-head"><div><b>${esc(c.name)}</b><span>${home} of ${this._cars.length} home${door ? ` · Door ${esc(cap(ds))}` : ''}</span></div>
+        ${door ? `<button class="g-doorbtn${shut ? '' : ' on'}" data-a="door"><ha-icon icon="${shut ? 'mdi:garage' : 'mdi:garage-open'}"></ha-icon>${shut ? 'Open' : 'Close'}</button>` : ''}</div>
+      <div class="g-scene" style="--n:${Math.min(3, this._cars.length)}"><div class="g-bays">${bays}</div>
+        ${door ? `<div class="g-door${shut ? ' shut' : ''}${ds === 'opening' || ds === 'closing' ? ' moving' : ''}" aria-hidden="true"></div>` : ''}</div></ha-card>`;
+  }
+}
+
+const GARAGE_STYLE = `
+:host{--g-text:var(--primary-text-color,#1c1c1c);--g-muted:var(--secondary-text-color,#6b6b6b)}
+ha-card{padding:18px;display:flex;flex-direction:column;gap:14px;color:var(--g-text);overflow:hidden}
+ha-card.detail{gap:6px}
+ha-card.bare{background:none;box-shadow:none;border:none;padding:4px 0 0}
+button{font:inherit;color:inherit;cursor:pointer}
+.hint{margin:0;color:var(--g-muted);line-height:1.5}
+.g-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.g-head>div,.g-head{min-width:0}
+.g-head b{font-size:22px;font-weight:600;display:block}
+.g-head span{font-size:13px;color:var(--g-muted)}
+.g-back{border:0;background:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;margin-right:auto}
+.detail .g-head{justify-content:flex-start}
+.detail .g-head b{font-size:15px;color:var(--g-muted);font-weight:500}
+.g-doorbtn{border:0;border-radius:99px;padding:8px 14px;display:flex;align-items:center;gap:6px;background:color-mix(in srgb,var(--g-text) 9%,transparent);font-weight:600;font-size:13px}
+.g-doorbtn.on{background:var(--primary-color,#03a9f4);color:var(--text-primary-color,#fff)}
+.g-scene{position:relative;border-radius:16px;overflow:hidden;background:linear-gradient(180deg,#1b1d22,#23262c);padding:14px 10px 10px}
+.g-bays{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:8px}
+.g-bay{position:relative;border:0;background:linear-gradient(180deg,transparent 64%,rgba(255,255,255,.05) 64%,rgba(0,0,0,.2));color:#f1f2f4;display:flex;flex-direction:column;align-items:center;gap:4px;padding:18px 4px 6px;min-width:0;border-radius:12px;transition:background .2s}
+.g-bay:hover{background-color:rgba(255,255,255,.04)}
+.g-bay:nth-child(3n+1)::before{display:none}
+.g-head .d-pbtn{flex:none}
+.g-bay+.g-bay::before{content:"";position:absolute;left:-5px;top:30%;bottom:8%;width:2px;background:repeating-linear-gradient(180deg,#e9c46a 0 8px,transparent 8px 14px);opacity:.45}
+.g-light{position:absolute;top:0;left:22%;right:22%;height:4px;border-radius:4px;background:#fff;box-shadow:0 0 18px 4px rgba(255,255,255,.35),0 30px 60px 20px rgba(255,255,255,.06)}
+.g-bay.away .g-light{opacity:.25;box-shadow:none}
+.g-bay .car,.g-bay .car-photo{width:100%}
+.g-away{height:clamp(70px,12vw,110px);width:90%;border:2px dashed rgba(255,255,255,.18);border-radius:18px 40px 12px 12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,.55);font-size:12px;margin-top:4px}
+.g-away ha-icon{--mdc-icon-size:20px}
+.g-name{display:flex;flex-direction:column;align-items:center;min-width:0;max-width:100%}
+.g-name b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.g-name span{font-size:12px;color:rgba(255,255,255,.65)}
+.g-bay.chg .g-name span{color:#86efac}
+.g-door{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(180deg,#d9dce1 0 22px,#bfc3c9 22px 24px,#e6e8eb 24px 26px);opacity:.92;transform:translateY(-94%);transition:transform 1.6s cubic-bezier(.45,.05,.3,1);border-bottom:6px solid #9aa0a8;box-shadow:0 8px 20px rgba(0,0,0,.35)}
+.g-door.shut{transform:none}
+.g-door::after{content:"";position:absolute;left:44%;right:44%;bottom:18px;height:8px;border-radius:4px;background:#8c9199}
+ha-card.calm *{animation:none!important;transition:none!important}
+`;
+
+/* visual editor for the garage card */
+class DashboardStudioGarageEditor extends HTMLElement {
+  setConfig(config) { this._config = config; this._render(); }
+  set hass(hass) { this._hass = hass; if (this._form) this._form.hass = hass; else this._render(); }
+  _render() {
+    if (!this._config || !this._hass) return;
+    if (!customElements.get('ha-form')) { this.innerHTML = '<p>Use the code editor to set up this card.</p>'; return; }
+    if (!this._form) {
+      this.innerHTML = '<p style="margin:0 0 12px;color:var(--secondary-text-color)">Leave Cars empty to show every car Home Assistant knows.</p>';
+      const f = this._form = document.createElement('ha-form');
+      const L = {name: 'Name', door: 'Garage door', cars: 'Cars', calm: 'Turn off animations'};
+      f.computeLabel = s => L[s.name] || s.name;
+      f.schema = [{name: 'name', selector: {text: {}}}, {name: 'door', selector: {entity: {domain: 'cover'}}},
+        {name: 'cars', selector: {device: {multiple: true, filter: ['tesla_fleet', 'teslemetry', 'tessie', 'tesla_custom'].map(integration => ({integration}))}}},
+        {name: 'calm', selector: {boolean: {}}}];
+      f.addEventListener('value-changed', e => {
+        const next = {...e.detail.value};
+        /* keep each car's own settings (name, model, paint) when the list changes */
+        if (Array.isArray(next.cars)) next.cars = next.cars.map(c => typeof c === 'string' ? ((this._config.cars || []).find(x => x?.device === c) || {device: c}) : c);
+        Object.keys(next).forEach(k => { if (next[k] === '' || next[k] == null || (Array.isArray(next[k]) && !next[k].length)) delete next[k]; });
+        this._config = next; this.dispatchEvent(new CustomEvent('config-changed', {detail: {config: next}, bubbles: true, composed: true}));
+      });
+      this.appendChild(f);
+    }
+    this._form.hass = this._hass;
+    this._form.data = {...this._config, cars: (this._config.cars || []).map(c => typeof c === 'string' ? c : c.device).filter(Boolean)};
+  }
+}
+
 /* visual editor for the vehicle card */
 class DashboardStudioVehicleEditor extends HTMLElement {
   setConfig(config) { this._config = config; this._render(); }
@@ -1903,6 +2089,8 @@ if (!customElements.get('dashboard-studio-hub')) customElements.define('dashboar
 if (!customElements.get('dashboard-studio-dual-shade')) customElements.define('dashboard-studio-dual-shade', DashboardStudioDualShade);
 if (!customElements.get('dashboard-studio-fx')) customElements.define('dashboard-studio-fx', DashboardStudioFx);
 if (!customElements.get('dashboard-studio-vehicle')) customElements.define('dashboard-studio-vehicle', DashboardStudioVehicle);
+if (!customElements.get('dashboard-studio-garage')) customElements.define('dashboard-studio-garage', DashboardStudioGarage);
+if (!customElements.get('dashboard-studio-garage-editor')) customElements.define('dashboard-studio-garage-editor', DashboardStudioGarageEditor);
 if (!customElements.get('dashboard-studio-vehicle-editor')) customElements.define('dashboard-studio-vehicle-editor', DashboardStudioVehicleEditor);
 if (!customElements.get('dashboard-studio-hub-editor')) customElements.define('dashboard-studio-hub-editor', DashboardStudioHubEditor);
 window.customCards = window.customCards || [];
@@ -1911,6 +2099,9 @@ if (!window.customCards.some(c => c.type === 'dashboard-studio-hub')) {
 }
 if (!window.customCards.some(c => c.type === 'dashboard-studio-dual-shade')) {
   window.customCards.push({type: 'dashboard-studio-dual-shade', name: 'Dashboard Studio dual shade', description: 'One window, two shade motors: day/night honeycomb or top down, bottom up. With Open, Day and Night presets.', preview: false});
+}
+if (!window.customCards.some(c => c.type === 'dashboard-studio-garage')) {
+  window.customCards.push({type: 'dashboard-studio-garage', name: 'Dashboard Studio garage', description: 'All your cars in a garage: parked when home, an empty bay when away, with the garage door. Tap a car for its vehicle card.', preview: true});
 }
 if (!window.customCards.some(c => c.type === 'dashboard-studio-vehicle')) {
   window.customCards.push({type: 'dashboard-studio-vehicle', name: 'Dashboard Studio vehicle', description: 'Tesla app style car card: your car in its paint color, battery and range, charging, and lock, climate, frunk, trunk, charge port and sentry controls.', preview: true});
