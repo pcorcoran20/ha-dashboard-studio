@@ -113,6 +113,7 @@ In a Sections dashboard, make the card full width so the tiles have room.
 | `icon_color` | The icon color for tiles that are on: `soft` (soft white, the default), `accent` (your theme color) or `warm` (yellow). |
 | `room_radius` | For the touchscreen layout: how round the room button is, from `0` (square corners) to `30` (fully round, the default). |
 | `icon_background` | `false` removes the circle behind the tile icons. Icons that are on glow, and icons that are off are dimmer. |
+| `animations` | `page`: `fade`, `slide` (the default), `zoom`, `flip` or `off`. `tap`: `ripple` (the default), `press` or `off`. `state`: `pop` (the default), `glow` or `off`. `calm: true` turns them all off. |
 | `touch_style` | For the touchscreen layout: `dark` (the default) or `theme` to follow your Home Assistant theme. |
 | `full_height` | `true` makes the card fill the screen. Good in a panel view. |
 | `weather_entity` | The weather shown in the touchscreen layout's bottom bar. Leave it out to use your first weather entity. |
@@ -184,6 +185,10 @@ card_effects:
   tilt: false                # cards lean toward your pointer
   glowing_edges: false       # a soft glow pulses around each card
   light_glow: true           # tile cards for lights glow in the light's own color
+animations:
+  page: slide                # fade, slide, zoom, flip or off: plays when the view opens
+  tap: ripple                # ripple, press or off: plays when you touch a card
+  state: pop                 # pop, glow or off: plays when a card's device turns on or off
 calm: false                  # true turns off motion. Reduced-motion settings are respected too
 ```
 

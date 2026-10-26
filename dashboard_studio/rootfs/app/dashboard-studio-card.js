@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '0.8.2';
+const STUDIO_VERSION = '0.9.0';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -72,6 +72,28 @@ const GN_DEFAULT = {lights: true, switches: true, fans: false, shades: true, med
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const cap = s => s ? s[0].toUpperCase() + s.slice(1).replace(/_/g, ' ') : '';
 
+/* animations shared by the hub and effects cards: page and room changes, touch, on/off */
+const ANIM_DEFAULT = {page: 'slide', tap: 'ripple', state: 'pop'};
+const PAGE_KF = {
+  fade: () => [{opacity: 0}, {opacity: 1}],
+  slide: d => [{opacity: 0, transform: `translateX(${36 * d}px)`}, {opacity: 1, transform: 'none'}],
+  zoom: () => [{opacity: 0, transform: 'scale(.94)'}, {opacity: 1, transform: 'none'}],
+  flip: d => [{opacity: 0, transform: `perspective(1100px) rotateY(${14 * d}deg) translateX(${18 * d}px)`}, {opacity: 1, transform: 'none'}]
+};
+const animPage = (el, kind, dir = 1) => PAGE_KF[kind] && el?.animate(PAGE_KF[kind](dir < 0 ? -1 : 1), {duration: kind === 'fade' ? 350 : kind === 'flip' ? 500 : 420, easing: 'cubic-bezier(.2,.8,.2,1)'});
+const animState = (el, kind, color) => {
+  if (!el) return;
+  if (kind === 'pop') el.animate([{transform: 'scale(1)'}, {transform: 'scale(1.07)', offset: .3}, {transform: 'scale(.98)', offset: .6}, {transform: 'scale(1)'}], {duration: 450, easing: 'cubic-bezier(.3,1.6,.5,1)'});
+  if (kind === 'glow') el.animate([{boxShadow: `0 0 0 0 ${color}`}, {boxShadow: '0 0 0 16px rgba(0,0,0,0)'}], {duration: 750, easing: 'ease-out'});
+};
+const ripple = (layer, x, y, size, color) => {
+  const r = document.createElement('span');
+  r.style.cssText = `position:absolute;left:${x - size / 2}px;top:${y - size / 2}px;width:${size}px;height:${size}px;border-radius:50%;pointer-events:none;background:radial-gradient(circle,${color} 0,transparent 70%)`;
+  layer.append(r);
+  r.animate([{transform: 'scale(.15)', opacity: .9}, {transform: 'scale(1)', opacity: 0}], {duration: 600, easing: 'ease-out'}).onfinish = () => r.remove();
+};
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 class DashboardStudioHub extends HTMLElement {
   constructor() {
     super();
@@ -79,7 +101,7 @@ class DashboardStudioHub extends HTMLElement {
     this._room = -1; this._view = null; this._code = ''; this._msg = ''; this._err = false; this._busy = false;
     this.shadowRoot.addEventListener('click', e => this._onClick(e));
     this.shadowRoot.addEventListener('change', e => this._onChange(e));
-    this.shadowRoot.addEventListener('pointerdown', e => { if (e.target.matches('input[type=range]')) this._busy = true; });
+    this.shadowRoot.addEventListener('pointerdown', e => { if (e.target.matches('input[type=range]')) this._busy = true; this._tap(e); });
     window.addEventListener('pointerup', () => { if (this._busy) { this._busy = false; if (this._pending) this._render(); } });
   }
 
@@ -246,12 +268,12 @@ class DashboardStudioHub extends HTMLElement {
     if (!el || !this._hass) return;
     const a = el.dataset.a, id = el.dataset.e, x = id ? this._dev({entity: id, type: el.dataset.t}, '') : null;
     switch (a) {
-      case 'room': this._room = +el.dataset.r; this._menu = false; break;
+      case 'room': this._swap = +el.dataset.r < this._room ? -1 : 1; this._room = +el.dataset.r; this._menu = false; break;
       case 'roommenu': this._menu = !this._menu; break;
-      case 'pickroom': this._room = +el.dataset.r; this._view = null; this._menu = false; break;
+      case 'pickroom': this._swap = +el.dataset.r < this._room ? -1 : 1; this._room = +el.dataset.r; this._view = null; this._menu = false; break;
       case 'mp': this._call('media_player', el.dataset.v, {entity_id: id}); return;
-      case 'cat': this._view = el.dataset.c; this._code = ''; this._msg = ''; break;
-      case 'back': this._view = null; break;
+      case 'cat': this._swap = 1; this._view = el.dataset.c; this._code = ''; this._msg = ''; break;
+      case 'back': this._swap = -1; this._view = null; break;
       case 'scene': this._call('scene', 'turn_on', {entity_id: el.dataset.e}).then(() => this._toast(`${el.dataset.n} is on`)); return;
       case 'goodnight': this._goodNight(); return;
       case 'all': this._all(el.dataset.v === 'on'); return;
@@ -279,7 +301,7 @@ class DashboardStudioHub extends HTMLElement {
 
   _onChange(e) {
     const el = e.target;
-    if (el.dataset.roomsel != null) { this._room = +el.value; this._view = this._view && this._devices(this._view).length ? this._view : null; this._render(); return; }
+    if (el.dataset.roomsel != null) { this._swap = +el.value < this._room ? -1 : 1; this._room = +el.value; this._view = this._view && this._devices(this._view).length ? this._view : null; this._render(); return; }
     if (!el.dataset.e || !this._hass) return;
     const id = el.dataset.e, v = +el.value;
     if (el.dataset.k === 'bri') this._call('light', 'turn_on', {entity_id: id, brightness_pct: v});
@@ -433,10 +455,44 @@ class DashboardStudioHub extends HTMLElement {
       const op = Math.max(0, Math.min(100, Number(c.opacity ?? 0) || 0));
       const rr = Number(c.room_radius ?? 30), rad = rr >= 30 ? 99 : Math.max(0, rr);
       const cls = ['ts', c.touch_style === 'theme' ? 'ts-theme' : '', op < 40 ? 'clear' : '', c.icon_background === false ? 'noicobg' : '', c.full_height ? 'full' : '', c.calm ? 'calm' : '', this._ic()].filter(Boolean).join(' ');
-      this.shadowRoot.innerHTML = `<style>${STYLE}${TOUCH_STYLE}</style><ha-card class="${cls}" style="--t-op:${op}%;--t-rr:${rad}px">${top}${menu}<div class="ts-body">${body}</div><div class="ts-bottom">${clock}${wx}</div>${night}${flash}</ha-card>`;
+      this._paint(`<style>${STYLE}${TOUCH_STYLE}</style><ha-card class="${cls}" style="--t-op:${op}%;--t-rr:${rad}px">${top}${menu}<div class="ts-body">${body}</div><div class="ts-bottom">${clock}${wx}</div>${night}${flash}</ha-card>`);
       return;
     }
-    this.shadowRoot.innerHTML = `<style>${STYLE}</style><ha-card class="${[c.calm ? 'calm' : '', this._ic()].filter(Boolean).join(' ')}">${title}${chips}${body}${night}${flash}</ha-card>`;
+    this._paint(`<style>${STYLE}</style><ha-card class="${[c.calm ? 'calm' : '', this._ic()].filter(Boolean).join(' ')}">${title}${chips}${body}${night}${flash}</ha-card>`);
+  }
+
+  _anim() { return {...ANIM_DEFAULT, ...(this._config.animations || {})}; }
+  _still() { return !!this._config.calm || reducedMotion(); }
+
+  /* a layer beside the card keeps touch ripples alive while the card redraws */
+  _paint(html) {
+    if (!this._root) {
+      this.shadowRoot.innerHTML = '<div></div><div class="fxl" aria-hidden="true"></div>';
+      this._root = this.shadowRoot.firstChild; this._fxl = this.shadowRoot.lastChild;
+    }
+    this._root.innerHTML = html;
+    const card = this._root.querySelector('ha-card'), an = this._anim();
+    card.classList.toggle('tap-press', an.tap === 'press' && !this._still());
+    const on = new Map();
+    card.querySelectorAll('.ts-tile, .tile, .row, .scene').forEach(el => {
+      const k = el.dataset.c || el.dataset.e || el.querySelector('[data-e]')?.dataset.e; if (k) on.set(el.className.split(' ')[0] + k, [el, el.classList.contains('on')]);
+    });
+    if (this._swap) {
+      if (!this._still() && an.page !== 'off') animPage(card.querySelector('.ts-body') || card, an.page, this._swap);
+      this._swap = 0;
+    } else if (this._prevOn && an.state !== 'off' && !this._still()) {
+      const glow = getComputedStyle(card).getPropertyValue('--s-active').trim() || 'rgba(255,255,255,.5)';
+      on.forEach(([el, v], k) => { const was = this._prevOn.get(k); if (was !== undefined && was !== v) animState(el.querySelector('.ts-ico, .t-ico, .ico') || el, an.state, `color-mix(in srgb, ${glow} 60%, transparent)`); });
+    }
+    this._prevOn = new Map([...on].map(([k, [, v]]) => [k, v]));
+  }
+
+  _tap(e) {
+    if (!this._config || this._anim().tap !== 'ripple' || this._still() || e.button > 0) return;
+    const hit = e.target.closest('button, .row, .tile, .ts-tile, input, select'); if (!hit || !this._fxl) return;
+    const host = this.getBoundingClientRect(), r = hit.getBoundingClientRect(), card = this._root.querySelector('ha-card');
+    const c = getComputedStyle(card).getPropertyValue('--s-text').trim() || '#fff';
+    ripple(this._fxl, e.clientX - host.left, e.clientY - host.top, Math.max(60, Math.min(260, Math.max(r.width, r.height) * 1.4)), `color-mix(in srgb, ${c} 32%, transparent)`);
   }
 
   _ic() { return 'ic-' + (['soft', 'accent', 'warm'].includes(this._config.icon_color) ? this._config.icon_color : 'soft'); }
@@ -547,6 +603,10 @@ ha-card.ts.noicobg .ts-tile.warn .ts-ico{background:none;color:#ff8a7a}
 `;
 
 const STYLE = `
+:host{display:block;position:relative}
+.fxl{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:var(--ha-card-border-radius,12px);z-index:9}
+ha-card.tap-press :is(button,.row):active{transform:scale(.94);transition:transform .08s}
+ha-card.tap-press button{transition:transform .2s cubic-bezier(.3,1.6,.5,1)}
 ha-card.ic-soft{--s-active:var(--s-text);--s-active-ink:var(--ico-ink,var(--card-background-color,var(--primary-background-color,#fff)))}
 ha-card.ic-accent{--s-active:var(--s-accent);--s-active-ink:var(--s-on)}
 ha-card.ic-warm{--s-active:var(--state-light-active-color,#ffc94d);--s-active-ink:#3a2a00}
@@ -743,6 +803,8 @@ class DashboardStudioFx extends HTMLElement {
     this._onLeave = () => this._untilt();
     this._onResize = () => { clearTimeout(this._rt); this._rt = setTimeout(() => this._start(true), 150); };
     this._onVis = () => { if (!document.hidden) this._start(true); };
+    this._onTap = e => this._tap(e);
+    this._watch = new Map();
   }
 
   static getStubConfig() { return {background: 'aurora', strength: 70, card_effects: {float_in: true, light_glow: true}}; }
@@ -751,7 +813,8 @@ class DashboardStudioFx extends HTMLElement {
     const bg = config?.background ?? 'aurora';
     if (!FX_NAMES[bg]) throw new Error(`background must be one of: ${Object.keys(FX_NAMES).join(', ')}`);
     this._config = {strength: 70, speed: 1, layer: 'behind', ...config, background: bg,
-      card_effects: {float_in: true, tilt: false, glowing_edges: false, light_glow: true, ...(config.card_effects || {})}};
+      card_effects: {float_in: true, tilt: false, glowing_edges: false, light_glow: true, ...(config.card_effects || {})},
+      animations: {...ANIM_DEFAULT, ...(config.animations || {})}};
     this._renderStub();
     if (this.isConnected) this._start(true);
   }
@@ -760,6 +823,41 @@ class DashboardStudioFx extends HTMLElement {
     const old = this._hass; this._hass = hass;
     const w = this._config?.weather_entity;
     if (!old || (w && old.states[w] !== hass.states[w])) this._start();
+    /* cards whose device just turned on or off get a little pop */
+    const kind = this._config?.animations?.state;
+    if (old && kind && kind !== 'off' && !this._quiet()) this._watch.forEach((cards, id) => {
+      const a = old.states[id]?.state, b = hass.states[id]?.state;
+      if (a && b && a !== b) cards.forEach(c => c.isConnected && animState(c, kind, alpha(this._palette().act, .6)));
+    });
+  }
+
+  _scanCards() {
+    const m = new Map();
+    deepAll(document.body, n => /^HUI-.*-CARD$/.test(n.tagName) && (n._config || n.config)?.entity).forEach(el => {
+      const card = el.shadowRoot?.querySelector('ha-card'), id = (el._config || el.config).entity;
+      if (card) m.set(id, [...(m.get(id) || []), card]);
+    });
+    this._watch = m;
+  }
+
+  _view() {
+    let n = this;
+    while (n) { if (/^HUI-.*-VIEW$/.test(n.tagName || '')) return n; n = n.parentNode || n.host; }
+    return null;
+  }
+
+  _tap(e) {
+    if (this._config?.animations?.tap === 'off' || this._quiet() || e.button > 0) return;
+    const path = e.composedPath(); if (inDialog(path)) return;
+    const card = path.find(n => n.tagName === 'HA-CARD'); if (!card || card.getRootNode() === this.shadowRoot) return;
+    if (path.some(n => n.tagName === 'DASHBOARD-STUDIO-HUB')) return;
+    if (this._config.animations.tap === 'press') { card.animate([{transform: 'scale(1)'}, {transform: 'scale(.97)'}, {transform: 'scale(1)'}], {duration: 260, easing: 'cubic-bezier(.3,1.6,.5,1)'}); return; }
+    const r = card.getBoundingClientRect(), cs = getComputedStyle(card);
+    const layer = document.createElement('div');
+    layer.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border-radius:${cs.borderRadius};overflow:hidden;pointer-events:none;z-index:9999`;
+    document.body.append(layer);
+    ripple(layer, e.clientX - r.left, e.clientY - r.top, Math.max(80, Math.min(320, Math.max(r.width, r.height) * 1.2)), alpha(this._palette().fg, .28));
+    setTimeout(() => layer.remove(), 700);
   }
 
   set editMode(v) { this._edit = !!v; this._renderStub(); }
@@ -786,9 +884,12 @@ class DashboardStudioFx extends HTMLElement {
     document.addEventListener('visibilitychange', this._onVis);
     window.addEventListener('pointermove', this._onMove, {passive: true});
     document.addEventListener('pointerleave', this._onLeave);
+    document.addEventListener('pointerdown', this._onTap, {capture: true, passive: true});
     this._start(true);
-    clearTimeout(this._fit); this._fit = setTimeout(() => this._cardFx(true), 350);
-    this._glowTick = setInterval(() => this._lightGlow(), 2000);
+    const pg = this._config?.animations?.page;
+    if (pg && pg !== 'off' && !this._quiet()) requestAnimationFrame(() => { const v = this._view(); if (v) this._anims.push(animPage(v, pg, 1)); });
+    clearTimeout(this._fit); this._fit = setTimeout(() => { this._cardFx(true); this._scanCards(); }, 350);
+    this._glowTick = setInterval(() => { this._lightGlow(); this._scanCards(); }, 2000);
   }
 
   disconnectedCallback() {
@@ -796,7 +897,8 @@ class DashboardStudioFx extends HTMLElement {
     document.removeEventListener('visibilitychange', this._onVis);
     window.removeEventListener('pointermove', this._onMove);
     document.removeEventListener('pointerleave', this._onLeave);
-    clearInterval(this._glowTick); clearTimeout(this._fit);
+    document.removeEventListener('pointerdown', this._onTap, {capture: true});
+    clearInterval(this._glowTick); clearTimeout(this._fit); this._watch.clear();
     cancelAnimationFrame(this._raf); this._raf = 0;
     this._canvas?.remove(); this._canvas = null;
     if (this._restoreBg !== undefined) { document.documentElement.style.removeProperty('--lovelace-background'); this._restoreBg = undefined; }

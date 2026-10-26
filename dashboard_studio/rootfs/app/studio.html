@@ -673,6 +673,24 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 /* effects */
 .bgfx{position:absolute; inset:0; width:100%; height:100%; border-radius:inherit; pointer-events:none; z-index:0; transition:opacity .3s}
 @keyframes cardIn{from{opacity:0; transform:translateY(18px) scale(.97)}}
+@keyframes ptFade{from{opacity:0}}
+@keyframes ptSlide{from{opacity:0; transform:translateX(calc(var(--pt-dir,1) * 36px))}}
+@keyframes ptZoom{from{opacity:0; transform:scale(.94)}}
+@keyframes ptFlip{from{opacity:0; transform:perspective(1100px) rotateY(calc(var(--pt-dir,1) * 14deg)) translateX(calc(var(--pt-dir,1) * 18px))}}
+.pt-in[data-pt="fade"]{animation:ptFade .35s ease both}
+.pt-in[data-pt="slide"]{animation:ptSlide .42s cubic-bezier(.2,.8,.2,1) both}
+.pt-in[data-pt="zoom"]{animation:ptZoom .4s cubic-bezier(.2,.8,.2,1) both}
+.pt-in[data-pt="flip"]{animation:ptFlip .5s cubic-bezier(.2,.8,.2,1) both; transform-origin:50% 50%}
+@keyframes stPop{30%{transform:scale(1.07)} 60%{transform:scale(.98)}}
+@keyframes stGlow{from{box-shadow:0 0 0 0 color-mix(in srgb, var(--d-active, var(--d-accent)) 60%, transparent)} to{box-shadow:0 0 0 16px transparent}}
+.st-pop{animation:stPop .45s cubic-bezier(.3,1.6,.5,1)}
+.st-glow{animation:stGlow .75s ease-out}
+.tap-rip{position:absolute; z-index:8; border-radius:50%; pointer-events:none; background:radial-gradient(circle, color-mix(in srgb, var(--d-text) 38%, transparent) 0, color-mix(in srgb, var(--d-text) 12%, transparent) 45%, transparent 70%); animation:tapRip .6s ease-out forwards}
+@keyframes tapRip{from{transform:scale(.15); opacity:.9} to{transform:scale(1); opacity:0}}
+.dash.fx-press .card :is(button, [data-act], label):active{transform:scale(.93); transition:transform .08s}
+.dash.fx-press .card :is(button, [data-act], label){transition:transform .2s cubic-bezier(.3,1.6,.5,1)}
+.fxanims{display:flex; flex-direction:column; gap:12px}
+.fxanims .field{gap:6px}
 .dash.fx-enter .dgrid.entering .card{animation:cardIn .55s cubic-bezier(.2,.8,.2,1) both; animation-delay:calc(min(var(--n,0), 16) * 45ms)}
 .dash.fx-tilt .card:not(.w-header){transform:perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)); transition:transform .2s ease, background .25s, outline-color .15s, opacity .2s}
 .dash.fx-shine:not([data-fun="pride"]) .card:not(.w-header):not(.bare){background-image:radial-gradient(260px circle at var(--mx,-100%) var(--my,-100%), color-mix(in srgb, var(--d-text) 13%, transparent), transparent 65%)}
@@ -806,6 +824,10 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
           <div class="fxgrid" id="fxBgs"></div>
           <div class="field"><div class="row"><label for="fxInt">Strength</label><span class="val" id="fxIntV"></span></div><input type="range" id="fxInt" min="10" max="100" step="5"></div>
           <div class="field"><div class="row"><label for="fxSpd">Speed</label><span class="val" id="fxSpdV"></span></div><input type="range" id="fxSpd" min="25" max="200" step="5"></div>
+        </div>
+        <div class="group">
+          <div class="eyebrow">Animations</div>
+          <div id="fxAnims" class="fxanims"></div>
         </div>
         <div class="group">
           <div class="eyebrow">Card effects</div>
@@ -1161,7 +1183,7 @@ function samplePages(){
   ];
 }
 function sample(){ const pages = samplePages(); return {name:'Home', theme:'glass', accent:null, radius:null, gap:14, wall:null, calm:false, night:{on:false, theme:'black'}, custom:null, entities:[], tw:{}, units:'F', fx:{...FX_DEFAULT}, pages, page:pages[0].id}; }
-const FX_DEFAULT = {bg:'off', intensity:70, speed:100, enter:true, tilt:false, shine:false, edges:false, spill:true};
+const FX_DEFAULT = {bg:'off', intensity:70, speed:100, enter:true, tilt:false, shine:false, edges:false, spill:true, page:'slide', tap:'ripple', pop:'pop'};
 
 /* ---------- state + history ---------- */
 const KEY = 'hearth-dashboard-studio-v1';
@@ -1267,6 +1289,7 @@ function applyTheme(){
   v.icoShape === 'none' ? s.setProperty('--d-ico-bg', 'transparent') : s.removeProperty('--d-ico-bg');
   d.classList.toggle('calm', state.calm);
   ['enter','tilt','shine','edges','spill'].forEach(k => d.classList.toggle('fx-' + k, !!state.fx[k]));
+  d.classList.toggle('fx-press', state.fx.tap === 'press' && !quiet());
   t.flag ? s.setProperty('--d-flag', t.flag) : s.removeProperty('--d-flag');
   renderFun(t);
   fxSync();
@@ -1539,10 +1562,13 @@ grid.addEventListener('click', e => {
   const b = find(card.dataset.id); if (!b) return;
   const a = e.target.closest('[data-act]');
   if (kiosk && a && ['left','right','size','dup','del'].includes(a.dataset.act)) return;
-  const was = selected;
+  const was = selected, snap = a ? popSnap(card) : null, prevRoom = b.room ?? -1, swap = a && ['ts-pick','hub-room','hub-cat','hub-back'].includes(a.dataset.act);
   if (a) act(b, a.dataset.act, a);
   if (!kiosk && a?.dataset.act !== 'del' && a?.dataset.act !== 'dup') selected = b.id;
   renderDash(); save();
+  const nc = grid.querySelector(`.card[data-id="${b.id}"]`);
+  if (swap) animSwap(nc?.querySelector('.ts-body') || nc?.querySelector('.hub-body') || nc, a.dataset.act === 'hub-back' || (b.room ?? -1) < prevRoom ? -1 : 1);
+  else if (snap) popDiff(snap, nc);
   if (!kiosk && (was !== selected || a)) renderInsp();
 });
 grid.addEventListener('input', e => {
@@ -1636,7 +1662,7 @@ document.addEventListener('dragend', () => { drag = null; clearMarks(); grid.que
 /* ---------- pages ---------- */
 /* room and page picker: arrows to step, a dropdown to jump, search and reorder */
 let pgMenuOpen = false, pgQuery = '', pgDrag = null;
-function goPage(id){ if (!id || id === state.page) return; state.page = id; selected = null; renderDash(); renderInsp(); save(); playEnter(); }
+function goPage(id){ if (!id || id === state.page) return; const dir = state.pages.findIndex(p => p.id === id) < state.pages.findIndex(p => p.id === state.page) ? -1 : 1; state.page = id; selected = null; renderDash(); renderInsp(); save(); animSwap(grid, dir); playEnter(); }
 function pgListHTML(){
   const q = pgQuery.trim().toLowerCase();
   const rows = state.pages.map((p, i) => ({p, i})).filter(({p}) => !q || (p.name || '').toLowerCase().includes(q));
@@ -2425,7 +2451,7 @@ function cardYaml(b){
       if (state.useCards) return {type:'custom:dashboard-studio-hub', title:b.title,
         rooms:(b.rooms || []).map(r => ({name:r.name, devices:r.devices.map(d => ({entity:hubEnt(d), name:d.name, type:d.t}))})),
         scenes:(b.scenes || []).map(s => ({name:s.name, entity:'scene.' + slug(s.name)})),
-        good_night:'script.' + gnScriptId(b), icon_color:b.iconColor || 'soft', ...(state.calm ? {calm:true} : {}),
+        good_night:'script.' + gnScriptId(b), icon_color:b.iconColor || 'soft', animations:animYaml(), ...(state.calm ? {calm:true} : {}),
         ...(b.layout === 'touchscreen' ? {layout:'touchscreen', touch_style:b.touchStyle || 'dark', opacity:b.opacity ?? 0, room_radius:b.roomRadius ?? 30, ...(b.iconBg === false ? {icon_background:false} : {}), ...(state.nav === 'touch' ? {full_height:true} : {}), ...(allBlocks().find(x => x.type === 'weather') ? {weather_entity:allBlocks().find(x => x.type === 'weather').entity} : {})} : {})};
       const url = dashUrl(), rooms = b.rooms || [];
       const cats = Object.keys(HUB_CATS).filter(c => rooms.some(r => r.devices.some(d => catOf(d.t) === c)));
@@ -2457,14 +2483,15 @@ function visYaml(b){
 }
 const cardOut = b => ({...cardYaml(b), grid_options:{columns:SPAN[b.size]}, visibility:visYaml(b), card_mod:cardMod(b)});
 const themeName = k => 'Studio ' + getTheme(k).label + (k === 'pride' ? ' ' + (FLAGS[state.prideFlag] || FLAGS.rainbow).name : '');
-const fxActive = () => state.fx.bg !== 'off' || ['enter','tilt','edges','spill'].some(k => state.fx[k]);
+const fxActive = () => state.fx.bg !== 'off' || ['enter','tilt','edges','spill'].some(k => state.fx[k]) || ['page','tap','pop'].some(k => state.fx[k] && state.fx[k] !== 'off');
+const animYaml = () => ({page:state.fx.page || 'off', tap:state.fx.tap || 'off', state:state.fx.pop || 'off'});
 const usesStudioCard = () => allBlocks().some(b => b.type === 'hub' || b.type === 'dualshade') || fxActive();
 function fxCardYaml(){
   if (!state.useCards || !fxActive()) return [];
   const f = state.fx, w = allBlocks().find(b => b.type === 'weather');
   return [{type:'custom:dashboard-studio-fx', background:f.bg, ...(f.bg === 'weather' ? {weather_entity:w?.entity || 'weather.home'} : {}),
     strength:f.intensity, speed:+(f.speed / 100).toFixed(2),
-    card_effects:{float_in:!!f.enter, tilt:!!f.tilt, glowing_edges:!!f.edges, light_glow:!!f.spill}, ...(state.calm ? {calm:true} : {}), grid_options:{columns:12}}];
+    card_effects:{float_in:!!f.enter, tilt:!!f.tilt, glowing_edges:!!f.edges, light_glow:!!f.spill}, animations:animYaml(), ...(state.calm ? {calm:true} : {}), grid_options:{columns:12}}];
 }
 function dashObj(){
   const used = new Set();
@@ -3371,7 +3398,14 @@ const FXT = [
   ['edges','Glowing edges','A light travels around each card’s border'],
   ['spill','Lights glow onto the page','Lights that are on cast a colored glow']
 ];
+const FXA = [
+  ['page', 'Page and room changes', [['fade','Fade'], ['slide','Slide'], ['zoom','Zoom'], ['flip','Flip'], ['off','Off']]],
+  ['tap', 'When you touch something', [['ripple','Ripple'], ['press','Press'], ['off','Off']]],
+  ['pop', 'When a device turns on or off', [['pop','Pop'], ['glow','Glow'], ['off','Off']]]
+];
 function renderFxPanel(){
+  $('fxAnims').innerHTML = FXA.map(([k, l, opts]) => `<div class="field"><span class="lbl2">${l}</span><div class="seg" role="group" aria-label="${l}">${opts.map(([v, n]) => `<button data-fxa="${k}" data-v="${v}" aria-pressed="${(state.fx[k] || 'off') === v}">${n}</button>`).join('')}</div></div>`).join('')
+    + `<div class="btnrow"><button class="btn" id="fxaTry">${ic('sparkle')}Try it</button></div>`;
   $('fxBgs').innerHTML = Object.entries(BGFX).map(([k,n]) => `<button class="fxb" data-fxbg="${k}" aria-pressed="${state.fx.bg===k}"><i style="background:${BGFX_PREV[k]}"></i><span>${n}</span></button>`).join('');
   $('fxInt').value = state.fx.intensity; $('fxIntV').textContent = state.fx.intensity + '%';
   $('fxSpd').value = state.fx.speed; $('fxSpdV').textContent = (state.fx.speed/100).toFixed(2).replace(/\.?0+$/, '') + '×';
@@ -3381,10 +3415,54 @@ function renderFxPanel(){
 $('fxBgs').addEventListener('click', e => { const b = e.target.closest('[data-fxbg]'); if (!b) return; commit(); state.fx.bg = b.dataset.fxbg; renderFxPanel(); fxSync(true); save(); });
 $('fxInt').addEventListener('input', e => { commit('fxint'); state.fx.intensity = +e.target.value; $('fxIntV').textContent = state.fx.intensity + '%'; $('bgfx').style.opacity = state.fx.intensity/100; save(); });
 $('fxSpd').addEventListener('input', e => { commit('fxspd'); state.fx.speed = +e.target.value; renderFxPanel(); save(); });
+$('fxAnims').addEventListener('click', e => {
+  if (e.target.closest('#fxaTry')) { const pg = state.fx.page; if (pg === 'off') return toast('Page animation is off'); animSwap(grid, 1); return; }
+  const b = e.target.closest('[data-fxa]'); if (!b) return;
+  commit(); state.fx[b.dataset.fxa] = b.dataset.v; renderFxPanel(); applyTheme(); save();
+  if (b.dataset.fxa === 'page') animSwap(grid, 1);
+});
 $('fxToggles').addEventListener('change', e => {
   const k = e.target.dataset.fxt; if (!k) return;
   commit(); state.fx[k] = e.target.checked; applyTheme(); save();
   if (k === 'enter' && e.target.checked) playEnter();
+});
+/* page and room changes, touch feedback, on/off pops */
+function animSwap(el, dir = 1){
+  const k = state.fx.page; if (!el || !k || k === 'off' || quiet()) return;
+  el.classList.remove('pt-in'); el.style.setProperty('--pt-dir', dir < 0 ? -1 : 1); el.dataset.pt = k; void el.offsetWidth; el.classList.add('pt-in');
+  clearTimeout(el._ptT); el._ptT = setTimeout(() => el.classList.remove('pt-in'), 700);
+}
+const POP_ON = el => el.classList.contains('on') || el.classList.contains('is-on') || el.classList.contains('is-open') || el.getAttribute('aria-pressed') === 'true' || (el.type === 'checkbox' && el.checked);
+function popSnap(card){
+  const m = new Map(), seen = {}; if (!card) return m;
+  [card, ...card.querySelectorAll('*')].forEach(el => {
+    const ds = el.dataset ? Object.entries(el.dataset).filter(([k]) => k !== 'n').map(kv => kv.join('=')).join('&') : '';
+    const base = (el.classList?.[0] || el.tagName) + '|' + ds; seen[base] = (seen[base] || 0) + 1;
+    m.set(base + '#' + seen[base], POP_ON(el));
+  });
+  return m;
+}
+function popDiff(before, card){
+  const k = state.fx.pop; if (!card || !k || k === 'off' || quiet()) return;
+  const seen = {};
+  [card, ...card.querySelectorAll('*')].forEach(el => {
+    const ds = el.dataset ? Object.entries(el.dataset).filter(([k]) => k !== 'n').map(kv => kv.join('=')).join('&') : '';
+    const base = (el.classList?.[0] || el.tagName) + '|' + ds; seen[base] = (seen[base] || 0) + 1;
+    const was = before.get(base + '#' + seen[base]);
+    if (was === undefined || was === POP_ON(el)) return;
+    const t = el === card ? card : (el.closest('.ts-tile, .hub-tile, .hub-row, .hub-dev, button, label') || el);
+    t.classList.remove('st-pop', 'st-glow'); void t.offsetWidth; t.classList.add(k === 'glow' ? 'st-glow' : 'st-pop');
+    setTimeout(() => t.classList.remove('st-pop', 'st-glow'), 800);
+  });
+}
+grid.addEventListener('pointerdown', e => {
+  if (state.fx.tap !== 'ripple' || quiet() || e.button > 0) return;
+  const hit = e.target.closest('[data-act], button, input, .card'); if (!hit) return;
+  const d = $('dash'), r = d.getBoundingClientRect(), t = (hit.closest('[data-act], button') || hit.closest('.card')).getBoundingClientRect();
+  const size = Math.max(60, Math.min(260, Math.max(t.width, t.height) * 1.4));
+  const rip = document.createElement('span'); rip.className = 'tap-rip';
+  rip.style.cssText = `left:${e.clientX - r.left - size / 2}px; top:${e.clientY - r.top - size / 2}px; width:${size}px; height:${size}px`;
+  d.append(rip); setTimeout(() => rip.remove(), 650);
 });
 let enterT;
 function playEnter(){

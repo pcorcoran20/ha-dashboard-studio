@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0
+
+- New **Animations** in Effects, in the Studio and in Home Assistant:
+  - **Page and room changes:** Fade, Slide, Zoom or Flip. Slide and Flip follow the direction you're going.
+  - **When you touch something:** a Ripple, or a soft Press.
+  - **When a device turns on or off:** a Pop or a Glow. It also plays when a device changes from somewhere else, like a light switch on the wall.
+- The hub card has them built in. The effects card adds them to every card in the view.
+- Each one can be turned off. Calm mode and your device's reduced motion setting turn them all off.
+
 ## 0.8.2
 
 - New **Room button roundness** for the touchscreen layout, from square corners to fully round. On the card it's `room_radius` (0 to 30, and 30 is fully round).
