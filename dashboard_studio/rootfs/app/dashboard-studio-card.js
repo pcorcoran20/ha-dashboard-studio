@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '0.6.1';
+const STUDIO_VERSION = '0.7.0';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -84,23 +84,63 @@ class DashboardStudioHub extends HTMLElement {
   }
 
   static getStubConfig() {
-    return {title: 'My Home', rooms: [{name: 'Living Room', devices: []}]};
+    return {layout: 'touchscreen'};
   }
 
+  static getConfigElement() { return document.createElement('dashboard-studio-hub-editor'); }
+
   setConfig(config) {
-    if (!config || !Array.isArray(config.rooms) || !config.rooms.length) throw new Error('Add at least one room under "rooms".');
+    if (!config) throw new Error('Invalid configuration');
+    const hand = Array.isArray(config.rooms) && config.rooms.length > 0;
+    /* no rooms: fill them from Home Assistant areas. No scenes: use the scene entities */
+    this._auto = !hand; this._autoScenes = config.scenes == null; this._regs = null;
     this._config = {
       ...config,
-      rooms: config.rooms.map(r => ({name: r.name || 'Room', devices: (r.devices || []).map(d => typeof d === 'string' ? {entity: d} : d).filter(d => d && d.entity)})),
+      rooms: hand ? config.rooms.map(r => ({name: r.name || 'Room', devices: (r.devices || []).map(d => typeof d === 'string' ? {entity: d} : d).filter(d => d && d.entity)})) : [],
       scenes: (config.scenes || []).map(s => typeof s === 'string' ? {entity: s} : s).filter(s => s && s.entity)
     };
+    if (this._hass) this._autoFill(this._hass);
     this._render();
   }
 
   set hass(hass) {
     const old = this._hass;
     this._hass = hass;
-    if (!old || this._watched().some(e => old.states[e] !== hass.states[e]) || old.themes !== hass.themes) this._schedule();
+    const filled = this._autoFill(hass);
+    if (filled || !old || this._watched().some(e => old.states[e] !== hass.states[e]) || old.themes !== hass.themes) this._schedule();
+  }
+
+  _autoFill(hass) {
+    if (!this._config || (!this._auto && !this._autoScenes)) return false;
+    const ids = Object.keys(hass.states), key = [hass.areas, hass.entities, hass.devices, hass.floors, ids.length];
+    if (this._regs && key.every((v, i) => v === this._regs[i])) return false;
+    this._regs = key;
+    const c = this._config, ents = hass.entities || {}, devs = hass.devices || {}, areas = hass.areas || {}, floors = hass.floors || {};
+    const skip = new Set([c.exclude || []].flat().map(String));
+    const shown = id => { const e = ents[id]; return !skip.has(id) && !(e && (e.hidden || e.entity_category)); };
+    if (this._auto) {
+      const by = {}, loose = [];
+      ids.forEach(id => {
+        const dom = id.split('.')[0];
+        if (!DOMAIN_TYPE[dom] || dom === 'input_boolean' || !shown(id)) return;
+        const e = ents[id], aid = e?.area_id || devs[e?.device_id]?.area_id;
+        if (aid && areas[aid]) (by[aid] = by[aid] || []).push({entity: id}); else loose.push({entity: id});
+      });
+      let rooms = Object.keys(by).map(aid => ({id: aid, name: areas[aid].name || aid, devices: by[aid], level: floors[areas[aid].floor_id]?.level ?? 99}));
+      if (c.areas) {
+        const want = [c.areas].flat().map(w => String(w).toLowerCase());
+        rooms = want.map(w => rooms.find(r => r.id.toLowerCase() === w || r.name.toLowerCase() === w)).filter(Boolean);
+      } else {
+        rooms = rooms.filter(r => !skip.has(r.id) && !skip.has(r.name)).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+        if (!rooms.length && loose.length) rooms = [{name: c.title || 'Home', devices: loose}];
+      }
+      c.rooms = rooms.map(r => ({name: r.name, devices: r.devices}));
+    }
+    if (this._autoScenes) {
+      const nm = id => hass.states[id].attributes.friendly_name || id;
+      c.scenes = ids.filter(id => id.startsWith('scene.') && shown(id)).sort((a, b) => nm(a).localeCompare(nm(b))).slice(0, 12).map(entity => ({entity}));
+    }
+    return true;
   }
 
   getCardSize() { return 8; }
@@ -352,6 +392,7 @@ class DashboardStudioHub extends HTMLElement {
       : `<div class="chips">${opts.map(([i, n]) => `<button class="chip${ri === i ? ' on' : ''}" data-a="room" data-r="${i}">${esc(n)}</button>`).join('')}</div>`;
     let body = '';
     if (!this._hass) body = '<p class="hint">Connecting to Home Assistant…</p>';
+    else if (!rooms.length) body = '<p class="hint">No rooms yet. Give your devices an area in Settings › Areas, labels & zones, and they show up here by themselves.</p>';
     else if (this._view === 'quick') {
       body = `<div class="head"><div><div class="title">Quick buttons</div></div></div><div class="quick">${this._quickButtons()}</div>`;
     }
@@ -389,12 +430,15 @@ class DashboardStudioHub extends HTMLElement {
       const wid = c.weather_entity || Object.keys(this._hass?.states || {}).find(k => k.startsWith('weather.')), w = wid && this._hass?.states[wid];
       const wx = w ? `<span class="ts-wx"><ha-icon icon="${WX_ICON[w.state] || 'mdi:weather-partly-cloudy'}"></ha-icon>${w.attributes.temperature != null ? Math.round(w.attributes.temperature) + '°' : esc(cap(w.state))}</span>` : '<span></span>';
       const clock = `<span>${new Date().toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'})}</span>`;
-      const cls = ['ts', c.touch_style === 'theme' ? 'ts-theme' : '', c.full_height ? 'full' : '', c.calm ? 'calm' : ''].filter(Boolean).join(' ');
-      this.shadowRoot.innerHTML = `<style>${STYLE}${TOUCH_STYLE}</style><ha-card class="${cls}">${top}${menu}<div class="ts-body">${body}</div><div class="ts-bottom">${clock}${wx}</div>${night}${flash}</ha-card>`;
+      const op = Math.max(0, Math.min(100, Number(c.opacity ?? 0) || 0));
+      const cls = ['ts', c.touch_style === 'theme' ? 'ts-theme' : '', op < 40 ? 'clear' : '', c.full_height ? 'full' : '', c.calm ? 'calm' : '', this._ic()].filter(Boolean).join(' ');
+      this.shadowRoot.innerHTML = `<style>${STYLE}${TOUCH_STYLE}</style><ha-card class="${cls}" style="--t-op:${op}%">${top}${menu}<div class="ts-body">${body}</div><div class="ts-bottom">${clock}${wx}</div>${night}${flash}</ha-card>`;
       return;
     }
-    this.shadowRoot.innerHTML = `<style>${STYLE}</style><ha-card class="${c.calm ? 'calm' : ''}">${title}${chips}${body}${night}${flash}</ha-card>`;
+    this.shadowRoot.innerHTML = `<style>${STYLE}</style><ha-card class="${[c.calm ? 'calm' : '', this._ic()].filter(Boolean).join(' ')}">${title}${chips}${body}${night}${flash}</ha-card>`;
   }
+
+  _ic() { return 'ic-' + (['soft', 'accent', 'warm'].includes(this._config.icon_color) ? this._config.icon_color : 'soft'); }
 
   _quickButtons() {
     const c = this._config;
@@ -433,13 +477,18 @@ class DashboardStudioHub extends HTMLElement {
 
 const TOUCH_STYLE = `
 ha-card.ts{padding:0;gap:0;display:flex;flex-direction:column;min-height:460px;overflow:hidden;color:#f3f3f3;
-  background:linear-gradient(180deg,#46494e 0%,#2c2e32 55%,#1d1e21 100%);--s-text:#f3f3f3;--s-muted:rgba(255,255,255,.62);--s-line:rgba(255,255,255,.09);
+  background:linear-gradient(180deg,color-mix(in srgb,#46494e var(--t-op,100%),transparent) 0%,color-mix(in srgb,#2c2e32 var(--t-op,100%),transparent) 55%,color-mix(in srgb,#1d1e21 var(--t-op,100%),transparent) 100%);--ico-ink:#1d1e21;--s-text:#f3f3f3;--s-muted:rgba(255,255,255,.62);--s-line:rgba(255,255,255,.09);
   --s-muted:rgba(255,255,255,.72);--s-line:rgba(255,255,255,.08);--s-soft:rgba(255,255,255,.06);--s-soft2:rgba(255,255,255,.12);--t-bar:transparent;--t-tile:rgba(255,255,255,.06);--t-menu:#2b2d31}
-ha-card.ts.ts-theme{color:var(--primary-text-color);background:color-mix(in srgb,var(--primary-background-color,#fff) 86%,transparent);-webkit-backdrop-filter:blur(24px) saturate(1.3);backdrop-filter:blur(24px) saturate(1.3);
+ha-card.ts.ts-theme{color:var(--primary-text-color);background:color-mix(in srgb,var(--primary-background-color,#fff) var(--t-op,86%),transparent);--ico-ink:var(--primary-background-color,#fff);-webkit-backdrop-filter:blur(24px) saturate(1.3);backdrop-filter:blur(24px) saturate(1.3);
   --s-text:var(--primary-text-color,#1c1c1c);--s-muted:color-mix(in srgb,var(--primary-text-color,#1c1c1c) 72%,transparent);--s-line:color-mix(in srgb,var(--s-text) 10%,transparent);
   --s-soft:color-mix(in srgb,var(--s-text) 6%,transparent);--s-soft2:color-mix(in srgb,var(--s-text) 11%,transparent);--t-bar:transparent;--t-tile:color-mix(in srgb,var(--s-text) 7%,transparent);
   --t-menu:color-mix(in srgb,var(--primary-background-color,#fff) 96%,var(--s-text) 4%)}
 ha-card.ts.ts-theme .ts-l,ha-card.ts.ts-theme .ts-room,ha-card.ts.ts-theme .ts-src b{text-shadow:0 1px 2px color-mix(in srgb,var(--primary-background-color,#fff) 60%,transparent)}
+ha-card.ts.clear{box-shadow:none;border:none;-webkit-backdrop-filter:none;backdrop-filter:none;--t-tile:rgba(22,24,28,.46);--s-line:rgba(255,255,255,.13);text-shadow:0 1px 3px rgba(0,0,0,.55)}
+ha-card.ts.ts-theme.clear{--t-tile:color-mix(in srgb,var(--primary-background-color,#fff) 62%,transparent);--s-line:color-mix(in srgb,var(--s-text) 12%,transparent);text-shadow:0 1px 2px color-mix(in srgb,var(--primary-background-color,#fff) 70%,transparent)}
+ha-card.ts.clear :is(.ts-tile,.ts-np,.ts-room){background:var(--t-tile);border:1px solid var(--s-line);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4)}
+ha-card.ts.clear :is(.ts-tile,.ts-room):hover{background:color-mix(in srgb,var(--t-tile) 80%,var(--s-text) 12%)}
+ha-card.ts.clear .ts-menu{text-shadow:none}
 ha-card.ts.full{min-height:calc(100vh - var(--header-height,56px) - 16px)}
 .ts-top{position:relative;display:grid;grid-template-columns:48px minmax(0,1fr) 48px;align-items:center;height:60px;padding:6px 10px 0;background:var(--t-bar)}
 .ts-room{justify-self:center;border:0;background:var(--s-soft2);display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:99px;font-size:18px;font-weight:600;max-width:100%;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -478,8 +527,8 @@ ha-card.ts.full{min-height:calc(100vh - var(--header-height,56px) - 16px)}
 .ts-tile:hover{background:var(--s-soft2);transform:translateY(-2px)}
 .ts-ico{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:var(--s-soft2);box-shadow:inset 0 1px 0 rgba(255,255,255,.14)}
 .ts-ico ha-icon{--mdc-icon-size:28px}
-.ts-tile.on .ts-ico{background:linear-gradient(180deg,#fff7da,#ffd36b);color:#3a2a00;box-shadow:0 0 22px rgba(255,210,107,.4)}
-.ts-tile.warn .ts-ico{background:linear-gradient(180deg,#ffc58a,#ff9f40);color:#2a1600}
+.ts-tile.on .ts-ico{background:var(--s-active);color:var(--s-active-ink);box-shadow:0 0 20px color-mix(in srgb,var(--s-active) 32%,transparent)}
+.ts-tile.warn .ts-ico{background:#ff8a7a;color:#3a0c05}
 .ts-ring{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;border:3px solid var(--s-accent);background:rgba(0,0,0,.35);color:#fff;box-shadow:0 0 16px color-mix(in srgb,var(--s-accent) 35%,transparent)}
 .ts-ring b{font-size:20px;font-weight:600}
 .ts-l{font-size:14.5px;font-weight:600}
@@ -490,8 +539,11 @@ ha-card.ts.full{min-height:calc(100vh - var(--header-height,56px) - 16px)}
 `;
 
 const STYLE = `
+ha-card.ic-soft{--s-active:var(--s-text);--s-active-ink:var(--ico-ink,var(--card-background-color,var(--primary-background-color,#fff)))}
+ha-card.ic-accent{--s-active:var(--s-accent);--s-active-ink:var(--s-on)}
+ha-card.ic-warm{--s-active:var(--state-light-active-color,#ffc94d);--s-active-ink:#3a2a00}
 :host{--s-text:var(--primary-text-color,#1c1c1c);--s-muted:var(--secondary-text-color,#6b6b6b);--s-accent:var(--primary-color,#03a9f4);
-  --s-on:var(--text-primary-color,#fff);--s-active:var(--state-light-active-color,var(--primary-color,#ffb300));--s-r:var(--ha-card-border-radius,12px);
+  --s-on:var(--text-primary-color,#fff);--s-active:var(--s-text);--s-active-ink:var(--ico-ink,var(--card-background-color,var(--primary-background-color,#fff)));--s-r:var(--ha-card-border-radius,12px);
   --s-line:var(--ha-card-border-color,var(--divider-color,rgba(0,0,0,.12)));--s-soft:color-mix(in srgb,var(--s-text) 6%,transparent);--s-soft2:color-mix(in srgb,var(--s-text) 11%,transparent)}
 ha-card{padding:16px;display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden;color:var(--s-text)}
 button{font:inherit;color:inherit;cursor:pointer}
@@ -520,17 +572,17 @@ ha-icon{--mdc-icon-size:20px;display:inline-flex}
 .t-ico{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:var(--s-soft2);margin-bottom:auto}
 .t-ico ha-icon{--mdc-icon-size:24px}
 .tile b{font-size:15px}.tile>span:last-child{font-size:12.5px;color:var(--s-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.tile.on{background:color-mix(in srgb,var(--s-active) 22%,transparent);border-color:color-mix(in srgb,var(--s-active) 50%,transparent)}
-.tile.on .t-ico{background:var(--s-active);color:var(--s-on)}
-.tile.warn .t-ico{background:#ff9f40;color:#2a1600}
+.tile.on{background:color-mix(in srgb,var(--s-active) 12%,transparent);border-color:color-mix(in srgb,var(--s-active) 35%,transparent)}
+.tile.on .t-ico{background:var(--s-active);color:var(--s-active-ink)}
+.tile.warn .t-ico{background:#ff8a7a;color:#3a0c05}
 .head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .all{display:flex;gap:8px;margin-left:auto}
 .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
 .row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px 12px;padding:12px;border-radius:calc(var(--s-r)*.8);background:var(--s-soft);border:1px solid var(--s-line)}
-.row.on{background:color-mix(in srgb,var(--s-active) 16%,transparent)}
+.row.on{background:color-mix(in srgb,var(--s-active) 10%,transparent)}
 .row.dead{opacity:.55}
 .ico{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--s-soft2);border:0;flex:none}
-.row.on .ico{background:var(--s-active);color:var(--s-on)}
+.row.on .ico{background:var(--s-active);color:var(--s-active-ink)}
 .nm{min-width:0;display:flex;flex-direction:column;gap:2px}
 .nm b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
 .nm span{font-size:12px;color:var(--s-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -545,7 +597,7 @@ ha-icon{--mdc-icon-size:20px;display:inline-flex}
 .sw{width:42px;height:24px;border-radius:99px;border:0;background:var(--s-soft2);position:relative;padding:0;flex:none}
 .sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--s-text);transition:transform .2s}
 .row.on .sw{background:var(--s-active)}
-.row.on .sw::after{transform:translateX(18px);background:var(--s-on)}
+.row.on .sw::after{transform:translateX(18px);background:var(--s-active-ink)}
 input[type=range]{width:100%;accent-color:var(--s-active);margin:0}
 .cam{width:100%;border-radius:calc(var(--s-r)*.6);display:block;cursor:pointer}
 .sec{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:14px;align-items:start}
@@ -1008,12 +1060,68 @@ button:focus-visible{outline:2px solid var(--s-accent);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.f{transition:none}}
 `;
 
+/* visual editor for the hub card: the simple choices, with rooms filled from areas */
+const HUB_LABELS = {
+  title: 'Home name', layout: 'Layout', touch_style: 'Look', opacity: 'Background strength (0 is see-through)', icon_color: 'Icon color when on',
+  areas: 'Rooms to show (leave empty for every area)', weather_entity: 'Weather', good_night: 'Good night script (leave empty to let the card do it)',
+  full_height: 'Fill the screen', calm: 'Turn off animations'
+};
+const opt = (...pairs) => ({select: {mode: 'dropdown', options: pairs.map(([value, label]) => ({value, label}))}});
+
+class DashboardStudioHubEditor extends HTMLElement {
+  setConfig(config) { this._config = config; this._render(); }
+  set hass(hass) { this._hass = hass; if (this._form) this._form.hass = hass; else this._render(); }
+
+  _schema() {
+    const c = this._config || {}, touch = c.layout === 'touchscreen';
+    return [
+      {name: 'title', selector: {text: {}}},
+      {name: 'layout', selector: opt(['touchscreen', 'Touchscreen'], ['tiles', 'Tiles'])},
+      ...(touch ? [
+        {name: 'touch_style', selector: opt(['dark', 'Dark'], ['theme', 'Follow my theme'])},
+        {name: 'opacity', selector: {number: {min: 0, max: 100, step: 5, mode: 'slider', unit_of_measurement: '%'}}}
+      ] : []),
+      {name: 'icon_color', selector: opt(['soft', 'Soft white'], ['accent', 'My theme color'], ['warm', 'Warm yellow'])},
+      ...(Array.isArray(c.rooms) && c.rooms.length ? [] : [{name: 'areas', selector: {area: {multiple: true}}}]),
+      ...(touch ? [{name: 'weather_entity', selector: {entity: {domain: 'weather'}}}] : []),
+      ...(c.good_night == null || typeof c.good_night === 'string' ? [{name: 'good_night', selector: {entity: {domain: 'script'}}}] : []),
+      ...(touch ? [{name: 'full_height', selector: {boolean: {}}}] : []),
+      {name: 'calm', selector: {boolean: {}}}
+    ];
+  }
+
+  _render() {
+    if (!this._config || !this._hass) return;
+    if (!customElements.get('ha-form')) { this.innerHTML = '<p>Use the code editor to set up this card.</p>'; return; }
+    const hand = Array.isArray(this._config.rooms) && this._config.rooms.length;
+    if (!this._form) {
+      this.innerHTML = '<p class="note" style="margin:0 0 12px;color:var(--secondary-text-color)"></p>';
+      this._form = document.createElement('ha-form');
+      this._form.computeLabel = s => HUB_LABELS[s.name] || s.name;
+      this._form.addEventListener('value-changed', e => {
+        const next = {...e.detail.value};
+        Object.keys(next).forEach(k => { if (next[k] === '' || next[k] == null || (Array.isArray(next[k]) && !next[k].length)) delete next[k]; });
+        this._config = next; this._form.schema = this._schema();
+        this.dispatchEvent(new CustomEvent('config-changed', {detail: {config: next}, bubbles: true, composed: true}));
+      });
+      this.appendChild(this._form);
+    }
+    this.querySelector('.note').textContent = hand
+      ? 'This card uses the rooms written in its code. To fill rooms from your areas instead, remove "rooms" in the code editor.'
+      : 'Rooms fill in from your Home Assistant areas, and scenes from your scenes. Nothing else to set up.';
+    this._form.hass = this._hass;
+    this._form.data = {layout: 'tiles', touch_style: 'dark', opacity: 0, icon_color: 'soft', ...this._config};
+    this._form.schema = this._schema();
+  }
+}
+
 if (!customElements.get('dashboard-studio-hub')) customElements.define('dashboard-studio-hub', DashboardStudioHub);
 if (!customElements.get('dashboard-studio-dual-shade')) customElements.define('dashboard-studio-dual-shade', DashboardStudioDualShade);
 if (!customElements.get('dashboard-studio-fx')) customElements.define('dashboard-studio-fx', DashboardStudioFx);
+if (!customElements.get('dashboard-studio-hub-editor')) customElements.define('dashboard-studio-hub-editor', DashboardStudioHubEditor);
 window.customCards = window.customCards || [];
 if (!window.customCards.some(c => c.type === 'dashboard-studio-hub')) {
-  window.customCards.push({type: 'dashboard-studio-hub', name: 'Dashboard Studio hub', description: 'Touchscreen-style home screen with rooms, device tiles, scenes, an alarm keypad and a Good night button.', preview: false});
+  window.customCards.push({type: 'dashboard-studio-hub', name: 'Dashboard Studio hub', description: 'Touchscreen-style home screen with rooms, device tiles, scenes, an alarm keypad and a Good night button.', preview: true});
 }
 if (!window.customCards.some(c => c.type === 'dashboard-studio-dual-shade')) {
   window.customCards.push({type: 'dashboard-studio-dual-shade', name: 'Dashboard Studio dual shade', description: 'One window, two shade motors: day/night honeycomb or top down, bottom up. With Open, Day and Night presets.', preview: false});

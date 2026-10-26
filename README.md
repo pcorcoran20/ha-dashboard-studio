@@ -63,7 +63,14 @@ The [install guide](INSTALL.md#path-b-the-card-only) walks through this step by 
 
 ## Set it up
 
-Add a card to any dashboard and choose **Manual**, then paste:
+The easy way: add a card, search for **Dashboard Studio hub**, and you're done. The card fills its rooms from your Home Assistant areas and its scenes from your scenes, and the visual editor has every other setting. The shortest setup is:
+
+```yaml
+type: custom:dashboard-studio-hub
+layout: touchscreen
+```
+
+To pick the rooms and devices yourself, choose **Manual** and paste:
 
 ```yaml
 type: custom:dashboard-studio-hub
@@ -94,12 +101,16 @@ In a Sections dashboard, make the card full width so the tiles have room.
 | Option | What it does |
 | --- | --- |
 | `title` | The name shown when "All rooms" is selected. |
-| `rooms` | Required. A list of rooms, each with a `name` and a list of `devices`. |
+| `rooms` | Optional. A list of rooms, each with a `name` and a list of `devices`. Leave it out to fill rooms from your areas. |
+| `areas` | When `rooms` is left out: which areas to show, in order, by area ID or name. Leave it out for every area. |
+| `exclude` | When `rooms` is left out: entity IDs or areas to skip. |
+| `scenes` | Optional. Leave it out to use your scenes, up to 12. |
 | `devices` | Each device is an entity ID, or an object with `entity`, plus optional `name`, `icon` and `type`. |
-| `scenes` | Optional list of `entity` (a `scene.` entity), with optional `name` and `icon`. |
 | `good_night` | A `script.` entity to run. Or leave it out and the card does it itself (see below). Set it to `false` to hide the button. |
 | `calm` | `true` turns off the card's animations. |
 | `layout` | `tiles` (the default) or `touchscreen`: room name at the top center opens the room list, then Now Playing, big tiles, and the clock and weather along the bottom. |
+| `opacity` | For the touchscreen layout: how solid the background is, from `0` (see-through, the default) to `100`. |
+| `icon_color` | The icon color for tiles that are on: `soft` (soft white, the default), `accent` (your theme color) or `warm` (yellow). |
 | `touch_style` | For the touchscreen layout: `dark` (the default) or `theme` to follow your Home Assistant theme. |
 | `full_height` | `true` makes the card fill the screen. Good in a panel view. |
 | `weather_entity` | The weather shown in the touchscreen layout's bottom bar. Leave it out to use your first weather entity. |

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0
+
+- The touchscreen hub is see-through by default, with frosted glass tiles so the text stays easy to read. Set how solid it is with **Background strength**.
+- Tiles that are on use soft white icons instead of yellow. Pick **Soft white**, **Theme color** or **Warm** in the Studio, or set `icon_color` on the card.
+- The hub card sets itself up: leave out `rooms` and it fills them from your Home Assistant areas, sorted by floor. Leave out `scenes` and it uses your scenes.
+- The hub card has a visual editor, so you can set it up without writing any code.
+
 ## 0.6.1
 
 - The touchscreen layout is easier to read and softer. The room menu is solid, with a dim layer behind it, and the panel is more solid in Follow my theme. Tiles are rounded and spaced apart, with round icons.
