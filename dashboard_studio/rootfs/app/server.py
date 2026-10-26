@@ -39,7 +39,7 @@ from aiohttp import ClientSession, ClientTimeout, web
 
 import tesla
 
-VERSION = os.environ.get("STUDIO_VERSION", "1.1.3")
+VERSION = os.environ.get("STUDIO_VERSION", "1.2.0")
 def _token():
     """The Supervisor's token, from the environment or from where s6 keeps the container's environment."""
     tok = os.environ.get("SUPERVISOR_TOKEN", "")

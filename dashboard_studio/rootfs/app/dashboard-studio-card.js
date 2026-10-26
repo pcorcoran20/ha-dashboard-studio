@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.1.3';
+const STUDIO_VERSION = '1.2.0';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -1464,7 +1464,7 @@ const CAR_STYLE = `
  *   image: /local/my-car.png  # optional: your own picture instead of the drawing
  *   model_url: /local/tesla/model_y.glb   # optional: a real 3D car you made with Tesla Model Extractor
  *   tesla_view: false         # optional: when Tesla View is installed the card shows it; false keeps the drawing
- *   tesla_view_look: dark     # dark blends Tesla View into the card; light is the app's light mode
+ *   tesla_view_look: transparent   # transparent shows just the car; dark fades the app's dark box; light is the app's light mode
  *   tesla_view_brightness: 1.25
  *   entities:                 # optional: set any of these by hand
  *     battery: sensor.my_model_y_battery_level
@@ -1516,6 +1516,32 @@ let tvPacks, tvAsked = 0, tvIndex = null;
 /* our model names, a device's model ("Model C" is the Cybertruck) and Tesla View's pack models, all as one key */
 const CAR_KEY = [[/cyber|model ?c\b/i, 'cybertruck'], [/model ?3|highland/i, 'model_3'], [/model ?y|juniper|bayberry/i, 'model_y'], [/model ?s\b/i, 'model_s'], [/model ?x\b/i, 'model_x']];
 const carKey = t => (CAR_KEY.find(([re]) => re.test(String(t || '').replace(/_/g, ' '))) || [])[1];
+/* a see-through Tesla View: Tesla View paints a solid box, so give its canvas an alpha channel before it starts
+   (only for the Tesla View cards this card makes), then clear its background once it has loaded */
+let tvClearPatched = false;
+function allowClearTeslaView() {
+  if (tvClearPatched) return; tvClearPatched = true;
+  const orig = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (type, attrs) {
+    if (/webgl/.test(type) && this.getRootNode?.()?.host?.dataset?.dsClear === '1') attrs = {...(attrs || {}), alpha: true, premultipliedAlpha: true};
+    return orig.call(this, type, attrs);
+  };
+}
+function clearTeslaView(tv, tries = 0) {
+  return new Promise(done => {
+    const go = n => {
+      const r = tv.renderer, sc = tv.scene;
+      if (r && sc && tv.vehicle) {
+        if (!r.getContext?.().getContextAttributes?.()?.alpha) return done(false);
+        tv.applyTheme = function () { this.scene.background = null; this.renderer.setClearColor(0x000000, 0); this.wake?.(50); };
+        tv.applyTheme(); return done(true);
+      }
+      if (n > 60) return done(false);
+      setTimeout(() => go(n + 1), 250);
+    };
+    go(tries);
+  });
+}
 /* the pack model that matches the car: by id, codename, alias or name */
 function tvModelFor(key) {
   const models = Object.entries(tvIndex?.models || {}); if (!key || !models.length) return null;
@@ -1545,7 +1571,7 @@ class DashboardStudioVehicle extends HTMLElement {
   static getStubConfig() { return {model: 'model_y', color: 'pearl_white'}; }
   static getConfigElement() { return document.createElement('dashboard-studio-vehicle-editor'); }
 
-  setConfig(config) { this._modelSet = !!config?.model; this._config = {model: 'model_y', color: 'pearl_white', ...config}; this._e = null; this._render(); }
+  setConfig(config) { this._modelSet = !!config?.model; this._config = {model: 'model_y', color: 'pearl_white', ...config}; this._e = this._hass ? findVehicle(this._hass, this._config) : null; this._render(); }
 
   connectedCallback() { clearTimeout(this._drop); }
   /* free the 3D view when the card goes away for good */
@@ -1554,12 +1580,13 @@ class DashboardStudioVehicle extends HTMLElement {
   set hass(hass) {
     const old = this._hass; this._hass = hass;
     if (this._tv) this._tv.hass = hass;
+    const fresh = !this._e;
     if (!this._e || old?.entities !== hass.entities) {
       this._e = findVehicle(hass, this._config);
       const dev = this._config.device || hass.entities?.[this._e.battery]?.device_id, k = carKey(hass.devices?.[dev]?.model);
       if (!this._modelSet && k) this._config = {...this._config, model: k};
     }
-    if (!old || Object.values(this._e).some(id => old.states[id] !== hass.states[id])) this._render();
+    if (fresh || !old || Object.values(this._e).some(id => old.states[id] !== hass.states[id])) this._render();
   }
 
   getCardSize() { return 6; }
@@ -1671,21 +1698,30 @@ class DashboardStudioVehicle extends HTMLElement {
       /* hand Tesla View the car's device, plus every entity this card found, so it maps the same things.
          While the car charges, its charging camera shows the charge cable from the app */
       const own = typeof c.tesla_view === 'object' ? c.tesla_view : {}, cam = own.camera || (chg ? 'charging' : 'parked');
+      const look = ['dark', 'light', 'transparent'].includes(c.tesla_view_look) ? c.tesla_view_look : 'transparent';
+      if (this._tv && this._tvLook !== look) { this._tv.remove(); this._tv = null; this._tvClear = undefined; }  // the canvas can't change its alpha later
       if (!this._tv || this._tvCam !== cam) {
         const e = this._e, dev = c.device || h.entities?.[e.battery]?.device_id || h.entities?.[e.lock]?.device_id;
         /* tell Tesla View which car: its own setting, else the car's device model, else the model picked here */
         const tvModel = own.model || tvModelFor(carKey(h.devices?.[dev]?.model)) || tvModelFor(carKey(c.model));
         const ents = Object.fromEntries([['frunk', e.frunk], ['trunk', e.trunk], ['charge_port', e.charge_port], ['charging', e.charging], ['lock', e.lock]].filter(([, v]) => v));
-        this._tv = this._tv || document.createElement('tesla-view-card');
+        if (!this._tv) {
+          this._tv = document.createElement('tesla-view-card'); this._tvLook = look;
+          if (look === 'transparent') { allowClearTeslaView(); this._tv.dataset.dsClear = '1'; this._tvClear = null; }
+        }
         const states = Object.fromEntries([...flip].filter(k => ['frunk', 'trunk', 'charge_port'].includes(k)).map(k => [k, {on: ['closed', 'closing']}]));
         this._tv.setConfig({type: 'custom:tesla-view-card', ...(dev ? {device_id: dev} : {}), ...(tvModel ? {model: tvModel} : {}), entities: ents, ...(Object.keys(states).length ? {states} : {}), hotspots: true,
-          theme: c.tesla_view_look === 'light' ? 'light' : 'dark', aspect_ratio: '16:9', ...own, camera: cam});
+          theme: look === 'light' ? 'light' : 'dark', aspect_ratio: '16:9', ...own, camera: cam});
         this._tvCam = cam;
       }
       this._tv.hass = h;
       /* Tesla View draws on a solid box: lift the car a little, and fade the box's edges into this card */
       const lift = Math.max(.6, Math.min(2, Number(c.tesla_view_brightness ?? 1.25) || 1.25));
-      tvSlot.classList.toggle('blend', c.tesla_view_look !== 'light' && c.tesla_view_blend !== false);
+      tvSlot.classList.toggle('blend', look === 'dark' || (look === 'transparent' && this._tvClear === false));
+      if (look === 'transparent' && this._tvClear === null) {
+        this._tvClear = undefined;
+        clearTeslaView(this._tv).then(ok => { this._tvClear = ok; if (!ok) console.warn('Dashboard Studio: Tesla View can’t be made see-through here, so it fades into the card instead'); this._render(); });
+      }
       this._tv.style.filter = lift === 1 ? '' : `brightness(${lift})`;
       tvSlot.append(this._tv);
       if (this._tvNote) tvSlot.insertAdjacentHTML('beforeend', `<p class="v-tvnote">${esc(this._tvNote)}</p>`);
@@ -1770,7 +1806,7 @@ class DashboardStudioVehicleEditor extends HTMLElement {
       f.computeLabel = s => L[s.name] || s.name;
       f.schema = [{name: 'device', selector: {device: {filter: ['tesla_fleet', 'teslemetry', 'tessie', 'tesla_custom'].map(integration => ({integration}))}}},
         {name: 'name', selector: {text: {}}}, {name: 'model', selector: opt(['model_3', 'Model 3'], ['model_y', 'Model Y'], ['model_s', 'Model S'], ['model_x', 'Model X'], ['cybertruck', 'Cybertruck'])},
-        {name: 'color', selector: opt(...Object.keys(CAR_PAINT).map(k => [k, cap(k)]))}, {name: 'tesla_view_look', selector: opt(['dark', 'Blend into the card (app dark mode)'], ['light', 'Light (app light mode)'])},
+        {name: 'color', selector: opt(...Object.keys(CAR_PAINT).map(k => [k, cap(k)]))}, {name: 'tesla_view_look', selector: opt(['transparent', 'See-through (just the car)'], ['dark', 'Blend into the card (app dark mode)'], ['light', 'Light (app light mode)'])},
         {name: 'tesla_view_brightness', selector: {number: {min: .6, max: 2, step: .05, mode: 'slider'}}},
         {name: 'reversed', selector: {select: {multiple: true, mode: 'list', options: [{value: 'frunk', label: 'Frunk'}, {value: 'trunk', label: 'Trunk'}, {value: 'charge_port', label: 'Charge port'}]}}},
         {name: 'entities', type: 'expandable', title: 'Entities (found by itself: change any)', schema: [

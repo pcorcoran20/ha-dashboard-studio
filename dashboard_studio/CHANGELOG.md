@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0
+
+- **See-through Tesla View.** The Vehicle card now shows just your car on the card, with no box behind it. This is the new default look. Pick **Blend into the card** or **Light, like the app** in the Studio, or set `tesla_view_look` to `dark` or `light`. If a browser or a future Tesla View version doesn't allow see-through, the card fades the box into the card instead.
+- Fix: after you changed a Vehicle card's settings, it said no car was found until something on the car changed.
+
 ## 1.1.3
 
 - The Tesla View fade is softer and only touches the very edges, so Tesla View's labels (like Open frunk) show again.

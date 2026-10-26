@@ -197,7 +197,7 @@ entities:
 
 ### Tesla View: the car exactly like the app
 
-If [Tesla View](https://github.com/koenhendriks/tesla-view) is installed with an asset pack, the vehicle card shows Tesla View's car in place of the drawing, with the app's lighting, charge cable and tap targets. The card hands it your car's device and the entities it found. Set `tesla_view: false` to keep the drawing, or set it to Tesla View options like `{paint: Quicksilver, camera: charging}`. The card picks the matching car from your pack by itself. Tesla View draws on a dark box like the app's dark mode, so by default the card fades the box's edges and lifts the car a little: `tesla_view_look: light` switches to the app's light mode, and `tesla_view_brightness` (0.6 to 2, default 1.25) sets the lift.
+If [Tesla View](https://github.com/koenhendriks/tesla-view) is installed with an asset pack, the vehicle card shows Tesla View's car in place of the drawing, with the app's lighting, charge cable and tap targets. The card hands it your car's device and the entities it found. Set `tesla_view: false` to keep the drawing, or set it to Tesla View options like `{paint: Quicksilver, camera: charging}`. The card picks the matching car from your pack by itself. By default the card shows Tesla View see-through, so just the car sits on your card. Set `tesla_view_look: dark` for the app's dark box faded into the card, or `light` for the app's light mode. `tesla_view_brightness` (0.6 to 2, default 1.25) lifts the car.
 
 The Dashboard Studio add-on can set all of it up for you: **Magic › Real 3D Tesla**. It needs Home Assistant on an x86 computer. See the [add-on docs](dashboard_studio/DOCS.md#real-3d-tesla).
 
