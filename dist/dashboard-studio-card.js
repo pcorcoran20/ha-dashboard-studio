@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.2.0';
+const STUDIO_VERSION = '1.3.0';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -167,8 +167,8 @@ class DashboardStudioHub extends HTMLElement {
   _carInfo() {
     const st = id => id && this._hass.states[id], e = this._carE, bat = Math.round(parseFloat(st(e.battery)?.state));
     const cs = st(e.charging)?.state?.toLowerCase(), chg = cs ? ['on', 'charging', 'true'].includes(cs) : st(e.charge_switch)?.state === 'on';
-    const lock = st(e.lock)?.state;
-    return {bat: isNaN(bat) ? null : bat, chg, text: [isNaN(bat) ? '' : `${bat}%`, chg ? 'Charging' : lock === 'locked' ? 'Locked' : lock === 'unlocked' ? 'Unlocked' : ''].filter(Boolean).join(' · ')};
+    const lock = st(e.lock)?.state, sleep = !chg && vehAsleep(st(e.awake));
+    return {bat: isNaN(bat) ? null : bat, chg, text: [isNaN(bat) ? '' : `${bat}%`, chg ? 'Charging' : sleep ? 'Asleep' : lock === 'locked' ? 'Locked' : lock === 'unlocked' ? 'Unlocked' : ''].filter(Boolean).join(' · ')};
   }
 
   _autoFill(hass) {
@@ -1486,9 +1486,19 @@ const VEH_KEYS = {
   charge_port: [/^cover\..*_charge_port(_door)?$/],
   sentry: [/^switch\..*_sentry(_mode)?$/],
   shift: [/^sensor\..*_shift_state$/],
+  awake: [/^binary_sensor\..*_status$/, /^sensor\..*_(vehicle_)?state$/, /^binary_sensor\..*_(asleep|sleeping)$/],
+  wake: [/^button\..*_wake(_up)?$/],
   fast_charger: [/^binary_sensor\..*_fast_charger(_present)?$/, /^sensor\..*_fast_charger_(type|brand)$/],
   location: [/^device_tracker\..*_location$/, /^device_tracker\./]
 };
+/* asleep: Tesla Fleet and Teslemetry report a "status" connectivity sensor (off when asleep), others a state or asleep sensor */
+function vehAsleep(st) {
+  if (!st || st.state === 'unavailable' || st.state === 'unknown') return false;
+  const s = String(st.state).toLowerCase(), id = st.entity_id || '';
+  if (/_(asleep|sleeping)$/.test(id)) return s === 'on';
+  if (id.startsWith('binary_sensor.')) return s === 'off';
+  return s === 'asleep' || s === 'offline' || s === 'sleeping';
+}
 const VEH_PLATFORMS = ['tesla_fleet', 'teslemetry', 'tessie', 'tesla_custom', 'mytesla', 'tesla'];
 
 function findVehicle(hass, cfg) {
@@ -1626,7 +1636,7 @@ class DashboardStudioVehicle extends HTMLElement {
     if (this._charging()) return 'Charging';
     const loc = this._s('location')?.state, lock = this._s('lock')?.state;
     const where = loc === 'home' ? 'Parked at home' : loc && loc !== 'not_home' && loc !== 'unknown' ? `Parked at ${cap(loc)}` : 'Parked';
-    return lock ? `${where} · ${lock === 'locked' ? 'Locked' : 'Unlocked'}` : where;
+    return [where, vehAsleep(this._s('awake')) ? 'Asleep' : '', lock ? (lock === 'locked' ? 'Locked' : 'Unlocked') : ''].filter(Boolean).join(' · ');
   }
 
   _onClick(e) {
@@ -1638,10 +1648,11 @@ class DashboardStudioVehicle extends HTMLElement {
     if (k === 'lock') return call('lock', st?.state === 'locked' ? 'unlock' : 'lock', {entity_id: id});
     if (k === 'climate') return call('climate', st && st.state !== 'off' ? 'turn_off' : 'turn_on', {entity_id: id});
     if (k === 'sentry' || k === 'charge_switch') return call('switch', 'toggle', {entity_id: id});
+    if (k === 'wake') { this._toast('Waking your car. Fresh info arrives in a moment', true); return call('button', 'press', {entity_id: id}); }
     if (['frunk', 'trunk', 'charge_port'].includes(k)) return call('cover', st?.state === 'open' ? 'close_cover' : 'open_cover', {entity_id: id});
   }
 
-  _toast(msg) { this._msg = msg; this._render(); clearTimeout(this._mt); this._mt = setTimeout(() => { this._msg = ''; this._render(); }, 3000); }
+  _toast(msg, ok) { this._msg = msg; this._msgOk = !!ok; this._render(); clearTimeout(this._mt); this._mt = setTimeout(() => { this._msg = ''; this._render(); }, 3500); }
 
   _render() {
     if (!this._config) return;
@@ -1680,10 +1691,12 @@ class DashboardStudioVehicle extends HTMLElement {
       btn('frunk', 'mdi:car-select', 'Frunk', open('frunk')), btn('trunk', 'mdi:car-back', 'Trunk', open('trunk')),
       btn('charge_port', 'mdi:ev-station', 'Charge port', open('charge_port')),
       btn('charge_switch', 'mdi:flash', chg ? 'Stop charging' : 'Charge', chg),
-      btn('sentry', 'mdi:shield-car', 'Sentry', this._s('sentry')?.state === 'on')
+      btn('sentry', 'mdi:shield-car', 'Sentry', this._s('sentry')?.state === 'on'),
+      vehAsleep(this._s('awake')) ? btn('wake', 'mdi:sleep-off', 'Wake', false) : ''
     ].join('');
     const u = h.config?.unit_system?.temperature || '°', temp = v => v == null ? '' : `${Math.round(v)}${u.replace(/[CF]$/, '')}`;
-    const info = [inT != null ? `Inside ${temp(inT)}` : '', outT != null ? `Outside ${temp(outT)}` : ''].filter(Boolean).join(' · ');
+    const info = [inT != null ? `Inside ${temp(inT)}` : '', outT != null ? `Outside ${temp(outT)}` : ''].filter(Boolean).join(' · ')
+      + (vehAsleep(this._s('awake')) ? `${inT != null || outT != null ? '. ' : ''}Asleep: this is what it said before it fell asleep${this._e.wake ? '. Tap Wake for fresh info' : ''}` : '');
     this.shadowRoot.innerHTML = `<style>${VEH_STYLE}${CAR_STYLE}</style><ha-card class="${[c.calm ? 'calm' : '', c.bare ? 'bare' : ''].filter(Boolean).join(' ')}">
       <div class="v-top"><button class="v-name" data-a="more"><b>${esc(name)}</b><span>${esc(this._status())}</span></button>
         ${bat != null ? `<div class="v-bat${chg ? ' chg' : ''}"><b>${Math.round(bat)}</b>%${chg ? '<ha-icon icon="mdi:lightning-bolt"></ha-icon>' : ''}</div>` : ''}</div>
@@ -1692,7 +1705,7 @@ class DashboardStudioVehicle extends HTMLElement {
         <div class="v-rl"><span>${rng ? `${esc(Math.round(parseFloat(rng.state)) || rng.state)} ${esc(rng.attributes.unit_of_measurement || '')}` : ''}</span><span>${esc(chgText)}</span></div></div>` : ''}
       ${ctl ? `<div class="v-ctl">${ctl}</div>` : ''}
       ${info ? `<div class="v-info">${esc(info)}</div>` : ''}
-      ${this._msg ? `<div class="v-msg" role="status">${esc(this._msg)}</div>` : ''}</ha-card>`;
+      ${this._msg ? `<div class="v-msg${this._msgOk ? ' ok' : ''}" role="status">${esc(this._msg)}</div>` : ''}</ha-card>`;
     const tvSlot = useTv && this.shadowRoot.querySelector('[data-tv]');
     if (tvSlot) {
       /* hand Tesla View the car's device, plus every entity this card found, so it maps the same things.
@@ -1779,6 +1792,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .v-ctl button.on{color:var(--v-text)}
 .v-ctl button.on span{background:var(--v-accent);color:var(--text-primary-color,#fff)}
 .v-info{font-size:12.5px;color:var(--v-muted);text-align:center}
+.v-msg.ok{background:#2b2f3a}
 .v-msg{position:absolute;left:12px;right:12px;bottom:12px;background:#b3261e;color:#fff;border-radius:10px;padding:8px 12px;font-size:13px}
 @keyframes vShine{to{background-position:-200% 0}}
 ha-card.calm *{animation:none!important;transition:none!important}
@@ -1802,7 +1816,7 @@ class DashboardStudioVehicleEditor extends HTMLElement {
       this.innerHTML = '<p style="margin:0 0 12px;color:var(--secondary-text-color)">The card finds your car by itself. With more than one car, pick which one under Your car.</p>';
       const f = this._form = document.createElement('ha-form');
       const L = {reversed: 'These show open when they are closed', battery: 'Battery', range: 'Range', lock: 'Lock', climate: 'Climate', frunk: 'Frunk', trunk: 'Trunk', charge_port: 'Charge port',
-        charging: 'Charging', charge_switch: 'Charge on/off', sentry: 'Sentry mode', inside: 'Inside temperature', outside: 'Outside temperature', location: 'Location', tesla_view_look: 'Tesla View look', tesla_view_brightness: 'Tesla View brightness', name: 'Name', device: 'Your car', charger: 'Charger to show while charging', model: 'Model', color: 'Paint', vehicle: "Or: the car's name in its entity IDs (like my_model_y)", image: 'Car picture (optional, a link like /local/my-car.png)', model_url: '3D car from Tesla Model Extractor (optional, like /local/tesla/model_y.glb)', calm: 'Turn off animations'};
+        charging: 'Charging', charge_switch: 'Charge on/off', sentry: 'Sentry mode', awake: 'Awake or asleep', wake: 'Wake button', inside: 'Inside temperature', outside: 'Outside temperature', location: 'Location', tesla_view_look: 'Tesla View look', tesla_view_brightness: 'Tesla View brightness', name: 'Name', device: 'Your car', charger: 'Charger to show while charging', model: 'Model', color: 'Paint', vehicle: "Or: the car's name in its entity IDs (like my_model_y)", image: 'Car picture (optional, a link like /local/my-car.png)', model_url: '3D car from Tesla Model Extractor (optional, like /local/tesla/model_y.glb)', calm: 'Turn off animations'};
       f.computeLabel = s => L[s.name] || s.name;
       f.schema = [{name: 'device', selector: {device: {filter: ['tesla_fleet', 'teslemetry', 'tessie', 'tesla_custom'].map(integration => ({integration}))}}},
         {name: 'name', selector: {text: {}}}, {name: 'model', selector: opt(['model_3', 'Model 3'], ['model_y', 'Model Y'], ['model_s', 'Model S'], ['model_x', 'Model X'], ['cybertruck', 'Cybertruck'])},
@@ -1811,7 +1825,7 @@ class DashboardStudioVehicleEditor extends HTMLElement {
         {name: 'reversed', selector: {select: {multiple: true, mode: 'list', options: [{value: 'frunk', label: 'Frunk'}, {value: 'trunk', label: 'Trunk'}, {value: 'charge_port', label: 'Charge port'}]}}},
         {name: 'entities', type: 'expandable', title: 'Entities (found by itself: change any)', schema: [
           ['battery', 'sensor'], ['range', 'sensor'], ['lock', 'lock'], ['climate', 'climate'], ['frunk', 'cover'], ['trunk', 'cover'], ['charge_port', 'cover'],
-          ['charging', ['binary_sensor', 'sensor']], ['charge_switch', 'switch'], ['sentry', 'switch'], ['inside', 'sensor'], ['outside', 'sensor'], ['location', 'device_tracker']
+          ['charging', ['binary_sensor', 'sensor']], ['charge_switch', 'switch'], ['sentry', 'switch'], ['awake', ['binary_sensor', 'sensor']], ['wake', 'button'], ['inside', 'sensor'], ['outside', 'sensor'], ['location', 'device_tracker']
         ].map(([n, domain]) => ({name: n, selector: {entity: {domain}}}))},
         {name: 'charger', selector: opt(['auto', 'Find it by itself'], ['supercharger', 'Supercharger'], ['wall_connector', 'Wall Connector'], ['none', 'Only the cable'])},
         {name: 'vehicle', selector: {text: {}}}, {name: 'image', selector: {text: {}}}, {name: 'model_url', selector: {text: {}}}, {name: 'calm', selector: {boolean: {}}}];

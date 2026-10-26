@@ -1641,6 +1641,7 @@ function act(b, a, el){
       if (v === 'sentry') t.sentry = !t.sentry;
       if (v === 'port') { t.port = !t.port; if (!t.port) t.charging = false; }
       if (v === 'charge') { t.charging = !t.charging; if (t.charging) t.port = true; }
+      if (v === 'wake') { t.asleep = false; toast('Waking your car. Fresh info arrives in a moment'); }
       break; }
     case 'ts-menu': touchMenu.has(b.id) ? touchMenu.delete(b.id) : touchMenu.add(b.id); break;
     case 'ts-pick': b.room = +el.dataset.r; b.view = null; touchMenu.delete(b.id); break;
@@ -2481,6 +2482,8 @@ insp.addEventListener('click', e => {
   if (e.target.closest('#tvSetup')) { openTesla(); return; }
   { const b = find(selected), vm = e.target.closest('[data-vmodel]'), vp = e.target.closest('[data-vpaint]');
     const t = b?.type === 'hub' ? b.car : b, hc = e.target.closest('[data-hcar]');
+    const vs = e.target.closest('[data-vsleep]');
+    if (t && vs) { commit(); t.asleep = vs.dataset.vsleep === 'true'; renderDash(); renderInsp(); save(); return; }
     const vr = e.target.closest('[data-vrev]');
     if (t && vr) { commit(); const k = vr.dataset.vrev, r = new Set(t.reversed || []); r.has(k) ? r.delete(k) : r.add(k); t.reversed = [...r]; renderInsp(); save(); return; }
     const vl = e.target.closest('[data-vlook]');
@@ -3127,7 +3130,7 @@ function touchNowPlaying(b){
 }
 /* the car shows on All rooms, and in a room that sounds like where it parks */
 const hubCar = (b, ri, rooms) => !!b.car?.show && (ri < 0 || /garage|driveway|carport|car/i.test(rooms[ri]?.name || ''));
-const carText = c => `${c.battery}% · ${c.charging ? 'Charging' : c.locked ? 'Locked' : 'Unlocked'}`;
+const carText = c => `${c.battery}% · ${c.charging ? 'Charging' : c.asleep ? 'Asleep' : c.locked ? 'Locked' : 'Unlocked'}`;
 function hubTouch(b, ri, rooms){
   const name = ri >= 0 ? rooms[ri].name : b.title, open = touchMenu.has(b.id);
   const top = `<div class="ts-top"><button class="ts-ib" data-act="${b.view ? 'hub-back' : 'hub-room'}" data-r="-1" aria-label="${b.view ? 'Back' : 'All rooms'}">${ic(b.view ? 'left' : 'home')}</button>
@@ -3576,13 +3579,13 @@ R.vehicle = (b, uid) => {
   const car = u3 ? `<div class="car-photo v3d${b.charging ? ' charging' : ''}${b.sentry ? ' sentry' : ''}${b.climate ? ' climate ' + (heat ? 'heat' : 'cool') : ''}" data-v3d="${esc(cid)}" data-url="${esc(b.glb)}" data-st="${esc(JSON.stringify({frunk:b.frunk, trunk:b.trunk, charge_port:b.port || b.charging}))}">${cars3d.get(cid + '|' + b.glb)?.renderer ? '' : '<div class="v3d-wait">Loading your 3D car…</div>'}<i class="cp-glow"></i><i class="cp-eye"></i><i class="cp-air"></i></div>`
     : (b.glb ? '<p class="d-label">Couldn’t load the 3D car here, so this is the drawing.</p>' : '') + carVisual({image:b.image, model:b.model, color:b.paint, charger:chgKind, charging:b.charging, climate:b.climate ? (heat ? 'heat' : 'cool') : '', sentry:b.sentry, lights:!b.locked || b.climate, frunk:b.frunk, trunk:b.trunk, port:b.port, label:b.title}, uid || b.id);
   const btn = (k, icon, label, on) => `<button class="vc${on ? ' on' : ''}" data-act="car" data-v="${k}" aria-pressed="${!!on}"><span>${ic(icon)}</span>${label}</button>`;
-  return `<div class="v-top"><div><div class="d-name">${esc(b.title)}</div><div class="v-st">${b.charging ? 'Charging' : `Parked at home · ${b.locked ? 'Locked' : 'Unlocked'}`}</div></div>
+  return `<div class="v-top"><div><div class="d-name">${esc(b.title)}</div><div class="v-st">${b.charging ? 'Charging' : ['Parked at home', b.asleep ? 'Asleep' : '', b.locked ? 'Locked' : 'Unlocked'].filter(Boolean).join(' · ')}</div></div>
       <div class="v-bat${b.charging ? ' chg' : ''}"><b>${b.battery}</b>%${b.charging ? ic('bolt') : ''}</div></div>
     <div class="v-car">${b.tv ? `<span class="v-tvtag">${ic('sparkle')}Shows as your real 3D Tesla in Home Assistant</span>` : ''}${car}</div>
     <div class="v-range"><div class="v-bar${b.charging ? ' chg' : ''}"><i style="width:${b.battery}%"></i><em style="left:${b.limit}%"></em></div>
       <div class="v-rl"><span>${rng}</span><span>${b.charging ? 'Charging · 11 kW · 25 min left to ' + b.limit + '%' : 'Charge limit ' + b.limit + '%'}</span></div></div>
-    <div class="v-ctl">${btn('lock', b.locked ? 'lock' : 'unlock', b.locked ? 'Locked' : 'Unlocked', !b.locked)}${btn('climate', 'fan', b.climate ? (heat ? 'Heating' : 'Cooling') : 'Climate', b.climate)}${btn('frunk', 'frunk', 'Frunk', b.frunk)}${btn('trunk', 'trunk', 'Trunk', b.trunk)}${btn('port', 'plug', 'Charge port', b.port)}${btn('charge', 'bolt', b.charging ? 'Stop' : 'Charge', b.charging)}${btn('sentry', 'shield', 'Sentry', b.sentry)}</div>
-    <div class="v-info">Inside ${tC(b.inside, 0)}° · Outside ${tC(b.outside, 0)}°</div>`;
+    <div class="v-ctl">${btn('lock', b.locked ? 'lock' : 'unlock', b.locked ? 'Locked' : 'Unlocked', !b.locked)}${btn('climate', 'fan', b.climate ? (heat ? 'Heating' : 'Cooling') : 'Climate', b.climate)}${btn('frunk', 'frunk', 'Frunk', b.frunk)}${btn('trunk', 'trunk', 'Trunk', b.trunk)}${btn('port', 'plug', 'Charge port', b.port)}${btn('charge', 'bolt', b.charging ? 'Stop' : 'Charge', b.charging)}${btn('sentry', 'shield', 'Sentry', b.sentry)}${b.asleep ? btn('wake', 'moon', 'Wake', false) : ''}</div>
+    <div class="v-info">Inside ${tC(b.inside, 0)}° · Outside ${tC(b.outside, 0)}°${b.asleep ? '. Asleep: this is what it said before it fell asleep. Tap Wake for fresh info' : ''}</div>`;
 };
 const vehImgName = b => `car-${slug(b.title || 'car')}.webp`;
 const vehImgOut = b => ({...(b.reversed?.length ? {reversed:b.reversed} : {}), ...(b.tvLook && b.tvLook !== 'transparent' ? {tesla_view_look:b.tvLook} : {}), ...(b.tvLift != null && b.tvLift !== 1.25 ? {tesla_view_brightness:b.tvLift} : {}), ...(b.device ? {device:b.device} : {}), ...(b.charger && b.charger !== 'auto' ? {charger:b.charger} : {}), ...(b.image ? {image:b.image.startsWith('data:') ? '/local/' + vehImgName(b) : b.image} : {}), ...(b.glb ? {model_url:b.glb} : {})});
@@ -3622,6 +3625,8 @@ function vehEditorHTML(b){
     <div class="field"><span class="lbl2">Model</span><div class="seg" role="group" aria-label="Model">${VEH_MODELS.map(([k, l]) => `<button data-vmodel="${k}" aria-pressed="${b.model === k}">${l}</button>`).join('')}</div></div>
     <div class="field"><span class="lbl2">Paint</span><div class="v-paints">${VEH_PAINTS.map(([k, l]) => `<button data-vpaint="${k}" aria-pressed="${b.paint === k}" title="${l}"><i style="background:${carMix(k, '#fff', 0)}"></i>${l}</button>`).join('')}</div>
     <div class="crow"><label for="vPaint">Custom paint</label><input type="color" class="colorpick" id="vPaint" value="${toHex(carMix(b.paint, '#fff', 0))}"></div></div>
+    <div class="field"><span class="lbl2">Preview</span><div class="seg" role="group" aria-label="Preview the car awake or asleep">${[[false,'Awake'], [true,'Asleep']].map(([k, l]) => `<button data-vsleep="${k}" aria-pressed="${!!b.asleep === k}">${l}</button>`).join('')}</div>
+      <p class="hint">In Home Assistant the card shows Asleep by itself, with a Wake button.</p></div>
     <div class="field"><span class="lbl2">Shows open when it's closed?</span><div class="seg" role="group" aria-label="Fix closures shown the wrong way round">${[['frunk','Frunk'], ['trunk','Trunk'], ['charge_port','Charge port']].map(([k, l]) => `<button data-vrev="${k}" aria-pressed="${(b.reversed || []).includes(k)}">${l}</button>`).join('')}</div>
       <p class="hint">If your car reports one the wrong way round, tap it here to flip it.</p></div>
     <div class="field"><span class="lbl2">While it charges, show</span><div class="seg" role="group" aria-label="Charger">${CHARGERS.map(([k, l]) => `<button data-vchg="${k}" aria-pressed="${(b.charger || 'auto') === k}">${l}</button>`).join('')}</div>

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.0
+
+- **Asleep status 😴** The Vehicle card says **Parked · Asleep · Locked** while your car sleeps, and notes that what it shows is from before it fell asleep. A **Wake** button wakes it for fresh info. The hub's car tile says Asleep too. It uses the car's status sensor (Tesla Fleet and Teslemetry) and wake button. In the Studio, **Preview › Asleep** shows how it looks.
+
 ## 1.2.0
 
 - **See-through Tesla View.** The Vehicle card now shows just your car on the card, with no box behind it. This is the new default look. Pick **Blend into the card** or **Light, like the app** in the Studio, or set `tesla_view_look` to `dark` or `light`. If a browser or a future Tesla View version doesn't allow see-through, the card fades the box into the card instead.
