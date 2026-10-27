@@ -151,6 +151,26 @@ async def ha_info(request):
     skip = {e["entity_id"] for e in entities if e.get("hidden_by") or e.get("disabled_by") or e.get("entity_category")}
     disabled_devices = {d["id"] for d in devices if d.get("disabled_by")}
     skip |= {e["entity_id"] for e in entities if e.get("device_id") in disabled_devices}
+    # covers we leave out get a reason, so the Studio can show why a shade is missing
+    names = {s["entity_id"]: s.get("attributes", {}).get("friendly_name") for s in states}
+    why = {}
+    for e in entities:
+        eid = e["entity_id"]
+        if not eid.startswith("cover."):
+            continue
+        if e.get("disabled_by"):
+            why[eid] = "turned off (disabled) in Home Assistant"
+        elif e.get("device_id") in disabled_devices:
+            why[eid] = "its device is turned off (disabled)"
+        elif e.get("hidden_by"):
+            why[eid] = "hidden in Home Assistant"
+        elif e.get("entity_category"):
+            why[eid] = "a settings entity, not a shade"
+    for st in states:
+        if st["entity_id"].startswith("cover.") and st.get("attributes", {}).get("restored") and st["entity_id"] not in why:
+            why[st["entity_id"]] = "Home Assistant can't reach it right now (offline, or left over from a removed device)"
+    left_out = [{"entity_id": eid, "name": names.get(eid) or ent_reg.get(eid, {}).get("name") or ent_reg.get(eid, {}).get("original_name") or eid, "reason": r}
+                for eid, r in sorted(why.items())]
     states = [s for s in states if s["entity_id"] not in skip and not s.get("attributes", {}).get("restored")]
     return web.json_response({
         "entities": [{
@@ -167,6 +187,7 @@ async def ha_info(request):
         "areas": [{"id": a["area_id"], "name": a["name"]} for a in areas],
         "devices": [{"id": d["id"], "name": d.get("name_by_user") or d.get("name") or "", "model": d.get("model"), "maker": d.get("manufacturer")}
                     for d in devices if not d.get("disabled_by")],
+        "left_out": left_out,
         "unit": (cfg.get("unit_system") or {}).get("temperature"),
         "location": cfg.get("location_name"),
         "version": cfg.get("version"),

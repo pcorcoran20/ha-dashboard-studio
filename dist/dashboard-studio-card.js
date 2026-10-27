@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.7.1';
+const STUDIO_VERSION = '1.8.0';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -195,20 +195,51 @@ class DashboardStudioHub extends HTMLElement {
     const filled = this._autoFill(hass);
     if (this._carCfg() && (!this._carE || old?.entities !== hass.entities)) {
       this._carE = findVehicle(hass, this._carCfg());
-      /* more than one car and none picked: the car tile becomes a garage */
-      const auto = this._config.vehicle === undefined || this._config.vehicle === true;
-      this._cars = auto ? findCars(hass).map(c => findVehicle(hass, c)) : [];
+      this._cars = this._findCars(hass);
     }
-    const car = this._view === 'car' ? [] : (this._cars?.length > 1 ? this._cars : [this._carE || {}]).flatMap(e => Object.values(e));
+    const car = this._view === 'car' ? [] : (this._cars || []).flatMap(x => Object.values(x.e));
     if (filled || !old || [...this._watched(), ...car].some(e => old.states[e] !== hass.states[e]) || old.themes !== hass.themes) this._schedule();
-    const v = this._root?.querySelector('dashboard-studio-vehicle, dashboard-studio-garage'); if (v) v.hass = hass;
+    const v = this._root?.querySelector('.hub-car'); if (v) v.hass = hass;
+    Object.values(this._minis || {}).forEach(m => { if (m.isConnected) m.hass = hass; });
   }
 
   /* the car: found by itself unless vehicle is false. It shows on All rooms, and in a room that sounds like where it parks */
   _carCfg() { const v = this._config?.vehicle; return v === false ? null : typeof v === 'object' ? v : typeof v === 'string' ? {vehicle: v} : {}; }
-  _hasCar() { return !!(this._carCfg() && this._carE?.battery); }
+  _hasCar() { return !!this._cars?.length; }
+
+  _findCars(hass) {
+    const mine = this._carCfg(), devOf = e => hass.entities?.[e?.battery]?.device_id;
+    const list = this._config.vehicles === false ? [] : findCars(hass).map(c => ({cfg: c, e: findVehicle(hass, c)}));
+    const own = this._carE?.battery ? {cfg: {...mine, ...(devOf(this._carE) ? {device: devOf(this._carE)} : {})}, e: this._carE} : null;
+    let cars = own ? [own, ...list.filter(x => devOf(x.e) !== devOf(own.e))] : list;
+    if (this._config.vehicles === false && own) cars = [own];
+    return cars.filter(x => x.e.battery).map((x, i) => {
+      const dev = x.cfg.device || devOf(x.e), d = hass.devices?.[dev] || {};
+      const name = x.cfg.name || d.name_by_user || d.name || hass.states[x.e.battery]?.attributes.friendly_name?.replace(/ battery( level)?$/i, '') || `Car ${i + 1}`;
+      return {cfg: {...x.cfg, ...(dev ? {device: dev} : {}), name, model: x.cfg.model || carKey(d.model) || 'model_y'}, e: x.e, name, i};
+    });
+  }
+
+  _carState(car) {
+    const s = id => id && this._hass.states[id], e = car.e;
+    const loc = s(e.location)?.state, home = !loc || loc === 'home';
+    const bat = Math.round(parseFloat(s(e.battery)?.state));
+    const cs = s(e.charging)?.state?.toLowerCase(), chg = cs ? ['on', 'charging', 'true'].includes(cs) : s(e.charge_switch)?.state === 'on';
+    const lock = s(e.lock)?.state, sleep = !chg && vehAsleep(s(e.awake));
+    return {bat: isNaN(bat) ? null : bat, chg, text: !home ? (loc === 'not_home' ? 'Away' : `At ${cap(loc)}`) : chg ? 'Charging' : sleep ? 'Asleep' : lock === 'locked' ? 'Locked' : lock === 'unlocked' ? 'Unlocked' : 'Home'};
+  }
+
+  /* a little card for every car, with its picture: tap one to open it */
+  _carCards() {
+    if (!this._carHere()) return '';
+    return `<div class="cars">${this._cars.map((car, i) => { const st = this._carState(car), c = car.cfg;
+      return `<button class="carc${st.chg ? ' chg' : ''}" data-a="cat" data-c="car" data-i="${i}" aria-label="${esc(car.name)}">
+        <span class="carc-art" data-minicar="${i}"></span>
+        <span class="carc-t"><b>${esc(car.name)}</b><span>${st.bat != null ? `${st.bat}% · ` : ''}${esc(st.text)}</span></span>
+        ${st.bat != null ? `<span class="carc-bar"><i style="width:${Math.max(3, Math.min(100, st.bat))}%"></i></span>` : ''}</button>`; }).join('')}</div>`;
+  }
   _carHere() { return this._hasCar() && (this._room < 0 || /garage|driveway|carport|car/i.test(this._config.rooms[this._room]?.name || '')); }
-  _garage() { return this._cars?.length > 1; }
+  _garage() { return false; }
 
   _carInfo() {
     if (this._garage()) {
@@ -239,7 +270,7 @@ class DashboardStudioHub extends HTMLElement {
         if (cars.has(ents[id]?.device_id)) return;
         /* only shades are shades: not garage doors, gates, doors or windows, and not a car's frunk or trunk */
         if (dom === 'cover') { const dc = hass.states[id].attributes.device_class;
-          if (/frunk|trunk|tonneau|charge_?port|sunroof/.test(id) || (dc ? !['shade', 'blind', 'curtain', 'shutter', 'awning'].includes(dc) : /garage|gate|ratgdo|(^|[._])doors?($|_)/.test(id))) return; }
+          if (/frunk|trunk|tonneau|charge_?port|sunroof/.test(id) || (dc ? !['shade', 'blind', 'curtain', 'shutter', 'awning', 'window'].includes(dc) : /garage|gate|ratgdo|(^|[._])doors?($|_)/.test(id))) return; }
         const e = ents[id], aid = e?.area_id || devs[e?.device_id]?.area_id;
         if (aid && areas[aid]) (by[aid] = by[aid] || []).push({entity: id}); else loose.push({entity: id});
       });
@@ -310,7 +341,7 @@ class DashboardStudioHub extends HTMLElement {
   _status(x) {
     const st = x.st;
     if (!st) return 'Not found';
-    if (st.state === 'unavailable') return 'Unavailable';
+    if (st.state === 'unavailable' && !(x.st2 && x.st2.state !== 'unavailable')) return 'Unavailable';
     const a = st.attributes, u = this._unit();
     switch (x.type) {
       case 'light': return st.state === 'on' ? (a.brightness != null ? `On · ${Math.round(a.brightness / 2.55)}%` : 'On') : 'Off';
@@ -355,7 +386,7 @@ class DashboardStudioHub extends HTMLElement {
 
   /* which of Open, Day or Night a pair of shades is in right now */
   _dsPreset(x) {
-    const pos = t => t ? (t.attributes.current_position ?? (t.state === 'closed' ? 0 : 100)) : null, p1 = pos(x.st), p2 = pos(x.st2);
+    const pos = t => t && t.state !== 'unavailable' ? (t.attributes.current_position ?? (t.state === 'closed' ? 0 : 100)) : null, p1 = pos(x.st), p2 = pos(x.st2);
     return p1 == null || p2 == null ? null : DS_PRESETS.find(([, a, b]) => Math.abs(a - p1) < 6 && Math.abs(b - p2) < 6) || null;
   }
 
@@ -386,7 +417,7 @@ class DashboardStudioHub extends HTMLElement {
       case 'roommenu': this._menu = !this._menu; break;
       case 'pickroom': this._swap = +el.dataset.r < this._room ? -1 : 1; this._room = +el.dataset.r; this._view = null; this._menu = false; break;
       case 'mp': this._call('media_player', el.dataset.v, {entity_id: id}); return;
-      case 'cat': this._swap = 1; this._view = el.dataset.c; this._code = ''; this._msg = ''; break;
+      case 'cat': this._swap = 1; this._view = el.dataset.c; this._code = ''; this._msg = ''; if (el.dataset.i != null) this._carPick = +el.dataset.i; break;
       case 'back': this._swap = -1; this._view = null; break;
       case 'scene': this._call('scene', 'turn_on', {entity_id: el.dataset.e}).then(() => this._toast(`${el.dataset.n} is on`)); return;
       case 'goodnight': this._goodNight(); return;
@@ -471,7 +502,7 @@ class DashboardStudioHub extends HTMLElement {
   }
 
   _row(x, showRoom) {
-    const st = x.st, a = st?.attributes || {}, id = esc(x.entity), dead = !st || st.state === 'unavailable';
+    const st = x.st, a = st?.attributes || {}, id = esc(x.entity), gone = t => !t || t.state === 'unavailable', dead = gone(st) && (!x.entity2 || gone(x.st2));
     const btn = (act, inner, extra = '', cls = 'btn') => `<button class="${cls}" data-a="${act}" data-e="${id}" data-t="${x.type}" ${extra}>${inner}</button>`;
     let ctl = '', more = '';
     if (!dead) switch (x.type) {
@@ -560,13 +591,13 @@ class DashboardStudioHub extends HTMLElement {
       body = this._touchHome();
     } else {
       this._view = null;
-      const cats = CATS.filter(([k]) => k === 'car' ? this._carHere() : this._devices(k).length);
+      const cats = CATS.filter(([k]) => k === 'car' ? false : this._devices(k).length), cars = this._carCards();
       const quick = (c.good_night !== false ? `<button class="gn" data-a="goodnight"><ha-icon icon="mdi:weather-night"></ha-icon><span><b>Good night</b><small>Lights off, lock up and settle in</small></span></button>` : '') +
         c.scenes.map(s => { const on = this._hass.states[s.entity]; return `<button class="scene" data-a="scene" data-e="${esc(s.entity)}" data-n="${esc(s.name || on?.attributes.friendly_name || s.entity)}"><ha-icon icon="${esc(s.icon || on?.attributes.icon || 'mdi:palette')}"></ha-icon>${esc(s.name || on?.attributes.friendly_name || s.entity)}</button>`; }).join('');
-      body = `${quick ? `<div class="quick">${quick}</div>` : ''}
+      body = `${quick ? `<div class="quick">${quick}</div>` : ''}${cars}
         ${cats.length ? `<div class="tiles">${cats.map(([k, label, icon]) => { const s = this._catStatus(k);
           return `<button class="tile${s.active ? ' on' : ''}${s.warn ? ' warn' : ''}" data-a="cat" data-c="${k}"><span class="t-ico"><ha-icon icon="${icon}"></ha-icon></span><b>${label}</b><span>${esc(s.text)}</span></button>`; }).join('')}</div>`
-        : '<p class="hint">No devices in this room yet.</p>'}`;
+        : cars ? '' : '<p class="hint">No devices in this room yet.</p>'}`;
     }
     const title = this._view ? '' : `<div class="title big">${esc(ri >= 0 ? rooms[ri].name : (c.title || 'Home'))}</div>`;
     const night = this._night ? `<div class="night"><ha-icon icon="mdi:weather-night"></ha-icon><b>Good night</b><span>Sleep well. The house is settling in.</span></div>` : '';
@@ -583,10 +614,10 @@ class DashboardStudioHub extends HTMLElement {
       const op = Math.max(0, Math.min(100, Number(c.opacity ?? 0) || 0));
       const rr = Number(c.room_radius ?? 30), rad = rr >= 30 ? 99 : Math.max(0, rr);
       const cls = ['ts', c.touch_style === 'theme' ? 'ts-theme' : '', op < 40 ? 'clear' : '', c.icon_background === false ? 'noicobg' : '', c.full_height ? 'full' : '', c.calm ? 'calm' : '', this._ic()].filter(Boolean).join(' ');
-      this._paint(`<style>${STYLE}${TOUCH_STYLE}</style><ha-card class="${cls}" style="--t-op:${op}%;--t-rr:${rad}px">${top}${menu}<div class="ts-body">${body}</div><div class="ts-bottom">${clock}${wx}</div>${night}${flash}</ha-card>`);
+      this._paint(`<style>${STYLE}${TOUCH_STYLE}${this._hasCar() ? CAR_STYLE : ''}</style><ha-card class="${cls}" style="--t-op:${op}%;--t-rr:${rad}px">${top}${menu}<div class="ts-body">${body}</div><div class="ts-bottom">${clock}${wx}</div>${night}${flash}</ha-card>`);
       return;
     }
-    this._paint(`<style>${STYLE}</style><ha-card class="${[c.calm ? 'calm' : '', this._ic()].filter(Boolean).join(' ')}">${title}${chips}${body}${night}${flash}</ha-card>`);
+    this._paint(`<style>${STYLE}${this._hasCar() ? CAR_STYLE : ''}</style><ha-card class="${[c.calm ? 'calm' : '', this._ic()].filter(Boolean).join(' ')}">${title}${chips}${body}${night}${flash}</ha-card>`);
   }
 
   _anim() { return {...ANIM_DEFAULT, ...(this._config.animations || {})}; }
@@ -601,9 +632,17 @@ class DashboardStudioHub extends HTMLElement {
     this._root.innerHTML = html;
     const card = this._root.querySelector('ha-card'), an = this._anim();
     const veh = card.querySelector('dashboard-studio-vehicle');
-    if (veh) { veh.setConfig({...this._carCfg(), bare: true, calm: !!this._config.calm}); veh.hass = this._hass; }
+    if (veh) { veh.setConfig({...(this._cars?.[this._carPick || 0]?.cfg || this._carCfg()), bare: true, calm: !!this._config.calm}); veh.hass = this._hass; }
     const gar = card.querySelector('dashboard-studio-garage');
     if (gar) { gar.setConfig({name: 'Garage', ...(this._config.garage_door ? {door: this._config.garage_door} : {}), bare: true, calm: !!this._config.calm}); gar.hass = this._hass; }
+    /* each little car card keeps its own render (Tesla View when it's installed), so redraws don't reload it */
+    card.querySelectorAll('[data-minicar]').forEach(slot => {
+      const k = slot.dataset.minicar, car = this._cars?.[+k]; if (!car) return;
+      const cfg = {...car.cfg, bare: true, mini: true, calm: !!this._config.calm}, sig = JSON.stringify(cfg);
+      this._minis ||= {}; let v = this._minis[k];
+      if (!v || v._sig !== sig) { v = document.createElement('dashboard-studio-vehicle'); v.setConfig(cfg); v._sig = sig; this._minis[k] = v; }
+      slot.append(v); v.hass = this._hass;
+    });
     card.classList.toggle('tap-press', an.tap === 'press' && !this._still());
     const on = new Map();
     card.querySelectorAll('.ts-tile, .tile, .row, .scene').forEach(el => {
@@ -658,7 +697,7 @@ class DashboardStudioHub extends HTMLElement {
 
   _touchHome() {
     const c = this._config;
-    const tiles = TOUCH.filter(([k]) => k === 'quick' ? (c.scenes.length || c.good_night !== false) : k === 'car' ? this._carHere() : this._devices(k).length).map(([k, label, icon]) => {
+    const tiles = TOUCH.filter(([k]) => k === 'quick' ? (c.scenes.length || c.good_night !== false) : k === 'car' ? false : this._devices(k).length).map(([k, label, icon]) => {
       let s;
       if (k === 'quick') s = {text: c.scenes.length ? `${c.scenes.length} scene${c.scenes.length === 1 ? '' : 's'}` : 'Good night', active: false};
       else if (k === 'watch' || k === 'listen') { const p = this._devices(k).find(x => x.st?.state === 'playing'); s = {text: p ? `Playing · ${p.name}` : 'Off', active: !!p}; }
@@ -670,7 +709,8 @@ class DashboardStudioHub extends HTMLElement {
       const ico = ci && ci.bat != null ? `<span class="ts-ring${ci.chg ? ' chg' : ''}"><b>${ci.bat}</b></span>` : temps.length ? `<span class="ts-ring"><b>${Math.round(temps.reduce((a, v) => a + v, 0) / temps.length)}</b></span>` : `<span class="ts-ico"><ha-icon icon="${icon}"></ha-icon></span>`;
       return `<button class="ts-tile${s.active ? ' on' : ''}${s.warn ? ' warn' : ''}" data-a="cat" data-c="${k}">${ico}<span class="ts-l">${label}</span><span class="ts-s">${esc(s.text)}</span></button>`;
     }).join('');
-    return this._nowPlaying() + (tiles ? `<div class="ts-tiles">${tiles}</div>` : '<p class="hint">No devices in this room yet.</p>');
+    const cars = this._carCards();
+    return this._nowPlaying() + cars + (tiles ? `<div class="ts-tiles">${tiles}</div>` : cars ? '' : '<p class="hint">No devices in this room yet.</p>');
   }
 }
 
@@ -746,7 +786,21 @@ ha-card.ts.noicobg .ts-tile.warn .ts-ico{background:none;color:#ff8a7a}
 
 const STYLE = `
 :host{display:block;position:relative}
-.hub-car{display:block;--primary-text-color:var(--s-text);--secondary-text-color:var(--s-muted)}
+.hub-car{display:block;width:100%;max-width:640px;margin:0 auto;--primary-text-color:var(--s-text);--secondary-text-color:var(--s-muted)}
+.cars{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.carc{border:1px solid var(--s-line);background:var(--t-tile,var(--s-soft));border-radius:calc(var(--s-r)*.8 + 6px);padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;text-align:left;min-width:0;overflow:hidden;transition:transform .15s}
+.carc:active{transform:scale(.98)}
+.carc-art{display:block;height:96px;margin:0 -4px;overflow:hidden}
+.carc-art dashboard-studio-vehicle{display:block;height:100%}
+.carc-art .car,.carc-art .car-photo{width:100%;height:100%}
+.carc-art .car-photo img{width:100%;height:100%;object-fit:contain}
+.carc-art svg{width:100%;height:100%}
+.carc-t{display:flex;flex-direction:column;min-width:0}
+.carc-t b{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.carc-t span{font-size:12.5px;color:var(--s-muted)}
+.carc-bar{height:5px;border-radius:99px;background:var(--s-soft2);overflow:hidden}
+.carc-bar i{display:block;height:100%;border-radius:99px;background:var(--s-text);opacity:.8}
+.carc.chg .carc-bar i{background:#4ade80;opacity:1}
 .ts-ring.chg{border-color:#4ade80;box-shadow:0 0 16px rgba(74,222,128,.45)}
 .fxl{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:var(--ha-card-border-radius,12px);z-index:9}
 ha-card.tap-press :is(button,.row):active{transform:scale(.94);transition:transform .08s}
@@ -2017,7 +2071,8 @@ class DashboardStudioVehicle extends HTMLElement {
     const u = h.config?.unit_system?.temperature || '°', temp = v => v == null ? '' : `${Math.round(v)}${u.replace(/[CF]$/, '')}`;
     const info = [inT != null ? `Inside ${temp(inT)}` : '', outT != null ? `Outside ${temp(outT)}` : ''].filter(Boolean).join(' · ')
       + (vehAsleep(this._s('awake')) ? `${inT != null || outT != null ? '. ' : ''}Asleep: this is what it said before it fell asleep${this._e.wake ? '. Tap Wake for fresh info' : ''}` : '');
-    this.shadowRoot.innerHTML = `<style>${VEH_STYLE}${CAR_STYLE}</style><ha-card class="${[c.calm ? 'calm' : '', c.bare ? 'bare' : ''].filter(Boolean).join(' ')}">
+    /* mini: just the car, for the little car cards on the Control hub */
+    this.shadowRoot.innerHTML = c.mini ? `<style>${VEH_STYLE}${CAR_STYLE}</style><ha-card class="bare mini${c.calm ? ' calm' : ''}"><div class="v-car">${car}</div></ha-card>` : `<style>${VEH_STYLE}${CAR_STYLE}</style><ha-card class="${[c.calm ? 'calm' : '', c.bare ? 'bare' : ''].filter(Boolean).join(' ')}">
       <div class="v-top"><button class="v-name" data-a="more"><b>${esc(name)}</b><span>${esc(this._status())}</span></button>
         ${bat != null ? `<div class="v-bat${chg ? ' chg' : ''}"><b>${Math.round(bat)}</b>%${chg ? '<ha-icon icon="mdi:lightning-bolt"></ha-icon>' : ''}</div>` : ''}</div>
       <div class="v-car">${car}</div>
@@ -2122,6 +2177,9 @@ ha-card.bare{background:none;box-shadow:none;border:none;padding:4px 0 0}
 .v-tv.blend tesla-view-card{-webkit-mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent),linear-gradient(180deg,transparent,#000 9%,#000 91%,transparent);-webkit-mask-composite:source-in;
   mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent),linear-gradient(180deg,transparent,#000 9%,#000 91%,transparent);mask-composite:intersect;border-radius:14px}
 .v-tvnote{font-size:12px;color:var(--v-muted);text-align:center;margin-top:-4px}
+ha-card.mini{padding:0;gap:0;pointer-events:none;height:100%;justify-content:center}
+.mini .v-car,.mini .v-tv{margin:0}
+.mini .v-tvnote,.mini .v-3derr{display:none}
 .v-tv tesla-view-card{display:block;--ha-card-background:transparent;--card-background-color:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0}
 `;
 

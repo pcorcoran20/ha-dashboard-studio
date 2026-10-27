@@ -704,6 +704,11 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .hr-val{font-family:var(--d-display); font-weight:600; min-width:3ch; text-align:center; font-variant-numeric:tabular-nums}
 .d-pbtn.sm{height:30px; font-size:calc(12px * var(--d-fs,1))}
 .posbar{height:6px; border-radius:6px; background:color-mix(in srgb, var(--d-text) 12%, transparent); overflow:hidden}
+.leftout{margin:12px 0; font-size:13px}
+.leftout summary{cursor:pointer; font-weight:600}
+.leftout ul{margin:8px 0 0; padding-left:18px; display:grid; gap:6px}
+.leftout li span{display:block; color:var(--muted)}
+.leftout code{font-size:11.5px}
 .hr-ds{display:flex; align-items:center; gap:10px; margin-top:8px}
 .hr-ds span{width:84px; flex:none; font-size:calc(12px * var(--d-fs,1)); color:var(--d-muted)}
 .hr-ds .posbar{flex:1}
@@ -4186,7 +4191,7 @@ function shortName(e, room){
   return n ? n[0].toUpperCase() + n.slice(1) : n;
 }
 /* what a cover really is: a car's frunk or trunk, a garage door (ratgdo too), a shade, or something else */
-const SHADE_DC = ['shade', 'blind', 'curtain', 'shutter', 'awning'];
+const SHADE_DC = ['shade', 'blind', 'curtain', 'shutter', 'awning', 'window'];
 let carDevCache = null;
 function coverKind(e){
   const obj = e.split('.')[1] || '', dc = window.__haDC?.[e], plat = window.__haPlat?.[e], dev = window.__haDev?.[e];
@@ -4246,6 +4251,17 @@ function roomBlocks(room, kinds){
   (kinds.camera || []).forEach(e => b.push(mk('camera', {entity:e, title:n(e)})));
   return tidyList(b);
 }
+/* shades that won't be on any page, and why: so a missing shade is never a mystery */
+function leftOutHTML(){
+  const why = {car:'part of a car, so it’s on the car’s card', garage:'a garage door or gate', other:'not a shade'};
+  const L = [...(window.__haLeftOut || []).map(x => [x.name, x.entity_id, x.reason]),
+    ...state.entities.filter(e => e.startsWith('cover.') && coverKind(e) !== 'shade').map(e => [human(e), e, coverKind(e) === 'other' && window.__haDC?.[e] ? `marked as “${window.__haDC[e]}”, not a shade. Change “Show as” in its settings` : why[coverKind(e)]])];
+  const loose = state.entities.filter(e => e.startsWith('cover.') && coverKind(e) === 'shade' && roomOf(e) === 'Other');
+  if (!L.length && !loose.length) return '';
+  return `<details class="leftout"><summary>Shades and covers left out (${L.length})${loose.length ? ` · ${loose.length} with no room` : ''}</summary>
+    ${L.length ? `<ul>${L.map(([n, e, r]) => `<li><b>${esc(n)}</b> <code>${esc(e)}</code><span>${esc(r)}</span></li>`).join('')}</ul>` : ''}
+    ${loose.length ? `<p class="hint">These shades have no area, so they go in “Other”: ${loose.map(e => esc(human(e))).join(', ')}. Give each one an area in Home Assistant, then reload.</p>` : ''}</details>`;
+}
 function openAutoHome(){
   if (!state.entities.length) {
     toast(window.STUDIO_ADDON ? 'No entities yet. Try Magic › Reload from Home Assistant' : 'Add your entities first (Magic › My entities)');
@@ -4258,6 +4274,7 @@ function openAutoHome(){
   openModal({title:'Auto-build my home',
     body:`<p class="hint">Found ${rooms.length} room${rooms.length === 1 ? '' : 's'} with devices${window.__haAreaNames ? ', from your Home Assistant areas' : ''}. Untick any you don’t want a page for.</p>
       <div class="ab-list">${rooms.map((r, i) => `<label class="switch"><span><b>${esc(r.name)}</b><small>${esc(roomSummary(r.kinds))}</small></span><input type="checkbox" data-abroom="${i}" ${r.name === 'Other' ? '' : 'checked'}></label>`).join('')}</div>
+      ${leftOutHTML()}
       <label class="switch"><span><b>Start with a Home page</b><small>Greeting, weather and a Control hub with every room filled in</small></span><input type="checkbox" id="abHome" checked></label>
       <div class="field"><span class="lbl2">Your current pages</span><div class="seg" role="group" aria-label="Your current pages"><button data-abmode="add" aria-pressed="true">Keep them, add new ones</button><button data-abmode="replace" aria-pressed="false">Replace them</button></div>
       <p class="hint" id="abModeHint">New pages go after your ${state.pages.length} current page${state.pages.length === 1 ? '' : 's'}.</p></div>`,
@@ -4710,6 +4727,7 @@ async function haLoad(announce){
     window.__haDev = Object.fromEntries(j.entities.map(e => [e.entity_id, e.device]));
     window.__haPlat = Object.fromEntries(j.entities.map(e => [e.entity_id, e.platform]));
     window.__haDevices = Object.fromEntries((j.devices || []).map(d => [d.id, d]));
+    window.__haLeftOut = j.left_out || [];
     window.__haDC = Object.fromEntries(j.entities.filter(e => e.dc).map(e => [e.entity_id, e.dc]));
     window.__haMedia = Object.fromEntries(j.entities.filter(e => e.entity_id.startsWith('media_player.')).map(e => [e.entity_id, {title:e.media_title, artist:e.media_artist, state:e.state}]));
     state.entities = parseEntities(j.entities.map(e => e.entity_id).join(' '));

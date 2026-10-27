@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.0
+
+- New: every car shows on the Control hub's home page at the same time, each on its own little card with its picture (Tesla View's render when it's installed), battery, and whether it's charging, asleep, locked or away. Tap a card to open that car.
+- Fix: an open car in the Control hub is a comfortable size now, not stretched across the whole screen.
+- Fix: a day/night shade still works when one of its fabrics is offline.
+- Fix: covers marked as "window" count as shades.
+- New: Auto-build lists the shades and covers it left out, and why (hidden, disabled, offline, marked as something else, or no room), so a missing shade is never a mystery.
+
 ## 1.7.1
 
 - Fix: the Control hub now treats a day/night shade as one window. Two shade entities on one device (like Smartwings, one for blackout and one for sheer) become one shade with **Open**, **Day** and **Night** buttons, plus a control for each fabric. This works in Home Assistant and in the Studio.

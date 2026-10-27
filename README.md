@@ -114,7 +114,8 @@ In a Sections dashboard, make the card full width so the tiles have room.
 | `room_radius` | For the touchscreen layout: how round the room button is, from `0` (square corners) to `30` (fully round, the default). |
 | `icon_background` | `false` removes the circle behind the tile icons. Icons that are on glow, and icons that are off are dimmer. |
 | `animations` | `page`: `fade`, `slide` (the default), `zoom`, `flip`, `rise`, `blur`, `swing`, `bounce` or `off`. `tap`: `ripple` (the default), `press`, `sparkle`, `ring`, `glow` or `off`. `state`: `pop` (the default), `glow`, `bounce`, `flash`, `burst` or `off`. `calm: true` turns them all off. |
-| `vehicle` | The car tile. Leave it out and the card finds your car by itself. Set `false` to hide it, or give the same settings as the vehicle card, like `{name: Ruby, model: model_3, color: ultra_red, model_url: /local/tesla/model_3.glb}`. |
+| `vehicle` | Your cars. Every car Home Assistant knows gets a little card with its picture (Tesla View's render when it's installed) on the home page, and tapping one opens it. Leave it out and the card finds your cars by itself. Set `false` to hide them, or give the same settings as the vehicle card for your main car, like `{name: Ruby, model: model_3, color: ultra_red}`. |
+| `vehicles` | Set `false` to show only the car in `vehicle`, not every car. |
 | `touch_style` | For the touchscreen layout: `dark` (the default) or `theme` to follow your Home Assistant theme. |
 | `full_height` | `true` makes the card fill the screen. Good in a panel view. |
 | `weather_entity` | The weather shown in the touchscreen layout's bottom bar. Leave it out to use your first weather entity. |
