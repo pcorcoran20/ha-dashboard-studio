@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.0
+
+- New fun themes, each with its own animation and secret: Safari Zoo, Splash Park, Tropical, Beach Day, Cyberpunk, Deep Space and Sea Lion Cove.
+- New holiday themes: Christmas, Halloween, Hanukkah, Diwali, Lunar New Year and Valentine's.
+- New gentle themes: Calm Senses (soft and low-stim) and Colour Safe (colours people with colour blindness can tell apart).
+- More flags for the Pride theme: Aroace, Omnisexual, Polysexual, Polyamorous, Bigender, Demiboy and Demigirl. There's a new group for Disability Pride, Neurodiversity, Autistic Pride (gold) and Pan-African.
+- 14 new secrets to find, so there are 23 in total.
+
 ## 1.5.1
 
 - Fix: garage door openers (like ratgdo) and gates are garage doors in Auto-build and the hub, not shades. Covers are sorted by their device class.
