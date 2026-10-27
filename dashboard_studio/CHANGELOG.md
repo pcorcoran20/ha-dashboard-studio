@@ -1,10 +1,17 @@
 # Changelog
 
+## 1.7.0
+
+- New: holiday themes can switch on by themselves. Pick your holidays under **Style › Holiday themes**: Valentine's Day, Lunar New Year, Easter, Pride Month, Diwali, Halloween, Hanukkah and Christmas. Each one shows on its dates, then your own theme comes back. The exported automation checks the date every night, and it works with the sunset switch.
+- New: Easter theme with a hopping bunny and pastel eggs. Easter's date is worked out for every year.
+- New: the critters from fun and holiday themes now show in Home Assistant too, through the Dashboard Studio effects card (`critters: auto`). They follow whichever theme is showing, and you can tap them.
+- Fix: "Colour Safe" is now spelled "Color Safe".
+
 ## 1.6.0
 
 - New fun themes, each with its own animation and secret: Safari Zoo, Splash Park, Tropical, Beach Day, Cyberpunk, Deep Space and Sea Lion Cove.
 - New holiday themes: Christmas, Halloween, Hanukkah, Diwali, Lunar New Year and Valentine's.
-- New gentle themes: Calm Senses (soft and low-stim) and Colour Safe (colours people with colour blindness can tell apart).
+- New gentle themes: Calm Senses (soft and low-stim) and Color Safe (colors people with color blindness can tell apart).
 - More flags for the Pride theme: Aroace, Omnisexual, Polysexual, Polyamorous, Bigender, Demiboy and Demigirl. There's a new group for Disability Pride, Neurodiversity, Autistic Pride (gold) and Pan-African.
 - 14 new secrets to find, so there are 23 in total.
 

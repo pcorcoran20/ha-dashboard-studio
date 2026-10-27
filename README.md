@@ -267,6 +267,9 @@ weather_entity: weather.home # for background: weather. It follows your live wea
 strength: 70                 # 10 to 100
 speed: 1                     # 0.25 to 2
 layer: behind                # behind the cards, or front (over them, taps still pass through)
+critters: auto               # the animals and decorations from Studio fun and holiday themes. auto follows the theme in use,
+                             # or name one: duck, sakura, ocean, zoo, water, tropical, beach, cyber, space, sealion,
+                             # easter, xmas, halloween, hanukkah, diwali, lunar, valentine. Leave it out or use off for none
 card_effects:
   float_in: true             # cards float in when the view opens
   tilt: false                # cards lean toward your pointer
@@ -278,6 +281,8 @@ animations:
   state: pop                 # pop, glow, bounce, flash, burst or off: plays when a card's device turns on or off
 calm: false                  # true turns off motion. Reduced-motion settings are respected too
 ```
+
+With `critters: auto`, the critters change when your theme does, so holiday themes bring their own decorations. You can tap them, just like in the Studio.
 
 If you set `layer: behind` and don't see the background, your theme or another custom card may be painting over it. Try `layer: front`.
 

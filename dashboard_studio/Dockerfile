@@ -44,7 +44,7 @@ RUN if [ "${BUILD_ARCH}" = "amd64" ]; then \
     fi
 ENV GDRE_TOOLS=/opt/gdre/gdre_tools.x86_64
 
-ENV PYTHONUNBUFFERED=1 STUDIO_VERSION=1.6.0
+ENV PYTHONUNBUFFERED=1 STUDIO_VERSION=1.7.0
 COPY rootfs /
 
 RUN chmod a+x /run.sh

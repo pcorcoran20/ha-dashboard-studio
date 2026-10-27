@@ -464,7 +464,7 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .whale{position:absolute; top:38%; width:150px; opacity:.5; animation:whale 48s linear infinite; animation-delay:-28s}
 .whale svg{display:block; width:100%}
 @keyframes whale{0%{left:-200px} 45%{left:calc(100% + 40px)} 100%{left:calc(100% + 40px)}}
-.dash:is([data-fun="zoo"],[data-fun="water"],[data-fun="beach"],[data-fun="sealion"]){padding-bottom:calc(var(--d-dpad,24px) + 70px)}
+.dash:is([data-fun="easter"],[data-fun="zoo"],[data-fun="water"],[data-fun="beach"],[data-fun="sealion"]){padding-bottom:calc(var(--d-dpad,24px) + 70px)}
 .strip{position:absolute; left:0; right:0; bottom:0; height:76px}
 .strip.grass{background:radial-gradient(8px 8px at 50% 100%, #9ccf74 98%, transparent 100%) 0 0 / 16px 10px repeat-x, linear-gradient(180deg, transparent 9px, #9ccf74 9px, #6fa24c)}
 .strip.pool{background:repeating-linear-gradient(90deg, rgba(255,255,255,.3) 0 2px, transparent 2px 44px), radial-gradient(14px 6px at 50% 0, transparent 98%, #4fcbe8 100%) 0 0 / 28px 12px repeat-x, linear-gradient(180deg, #4fcbe8, #1ea5d0)}
@@ -524,6 +524,10 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .diya{width:44px; filter:drop-shadow(0 0 10px rgba(255,170,40,.55))}
 .lantern{position:absolute; top:-6px; width:44px; transform-origin:50% 0; animation:sway 5s ease-in-out infinite}
 .heartb{position:absolute; bottom:-30px; animation:rise linear infinite}
+.bunny{width:52px; animation:hop .9s ease-in-out infinite}
+@keyframes hop{0%,100%{transform:translateY(0)} 40%{transform:translateY(-16px) rotate(-4deg)}}
+.eggs{position:absolute; bottom:6px; left:0; right:0; display:flex; justify-content:space-around; align-items:flex-end; pointer-events:none}
+.eggs i{width:16px; height:21px; border-radius:50% 50% 50% 50% / 60% 60% 40% 40%; background:var(--c); box-shadow:inset 0 -5px 0 rgba(255,255,255,.45)}
 .dash.calm :is(.walker, .crab){left:40%}
 .dash.calm .flyby{left:68%}
 .dash[data-fun="terminal"] .hd-greet::after{content:"_"; animation:blink 1s steps(1) infinite}
@@ -538,6 +542,12 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .arcade{position:fixed; inset:0; z-index:70; display:grid; place-content:center; text-align:center; gap:10px; pointer-events:none; font-family:var(--f-mono); background:rgba(7,6,13,.55); animation:pop 2.6s ease forwards}
 .arcade b{font-size:clamp(28px, 6vw, 64px); color:#25f4ee; text-shadow:0 0 18px #25f4ee, 0 0 40px #ff3dd2; letter-spacing:.06em; animation:blink .5s steps(1) 4}
 .arcade span{color:#ff3dd2; font-size:16px; letter-spacing:.1em}
+.holrow{display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid var(--line); font-size:13px}
+.holrow input{width:18px; height:18px; accent-color:var(--accent); margin:0}
+.holrow b{font-weight:600; flex:1}
+.holrow small{color:var(--muted); font-size:12px}
+.holnow{margin:10px 0 8px; font-size:13px; color:var(--muted)}
+.holnow b{color:var(--fg)}
 .flaggroup{display:block; margin:10px 0 6px; font-size:11.5px; color:var(--muted)}
 .flaggrid{display:grid; grid-template-columns:repeat(3,1fr); gap:6px}
 .flagbtn{border:1px solid var(--line); background:var(--bg); border-radius:9px; padding:6px; display:flex; flex-direction:column; gap:5px; font-size:11.5px; font-weight:500; text-align:left; min-width:0}
@@ -988,6 +998,10 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
           <label class="switch"><span><b>Change theme at sunset</b><small>Exports an automation that swaps themes at sunset and sunrise</small></span><input type="checkbox" id="nightOn"></label>
           <div class="field" id="nightPick" hidden><label for="nightTheme">Night theme</label><select id="nightTheme"></select></div>
         </div></details>
+        <details class="twg fold"><summary>Holiday themes</summary><div class="twb">
+          <label class="switch"><span><b>Switch themes for holidays</b><small>Each holiday’s theme shows on its dates, then your own theme comes back. Exports an automation that checks the date every night.</small></span><input type="checkbox" id="holOn"></label>
+          <div id="holPick" hidden></div>
+        </div></details>
         <details class="twg fold"><summary>Calm mode</summary><div class="twb">
           <label class="switch"><span><b>Low-stimulation look</b><small>No motion, no blur, no glow. Same layout, quieter screen.</small></span><input type="checkbox" id="calmOn"></label>
         </div></details>
@@ -1248,7 +1262,7 @@ THEMES.sealion = {label:'Sea Lion Cove', desc:'Misty coast, beach-ball orange', 
 THEMES.senses = {label:'Calm Senses', desc:'Soft, muted, low-stim', dark:false, vars:{
   bg:'#eceae4', base:'#eceae4', card:'#f6f5f1', border:'rgba(60,60,50,0.08)', text:'#2b2b28', muted:'#5f5e58',
   accent:'#5f817b', on:'#ffffff', radius:20, blur:0, shadow:'none', font:FONT.geist, display:FONT.geist}};
-THEMES.cvd = {label:'Colour Safe', desc:'Colours that colour-blind eyes can tell apart', dark:false, vars:{
+THEMES.cvd = {label:'Color Safe', desc:'Colors that color-blind eyes can tell apart', dark:false, vars:{
   bg:'#f3f4f6', base:'#f3f4f6', card:'#ffffff', border:'rgba(17,20,24,0.10)', text:'#111418', muted:'#4b5260',
   accent:'#0072b2', on:'#ffffff', radius:18, blur:0, shadow:'0 1px 2px rgba(16,24,40,0.05), 0 6px 18px rgba(16,24,40,0.06)', font:FONT.geist, display:FONT.geist}};
 THEMES.xmas = {label:'Christmas', desc:'Snowfall, twinkle lights', dark:true, fun:'xmas', vars:{
@@ -1275,6 +1289,10 @@ THEMES.valentine = {label:'Valentine’s', desc:'Soft pink, floating hearts', da
   bg:'radial-gradient(55% 45% at 85% 5%, #ffd0de 0%, transparent 70%), radial-gradient(55% 45% at 10% 100%, #ffe3ec 0%, transparent 70%), #fff3f6', base:'#fdeef2',
   card:'rgba(255,255,255,0.86)', border:'rgba(190,40,90,0.12)', text:'#2e1420', muted:'#74465a', accent:'#d42a63', on:'#ffffff',
   radius:26, blur:0, shadow:'0 6px 22px rgba(200,60,110,0.10)', font:FONT.geist, display:FONT.brico}};
+THEMES.easter = {label:'Easter', desc:'Pastel eggs, hopping bunny', dark:false, fun:'easter', vars:{
+  bg:'radial-gradient(50% 40% at 85% 5%, #fff1b8 0%, transparent 70%), radial-gradient(55% 45% at 10% 10%, #e5d9ff 0%, transparent 70%), linear-gradient(180deg, #f4fbff 0%, #eaf7e6 100%)', base:'#eef7ee',
+  card:'rgba(255,255,255,0.86)', border:'rgba(110,90,160,0.12)', text:'#2a2438', muted:'#625a74', accent:'#8a5cd6', on:'#ffffff',
+  radius:28, blur:0, shadow:'0 5px 0 rgba(110,90,160,0.08)', font:FONT.geist, display:FONT.brico}};
 THEMES.neon.fun = 'neon'; THEMES.terminal.fun = 'terminal'; THEMES.sakura.fun = 'sakura'; THEMES.ocean.fun = 'ocean';
 const FLAGS = {
   rainbow:{name:'Rainbow', c:['#e40303','#ff8c00','#ffed00','#008026','#004dff','#750787'], a:'#ff8c00'},
@@ -1441,6 +1459,7 @@ const FIELDS = {
 };
 
 function mk(type, over={}){ const c = CATALOG[type]; return {id:uid(), type, size:c.size, ...structuredClone(c.d), ...over}; }
+const HOL_DEFAULT = {halloween:true, xmas:true, valentine:true, easter:true, pride:true};
 function samplePages(){
   return [
     {id:uid(), name:'Home', blocks:[
@@ -1462,7 +1481,7 @@ function samplePages(){
     ]}
   ];
 }
-function sample(){ const pages = samplePages(); return {name:'Home', theme:'glass', accent:null, radius:null, gap:14, wall:null, calm:false, night:{on:false, theme:'black'}, custom:null, entities:[], tw:{}, units:'F', fx:{...FX_DEFAULT}, pages, page:pages[0].id}; }
+function sample(){ const pages = samplePages(); return {name:'Home', theme:'glass', accent:null, radius:null, gap:14, wall:null, calm:false, night:{on:false, theme:'black'}, hol:{on:false, pick:{...HOL_DEFAULT}}, custom:null, entities:[], tw:{}, units:'F', fx:{...FX_DEFAULT}, pages, page:pages[0].id}; }
 const FX_DEFAULT = {bg:'off', intensity:70, speed:100, enter:true, tilt:false, shine:false, edges:false, spill:true, page:'slide', tap:'ripple', pop:'pop'};
 
 /* ---------- state + history ---------- */
@@ -1473,7 +1492,7 @@ function migrate(s){
   if (!s || typeof s !== 'object') return sample();
   if (Array.isArray(s.blocks) && !s.pages) { s.pages = [{id:uid(), name:s.name || 'Home', blocks:s.blocks}]; delete s.blocks; }
   if (!Array.isArray(s.pages) || !s.pages.length) return sample();
-  s.night ||= {on:false, theme:'black'}; s.entities ||= []; s.tw ||= {}; s.units ||= 'F'; s.fx = {...FX_DEFAULT, ...(s.fx || {})}; s.calm = !!s.calm; s.gap ??= 14;
+  s.night ||= {on:false, theme:'black'}; s.hol ||= {on:false, pick:{...HOL_DEFAULT}}; s.entities ||= []; s.tw ||= {}; s.units ||= 'F'; s.fx = {...FX_DEFAULT, ...(s.fx || {})}; s.calm = !!s.calm; s.gap ??= 14;
   if (!s.pages.some(p => p.id === s.page)) s.page = s.pages[0].id;
   s.pages.forEach(p => p.blocks = (p.blocks || []).filter(b => CATALOG[b.type]).map(b => ({...structuredClone(CATALOG[b.type].d), ...b})));
   return s;
@@ -1525,7 +1544,51 @@ function readability(v){
 }
 
 /* ---------- theme vars ---------- */
-function activeKey(){ return state.night.on && dn === 'night' ? state.night.theme : state.theme; }
+/* holiday themes take over for their dates, then the regular day/night theme comes back */
+function easterDay(y){
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const mo = Math.floor((h + l - 7 * m + 114) / 31), da = ((h + l - 7 * m + 114) % 31) + 1;
+  return `${String(mo).padStart(2,'0')}-${String(da).padStart(2,'0')}`;
+}
+const HOLIDAYS = {
+  valentine:{name:'Valentine’s Day', theme:'valentine', fixed:['02-07','02-14']},
+  lunar:{name:'Lunar New Year', theme:'lunar', days:{2025:'01-29', 2026:'02-17', 2027:'02-06', 2028:'01-26', 2029:'02-13', 2030:'02-03'}, from:-2, to:14},
+  easter:{name:'Easter', theme:'easter', day:easterDay, from:-7, to:1},
+  pride:{name:'Pride Month', theme:'pride', fixed:['06-01','06-30']},
+  diwali:{name:'Diwali', theme:'diwali', days:{2025:'10-20', 2026:'11-08', 2027:'10-29', 2028:'10-17', 2029:'11-05', 2030:'10-26'}, from:-2, to:2},
+  halloween:{name:'Halloween', theme:'halloween', fixed:['10-01','10-31']},
+  hanukkah:{name:'Hanukkah', theme:'hanukkah', days:{2025:'12-14', 2026:'12-04', 2027:'12-24', 2028:'12-12', 2029:'12-01', 2030:'12-20'}, from:0, to:8},
+  xmas:{name:'Christmas', theme:'xmas', fixed:['12-01','12-26']}
+};
+const isoAdd = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+function holRanges(y0, y1, all = false){
+  const out = [];
+  Object.entries(HOLIDAYS).forEach(([k, h]) => {
+    if (!all && !state.hol?.pick?.[k]) return;
+    for (let y = y0; y <= y1; y++) {
+      if (h.fixed) out.push({k, s:`${y}-${h.fixed[0]}`, e:`${y}-${h.fixed[1]}`});
+      else { const md = h.day ? h.day(y) : h.days[y]; if (md) out.push({k, s:isoAdd(`${y}-${md}`, h.from), e:isoAdd(`${y}-${md}`, h.to)}); }
+    }
+  });
+  /* the shorter holiday wins when two overlap, so Hanukkah shows inside Christmas month and Diwali inside October */
+  const len = r => Date.parse(r.e) - Date.parse(r.s);
+  return out.sort((a, b) => len(a) - len(b));
+}
+const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+function holidayToday(){ const t = todayIso(), y = +t.slice(0, 4); return holRanges(y - 1, y).find(r => r.s <= t && t <= r.e) || null; }
+function holidayNext(){ const t = todayIso(), y = +t.slice(0, 4); return holRanges(y, y + 1).filter(r => r.s > t).sort((a, b) => a.s < b.s ? -1 : 1)[0] || null; }
+let holPreview = 'today';
+function holidayKey(){
+  if (!state.hol?.on || holPreview === 'off') return null;
+  if (holPreview !== 'today') return HOLIDAYS[holPreview]?.theme || null;
+  const r = holidayToday(); return r ? HOLIDAYS[r.k].theme : null;
+}
+const holThemes = () => state.hol?.on ? Object.keys(HOLIDAYS).filter(k => state.hol.pick[k]).map(k => HOLIDAYS[k].theme) : [];
+const switching = () => state.night.on || !!state.hol?.on;
+const themeKeysOut = () => [...new Set([state.theme, ...(state.night.on ? [state.night.theme] : []), ...holThemes()])];
+const shortDate = s => new Date(s + 'T00:00:00Z').toLocaleDateString('en-US', {month:'short', day:'numeric', timeZone:'UTC'});
+function activeKey(){ return holidayKey() || (state.night.on && dn === 'night' ? state.night.theme : state.theme); }
 function eff(key = activeKey()){
   const t = getTheme(key), tw = state.tw || {};
   const v = {...t.vars}, main = key === state.theme;
@@ -2087,7 +2150,7 @@ function themeTile(k){
 }
 function renderThemes(){
   $('themes').innerHTML = allThemeKeys().map(themeTile).join('');
-  const showFlags = state.theme === 'pride' || (state.night.on && state.night.theme === 'pride');
+  const showFlags = state.theme === 'pride' || (state.night.on && state.night.theme === 'pride') || holThemes().includes('pride');
   $('flags').hidden = !showFlags;
   if (showFlags) $('flags').innerHTML = `<span class="lbl2">Your flag</span>` + Object.entries(FLAG_GROUPS).map(([g, label]) =>
     `<small class="flaggroup">${label}</small><div class="flaggrid">${Object.entries(FLAGS).filter(([,f]) => (f.g || 'pride') === g).map(([k,f]) =>
@@ -2099,7 +2162,20 @@ function renderThemes(){
   $('dayNight').hidden = !state.night.on;
   document.querySelectorAll('[data-dn]').forEach(b => b.setAttribute('aria-pressed', b.dataset.dn === dn));
   $('calmOn').checked = state.calm;
+  renderHol();
   updateScore();
+}
+function renderHol(){
+  state.hol ||= {on:false, pick:{...HOL_DEFAULT}};
+  $('holOn').checked = !!state.hol.on; $('holPick').hidden = !state.hol.on;
+  if (!state.hol.on) return;
+  const y = new Date().getFullYear(), now = holidayToday(), next = holidayNext();
+  const when = k => { const r = holRanges(y, y + 1, true).filter(r => r.k === k && r.e >= todayIso()).sort((a, b) => a.s < b.s ? -1 : 1)[0]; return r ? `${shortDate(r.s)} – ${shortDate(r.e)}` : 'dates not known yet'; };
+  const picked = Object.keys(HOLIDAYS).filter(k => state.hol.pick[k]);
+  $('holPick').innerHTML = `<p class="holnow">${now ? `Today: <b>${esc(HOLIDAYS[now.k].name)}</b> until ${shortDate(now.e)}` : next ? `No holiday today. Next up: <b>${esc(HOLIDAYS[next.k].name)}</b> on ${shortDate(next.s)}` : 'No holidays picked yet'}</p>` +
+    Object.entries(HOLIDAYS).map(([k, h]) => `<label class="holrow"><input type="checkbox" data-hol="${k}" ${state.hol.pick[k] ? 'checked' : ''}><b>${esc(h.name)}</b><small>${when(k)}</small></label>`).join('') +
+    `<div class="field" style="margin-top:12px"><span class="lbl2">Preview</span><div class="seg wrap" role="group" aria-label="Holiday preview">${[['today', 'Today'], ['off', 'My theme'], ...picked.map(k => [k, HOLIDAYS[k].name])].map(([k, l]) => `<button data-holpv="${k}" aria-pressed="${holPreview === k}">${esc(l)}</button>`).join('')}</div></div>` +
+    `<p class="hint">Dates for Lunar New Year, Diwali and Hanukkah are filled in through 2030.</p>`;
 }
 function updateScore(){
   const sc = readability(eff().v);
@@ -2143,7 +2219,8 @@ const EGGS = {
   menorah:{name:'Festival of lights', hint:'Hanukkah theme: tap the menorah.'},
   diya:{name:'Light the diya', hint:'Diwali theme: tap the brightest diya.'},
   lantern:{name:'Lucky lantern', hint:'Lunar New Year theme: tap a lantern.'},
-  love:{name:'Love is love', hint:'Valentine’s theme: catch a floating heart.'}
+  love:{name:'Love is love', hint:'Valentine’s theme: catch a floating heart.'},
+  bunny:{name:'Some bunny loves you', hint:'Easter theme: tap the hopping bunny.'}
 };
 const EKEY = 'hearth-dashboard-studio-eggs';
 let eggs = {}; try { eggs = JSON.parse(localStorage.getItem(EKEY)) || {}; } catch(e) {}
@@ -2177,6 +2254,7 @@ const MENORAH = (() => { let c = ''; for (let i = 0; i < 9; i++) { const x = 10 
 const DIYA = '<svg viewBox="0 0 48 40" aria-hidden="true"><path class="flame" d="M24 4c5 6 6 10 0 16-6-6-5-10 0-16z" fill="#ffc23a"/><path d="M24 9c2 3 2 5 0 8-2-3-2-5 0-8z" fill="#fff3c4"/><path d="M4 22h40c-2 10-10 16-20 16S6 32 4 22z" fill="#c4521c"/><path d="M8 26h32" stroke="#ffcf6b" stroke-width="2.5" stroke-dasharray="3 3"/></svg>';
 const LANTERN = '<svg viewBox="0 0 44 90" aria-hidden="true"><path d="M22 0v18" stroke="#ffc845" stroke-width="1.5"/><rect x="14" y="16" width="16" height="5" rx="1.5" fill="#ffc845"/><ellipse cx="22" cy="42" rx="20" ry="22" fill="#e8262f"/><path d="M22 20v44M12 23c-6 12-6 26 0 38M32 23c6 12 6 26 0 38" stroke="#b5141c" stroke-width="1.5" fill="none"/><rect x="14" y="62" width="16" height="5" rx="1.5" fill="#ffc845"/><path d="M18 67v18M22 67v20M26 67v18" stroke="#ffc845" stroke-width="1.5"/></svg>';
 const HEART = c => `<svg viewBox="0 0 24 22" aria-hidden="true"><path d="M12 21 2.5 11.5A5.5 5.5 0 0 1 12 3.8a5.5 5.5 0 0 1 9.5 7.7z" fill="${c}"/></svg>`;
+const BUNNY = '<svg viewBox="0 0 56 56" aria-hidden="true"><ellipse cx="24" cy="38" rx="17" ry="13" fill="#f4f1f8"/><circle cx="9" cy="36" r="5" fill="#ffffff"/><circle cx="40" cy="28" r="10" fill="#f4f1f8"/><ellipse cx="37" cy="10" rx="3.6" ry="12" fill="#f4f1f8"/><ellipse cx="45" cy="11" rx="3.6" ry="12" fill="#f4f1f8" transform="rotate(14 45 11)"/><ellipse cx="37" cy="10" rx="1.6" ry="8" fill="#ffc4d6"/><circle cx="44" cy="26" r="1.7" fill="#222"/><circle cx="49.5" cy="30" r="1.6" fill="#ff8fb0"/><ellipse cx="30" cy="50" rx="7" ry="3" fill="#e4dfee"/></svg>';
 let funSig = '';
 function renderFun(t){
   const fun = t.fun || '', calm = quiet(), sig = [fun, calm, !!eggs.mother].join('|');
@@ -2205,6 +2283,9 @@ function renderFun(t){
   } else if (fun === 'space') {
     h = Array.from({length:calm ? 30 : 40}, () => `<i class="star" style="left:${r(0,99)}%; top:${r(0,99)}%; animation-duration:${r(2,6)}s; animation-delay:-${r(0,6)}s; opacity:${r(.4,1)}"></i>`).join('') +
       (calm ? '' : '<i class="shoot"></i>') + `<button class="flyby" data-egg="rocket" tabindex="-1" aria-label="Rocket" style="top:62%; width:76px; animation-duration:40s; animation-delay:-30s">${ROCKET}</button>`;
+  } else if (fun === 'easter') {
+    const cols = ['#ffb3c9','#b9e3ff','#fff09a','#c9b6ff','#b6f0c8'];
+    h = `<div class="strip grass"><div class="eggs">${Array.from({length:9}, (_, i) => `<i style="--c:${cols[i % 5]}"></i>`).join('')}</div><div class="walker" style="animation-duration:28s"><button class="bunny" data-egg="bunny" aria-label="Bunny">${BUNNY}</button></div></div>`;
   } else if (fun === 'xmas') {
     const cols = ['#ff4d5e','#ffd24d','#4dd68a','#5fb8ff','#ff9be0'];
     h = `<div class="lights">${Array.from({length:12}, (_, i) => `<i class="bulb" style="--c:${cols[i % 5]}; --d:-${(i * .37).toFixed(2)}s"></i>`).join('')}</div>` +
@@ -2268,6 +2349,7 @@ $('fun').addEventListener('click', e => {
   if (egg.dataset.egg === 'parrot') { tone([[0, 1400, 900, .12], [.16, 1500, 1000, .12]], 'square'); bubbleAt(egg, 'Squawk! Pretty bird!'); found('parrot'); }
   if (egg.dataset.egg === 'crab') { bubbleAt(egg, 'Pinch pinch! 🦀'); found('crab'); }
   if (egg.dataset.egg === 'rocket') { tone([[0, 120, 900, .9]], 'sine'); bubbleAt(egg, 'To the stars! 🚀'); found('liftoff'); }
+  if (egg.dataset.egg === 'bunny') { confetti(['#ffb3c9','#b9e3ff','#fff09a','#c9b6ff','#b6f0c8']); bubbleAt(egg, 'Some bunny loves you! 🐰'); found('bunny'); }
   if (egg.dataset.egg === 'gift') { tone([[0, 784, 784, .12], [.14, 988, 988, .12], [.28, 1175, 1175, .25]], 'sine'); bubbleAt(egg, 'Ho ho ho! 🎁'); found('present'); }
   if (egg.dataset.egg === 'pumpkin') { tone([[0, 220, 110, .6]], 'triangle'); bubbleAt(egg, 'Boo! 🎃'); found('boo'); }
   if (egg.dataset.egg === 'menorah') { tone([[0, 659, 659, .2], [.22, 880, 880, .3]], 'sine'); bubbleAt(egg, 'Chag sameach! 🕎'); found('menorah'); }
@@ -2487,6 +2569,10 @@ twoStep($('twResetAll'), () => { commit(); state.tw = {}; state.accent = null; s
 $('nightOn').addEventListener('change', e => { commit(); state.night.on = e.target.checked; dn = e.target.checked ? 'night' : 'day'; renderThemes(); renderDash(); save(); if (e.target.checked) toast('Previewing night. Use Day / Night above the canvas'); });
 $('nightTheme').addEventListener('change', e => { commit(); state.night.theme = e.target.value; dn = 'night'; renderThemes(); renderDash(); save(); });
 $('dayNight').addEventListener('click', e => { const b = e.target.closest('[data-dn]'); if (!b) return; dn = b.dataset.dn; renderThemes(); renderDash(); });
+$('holOn').addEventListener('change', e => { commit(); state.hol.on = e.target.checked; holPreview = 'today'; renderThemes(); renderDash(); save();
+  if (e.target.checked) { const r = holidayToday(); toast(r ? `It’s ${HOLIDAYS[r.k].name} season, so that theme is showing ✨` : 'Holiday themes on ✨'); } });
+$('holPick').addEventListener('change', e => { const c = e.target.closest('[data-hol]'); if (!c) return; commit(); state.hol.pick[c.dataset.hol] = c.checked; if (!c.checked && holPreview === c.dataset.hol) holPreview = 'today'; renderThemes(); renderDash(); save(); });
+$('holPick').addEventListener('click', e => { const b = e.target.closest('[data-holpv]'); if (!b) return; holPreview = b.dataset.holpv; renderThemes(); renderDash(); });
 $('calmOn').addEventListener('change', e => { commit(); state.calm = e.target.checked; renderThemes(); renderDash(); renderFxPanel(); save(); });
 
 let wallImg = null;
@@ -2915,22 +3001,26 @@ const cardOut = b => ({...cardYaml(b), grid_options:{columns:b.size === 'xl' ? '
 const themeName = k => 'Studio ' + getTheme(k).label + (k === 'pride' ? ' ' + (FLAGS[state.prideFlag] || FLAGS.rainbow).name : '');
 const fxActive = () => state.fx.bg !== 'off' || ['enter','tilt','edges','spill'].some(k => state.fx[k]) || ['page','tap','pop'].some(k => state.fx[k] && state.fx[k] !== 'off');
 const animYaml = () => ({page:state.fx.page || 'off', tap:state.fx.tap || 'off', state:state.fx.pop || 'off'});
-const usesStudioCard = () => allBlocks().some(b => ['hub', 'dualshade', 'vehicle', 'carbay'].includes(b.type)) || fxActive();
+const CRIT_FUNS = new Set(['duck','sakura','ocean','zoo','water','tropical','beach','cyber','space','sealion','easter','xmas','halloween','hanukkah','diwali','lunar','valentine']);
+const critterTheme = () => themeKeysOut().some(k => CRIT_FUNS.has(getTheme(k).fun));
+/* auto follows whichever theme Home Assistant is showing, for the sunset and holiday switch */
+const crittersOut = () => state.critters === false || !critterTheme() ? null : switching() ? 'auto' : getTheme(state.theme).fun;
+const usesStudioCard = () => allBlocks().some(b => ['hub', 'dualshade', 'vehicle', 'carbay'].includes(b.type)) || fxActive() || !!crittersOut();
 function fxCardYaml(){
-  if (!state.useCards || !fxActive()) return [];
+  if (!state.useCards || (!fxActive() && !crittersOut())) return [];
   const f = state.fx, w = allBlocks().find(b => b.type === 'weather');
   return [{type:'custom:dashboard-studio-fx', background:f.bg, ...(f.bg === 'weather' ? {weather_entity:w?.entity || 'weather.home'} : {}),
     strength:f.intensity, speed:+(f.speed / 100).toFixed(2),
-    card_effects:{float_in:!!f.enter, tilt:!!f.tilt, glowing_edges:!!f.edges, light_glow:!!f.spill}, animations:animYaml(), ...(state.calm ? {calm:true} : {}), grid_options:{columns:12}}];
+    ...(crittersOut() ? {critters:crittersOut()} : {}), card_effects:{float_in:!!f.enter, tilt:!!f.tilt, glowing_edges:!!f.edges, light_glow:!!f.spill}, animations:animYaml(), ...(state.calm ? {calm:true} : {}), grid_options:{columns:12}}];
 }
 function dashObj(){
   const used = new Set();
   const viewPath = (p, i) => { const base = slug(p.name || 'page' + (i+1)).replace(/_/g, '-'); let path = base, n = 2; while (used.has(path)) path = `${base}-${n++}`; used.add(path); return path; };
   const views = state.pages.map((p, i) => ({title:p.name || 'Page ' + (i+1), path:viewPath(p, i), type:'sections', max_columns:4,
-    theme: state.night.on ? undefined : themeName(state.theme),
+    theme: switching() ? undefined : themeName(state.theme),
     sections:[{type:'grid', column_span:SECTION_SPAN, cards:[...p.blocks.map(cardOut), ...fxCardYaml()]}]}));
   /* every control hub adds hidden subviews: one per device category and one per room */
-  const theme = state.night.on ? undefined : themeName(state.theme);
+  const theme = switching() ? undefined : themeName(state.theme);
   if (!state.useCards) allBlocks().filter(b => b.type === 'hub').forEach(b => {
     const rooms = b.rooms || [];
     Object.keys(HUB_CATS).forEach(c => {
@@ -2989,18 +3079,28 @@ function themeObj(k){
   return obj;
 }
 function themesOut(){
-  const keys = [state.theme, ...(state.night.on && state.night.theme !== state.theme ? [state.night.theme] : [])];
+  const keys = themeKeysOut();
   const out = {}; keys.forEach(k => out[themeName(k)] = themeObj(k));
   return out;
 }
 function themeYaml(){
-  const keys = [state.theme, ...(state.night.on && state.night.theme !== state.theme ? [state.night.theme] : [])];
+  const keys = themeKeysOut();
   const needsMod = keys.some(k => eff(k).v.blur > 0);
   const out = themesOut();
   return `# Save as /config/themes/studio.yaml\n` + (needsMod ? `# The frosted blur needs card-mod (HACS). Everything else works without it.\n` : '') + (state.calm ? `# Calm mode: blur and shadows are turned off.\n` : '') + (state.tw.font ? `# Your font needs the Google Fonts resource from the install steps.\n` : '') + ((state.tw.fs ?? 100) !== 100 ? `# ha-font-size-scale needs a recent Home Assistant (2025.5 or newer).\n` : '') + toYaml(out);
 }
 function autoYaml(){ const {id, ...a} = autoObj(); return `# Settings > Automations > Create > three dots > Edit in YAML\n` + toYaml(a); }
 function autoObj(){
+  if (state.hol?.on) {
+    const y = new Date().getFullYear(), night = state.night.on;
+    const base = night ? `('${themeName(state.night.theme)}' if is_state('sun.sun', 'below_horizon') else '${themeName(state.theme)}')` : `'${themeName(state.theme)}'`;
+    const rs = holRanges(y - 1, y + 4).filter(r => r.e >= `${y}-01-01`).map(r => `['${r.s}','${r.e}','${themeName(HOLIDAYS[r.k].theme)}']`).join(', ');
+    return {id:'studio_sunset_switch', alias:night ? 'Studio theme follows the sun and holidays' : 'Studio theme follows the holidays',
+      description:`Shows holiday themes on their dates${night ? ' and swaps themes at sunset and sunrise' : ''}. Dates run through ${y + 4}; export again to add more years.`,
+      triggers:[...(night ? [{trigger:'sun', event:'sunset'}, {trigger:'sun', event:'sunrise'}] : []), {trigger:'time', at:'00:00:30'}, {trigger:'homeassistant', event:'start'}],
+      actions:[{action:'frontend.set_theme', data:{name:`{% set d = now().strftime('%Y-%m-%d') %}{% set ns = namespace(t='') %}{% for r in [${rs}] %}{% if not ns.t and r[0] <= d <= r[1] %}{% set ns.t = r[2] %}{% endif %}{% endfor %}{{ ns.t or ${base} }}`}}],
+      mode:'single'};
+  }
   return ({id:'studio_sunset_switch',
     alias:'Studio theme follows the sun', description:'Switches the dashboard theme at sunset and sunrise',
     triggers:[{trigger:'sun', event:'sunset', id:'night'}, {trigger:'sun', event:'sunrise', id:'day'}],
@@ -3008,7 +3108,7 @@ function autoObj(){
     mode:'single'});
 }
 function stepsHTML(){
-  const usesMod = [state.theme, state.night.on ? state.night.theme : null].filter(Boolean).some(k => eff(k).v.blur > 0);
+  const usesMod = themeKeysOut().some(k => eff(k).v.blur > 0);
   return `<ol class="steps">
     <li>In <code>configuration.yaml</code>, make sure themes load from a folder:<pre class="code" style="margin-top:8px">frontend:\n  themes: !include_dir_merge_named themes</pre></li>
     <li>Copy the <b>Theme</b> tab into <code>/config/themes/studio.yaml</code>, then run the action <code>frontend.reload_themes</code> (or restart).</li>
@@ -3022,8 +3122,8 @@ function stepsHTML(){
       : `<li>When you create the dashboard, set its URL to <code>${esc(dashUrl())}</code>. The Control hub buttons open hidden pages at that address, one per category and one per room.</li>`) : ''}
     ${state.nav === 'touch' && state.hideHeader ? '<li>To hide Home Assistant’s top bar, install <b>kiosk-mode</b> from HACS. To get the top bar back for a moment, add <code>?disable_km</code> to the end of the dashboard’s address.</li>' : ''}
     <li>Go to <b>Settings &rsaquo; Dashboards &rsaquo; Add dashboard &rsaquo; New dashboard from scratch</b>, open it, tap the pencil, then the three dots &rsaquo; <b>Raw configuration editor</b>.</li>
-    <li>Paste the <b>Dashboard</b> tab and save. You get ${state.pages.length} view${state.pages.length===1?'':'s'}, one per page.${state.night.on ? '' : ` Each view already uses <code>${esc(themeName(state.theme))}</code>.`}</li>
-    ${state.night.on ? `<li>Paste the <b>Sunset switch</b> tab as a new automation. It sets the theme for everyone at sunset and sunrise. Set your profile theme to <b>Backend-selected</b> so it follows along.</li>` : ''}
+    <li>Paste the <b>Dashboard</b> tab and save. You get ${state.pages.length} view${state.pages.length===1?'':'s'}, one per page.${switching() ? '' : ` Each view already uses <code>${esc(themeName(state.theme))}</code>.`}</li>
+    ${switching() ? `<li>Paste the <b>Theme switch</b> tab as a new automation. It sets the theme for everyone${state.night.on ? ' at sunset and sunrise' : ''}${state.hol?.on ? `${state.night.on ? ' and' : ''} on holidays` : ''}. Set your profile theme to <b>Backend-selected</b> so it follows along.</li>` : ''}
     <li>Swap each example entity ID (like <code>light.kitchen</code>) for yours. Scene buttons expect <code>scene.&lt;name&gt;</code> and people expect <code>person.&lt;name&gt;</code>.</li>
     <li>Blocks set to “only when” use HA’s built-in visibility conditions, so they appear and disappear by themselves.</li>
   </ol>`;
@@ -3055,10 +3155,10 @@ let downloads = null, sampleFn = null;
 function openExport(tab='dash'){
   const plans = allBlocks().filter(b => b.type === 'floorplan');
   const hubs = allBlocks().some(b => b.type === 'hub'), hasScenes = allBlocks().some(b => b.type === 'hub' && b.scenes?.length);
-  const tabs = [['dash','Dashboard'],['theme','Theme'], ...(state.night.on ? [['auto','Sunset switch']] : []), ...(plans.length ? [['plan','Floor plan image']] : []),
+  const tabs = [['dash','Dashboard'],['theme','Theme'], ...(switching() ? [['auto','Theme switch']] : []), ...(plans.length ? [['plan','Floor plan image']] : []),
     ...(hasScenes ? [['scenes','Scenes']] : []), ...(hubs || (allBlocks().some(b => b.type === 'dualshade') && !state.useCards) ? [['scripts','Scripts']] : []), ['steps','How to install']];
   let planI = 0, cur = tab;
-  const files = {dash:() => ['dashboard.yaml', dashYaml()], theme:() => ['studio.yaml', themeYaml()], auto:() => ['sunset-switch.yaml', autoYaml()],
+  const files = {dash:() => ['dashboard.yaml', dashYaml()], theme:() => ['studio.yaml', themeYaml()], auto:() => ['theme-switch.yaml', autoYaml()],
     plan:() => [planFile(plans[planI]), floorplanSVG(plans[planI])], scenes:() => ['scenes.yaml', scenesYaml()], scripts:() => ['scripts.yaml', scriptsYaml()]};
   const draw = t => {
     cur = t;
@@ -3066,7 +3166,7 @@ function openExport(tab='dash'){
     if (t === 'steps') $('mBody').innerHTML = stepsHTML();
     else {
       const [name, text] = files[t]();
-      const cardToggle = t === 'dash' && usesStudioCard() ? `<label class="switch"><span><b>Use the Dashboard Studio card</b><small>Exports the Control hub and your moving background and card effects as the live Dashboard Studio cards, so they look and work like the preview. Turn off to use only built-in HA cards.</small></span><input type="checkbox" id="useCardsIn" ${state.useCards ? 'checked' : ''}></label>` : '';
+      const cardToggle = t === 'dash' && usesStudioCard() ? `<label class="switch"><span><b>Use the Dashboard Studio card</b><small>Exports the Control hub and your moving background and card effects as the live Dashboard Studio cards, so they look and work like the preview. Turn off to use only built-in HA cards.</small></span><input type="checkbox" id="useCardsIn" ${state.useCards ? 'checked' : ''}></label>` + (state.useCards && critterTheme() ? `<label class="switch"><span><b>Bring the theme’s critters</b><small>The animals and decorations from your fun and holiday themes show in Home Assistant too, and you can tap them. Calm mode keeps them still.</small></span><input type="checkbox" id="critIn" ${state.critters !== false ? 'checked' : ''}></label>` : '') : '';
       const navField = t === 'dash' && state.pages.length > 1 ? `<div class="field"><span class="lbl2">Room switching in Home Assistant</span><div class="seg" role="group" aria-label="Room switching">${[['tabs','A tab for every page'], ['touch','One touchscreen, rooms in the dropdown']].map(([k, l]) => `<button data-nav="${k}" aria-pressed="${(state.nav || 'tabs') === k}">${l}</button>`).join('')}</div>
         <p class="hint">${state.nav === 'touch' ? 'Your touchscreen page becomes the only tab. Your other pages are still there, hidden from the tab bar.' : 'Every page gets its own tab at the top of the dashboard.'}</p>
         ${state.nav === 'touch' ? `<label class="switch"><span><b>Hide Home Assistant’s top bar too</b><small>Needs the free kiosk-mode add-on from HACS</small></span><input type="checkbox" id="hideHeaderIn" ${state.hideHeader ? 'checked' : ''}></label>` : ''}</div>` : '';
@@ -3076,6 +3176,7 @@ function openExport(tab='dash'){
       const pp = $('planPick'); if (pp) pp.onchange = () => { planI = +pp.value; draw('plan'); };
       const du = $('dashUrlIn'); if (du) du.oninput = () => { state.dashUrl = du.value; save(); $('codeOut').textContent = dashYaml(); };
       const uc = $('useCardsIn'); if (uc) uc.onchange = () => { state.useCards = uc.checked; save(); draw('dash'); };
+      const ci = $('critIn'); if (ci) ci.onchange = () => { state.critters = ci.checked; save(); draw('dash'); };
       $('mBody').querySelectorAll('[data-nav]').forEach(x => x.onclick = () => { commit(); state.nav = x.dataset.nav; save(); draw('dash'); });
       const hh = $('hideHeaderIn'); if (hh) hh.onchange = () => { commit(); state.hideHeader = hh.checked; save(); draw('dash'); };
     }
@@ -4600,7 +4701,7 @@ async function installToHA(){
   const payload = {
     dashboard:{url_path:dashUrl(), title:state.name || 'Home', icon:'mdi:view-dashboard', config:dashObj()},
     themes:themesOut(), files, card:usesStudioCard() && !!state.useCards,
-    scripts:scriptsOut(), scenes:hubs ? scenesOut() : [], automations:state.night.on ? [autoObj()] : []
+    scripts:scriptsOut(), scenes:hubs ? scenesOut() : [], automations:switching() ? [autoObj()] : []
   };
   try {
     const r = await fetch('api/install', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
