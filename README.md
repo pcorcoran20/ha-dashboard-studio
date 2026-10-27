@@ -220,6 +220,25 @@ While the car sleeps, the card says **Asleep** and shows a **Wake** button (from
 
 A button only shows up when the card finds its entity. Tap the car's name to open Home Assistant's more-info dialog.
 
+## The weather and greeting cards
+
+`custom:dashboard-studio-weather` shows the weather now, a 5 day forecast, and live readings from a **Tempest** weather station. Leave everything out and it picks your weather entity and Tempest by itself.
+
+```yaml
+type: custom:dashboard-studio-weather
+name: Weather
+entity: weather.home      # optional: the forecast (WeatherFlow Cloud gives one for a Tempest)
+station: <device id>      # optional: a Tempest from the local WeatherFlow integration, for live readings
+forecast: true            # false hides the 5 day forecast
+```
+
+`custom:dashboard-studio-header` is the greeting: a greeting, the date, a big clock and chips for lights on, the inside temperature, the locks and the alarm.
+
+```yaml
+type: custom:dashboard-studio-header
+name: Alex                # optional, added to the greeting
+```
+
 ## The garage card
 
 `custom:dashboard-studio-garage` puts all your cars in a garage. A car that's home is parked in its bay, and one that's away leaves an empty bay that says where it is. Each bay shows the battery and whether the car is charging, asleep or locked. The garage door slides over the bays, and tapping a car opens its vehicle card.

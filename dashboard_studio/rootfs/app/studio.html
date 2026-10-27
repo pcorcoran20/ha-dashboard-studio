@@ -297,6 +297,9 @@ pre.code{margin:0; background:var(--bg); border:1px solid var(--line); border-ra
 .bri::-moz-range-thumb{width:16px; height:16px; border-radius:50%; background:var(--d-text); border:0}
 
 .wx-main{display:flex; align-items:center; gap:14px}
+.wx-live{margin-left:8px; font-size:calc(10.5px * var(--d-fs,1)); font-weight:600; padding:2px 8px; border-radius:99px; background:color-mix(in srgb, var(--d-accent) 20%, transparent); color:var(--d-text)}
+.wx-chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:2px}
+.wx-chips .chip{padding:5px 10px}
 .wx-main svg.i{width:46px; height:46px; color:var(--d-accent); stroke-width:1.5}
 .fc{display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin-top:auto}
 .fc div{display:flex; flex-direction:column; align-items:center; gap:4px; font-size:calc(12px * var(--d-fs,1)); color:var(--d-muted); padding:8px 0; border-radius:12px; background:color-mix(in srgb, var(--d-text) 5%, transparent)}
@@ -1500,9 +1503,10 @@ const R = {
     const c = CONDS[b.cond] || CONDS.partly;
     const plan = [['partly',15,8],['rain',12,7],['cloud',13,6],['sun',16,7],['sun',17,9]];
     const days = plan.map((d, i) => [new Date(Date.now() + (i+1)*864e5).toLocaleDateString([], {weekday:'short'}), ...d]);
-    return `<div class="d-label">${esc(b.title)}</div>
+    const live = b.station ? `<div class="wx-chips"><span class="chip">${ic('wind')}6 mph · gusts 11</span><span class="chip">${ic('drop')}58%</span><span class="chip">${ic('rain')}0 in today</span><span class="chip">${ic('sun')}UV 3</span></div>` : '';
+    return `<div class="d-label">${esc(b.title)}${b.station ? '<span class="wx-live">Live from Tempest</span>' : ''}</div>
       <div class="wx-main">${ic(c[0])}<div><div class="d-big" style="font-size:calc(44px * var(--d-fs,1) * var(--d-num,1))">${tC(c[2], 0)}°</div><div class="d-label">${c[1]} · H ${tC(c[3][0], 0)}° L ${tC(c[3][1], 0)}°</div></div></div>
-      ${b.size==='s' ? '' : `<div class="fc">${days.map(d => `<div>${d[0]}${ic(d[1])}<b>${tC(d[2], 0)}°</b>${tC(d[3], 0)}°</div>`).join('')}</div>`}`;
+      ${live}${b.size==='s' ? '' : `<div class="fc">${days.map(d => `<div>${d[0]}${ic(d[1])}<b>${tC(d[2], 0)}°</b>${tC(d[3], 0)}°</div>`).join('')}</div>`}`;
   },
   light(b){
     return `<div class="d-top"><span class="d-ico">${ic('bulb')}</span><button class="sw-toggle" data-act="toggle" aria-label="Toggle ${esc(b.title)}"></button></div>
@@ -2361,6 +2365,7 @@ function renderInsp(){
     ${b.type === 'hub' ? hubEditorHTML(b) : ''}
     ${b.type === 'vehicle' ? vehEditorHTML(b) : ''}
     ${b.type === 'carbay' ? carbayEditorHTML(b) : ''}
+    ${b.type === 'weather' ? wxEditorHTML(b) : ''}
     ${b.type === 'dualshade' ? `<div class="field"><span class="lbl2">Shade type</span><div class="seg" role="group" aria-label="Shade type">${Object.entries(DS).map(([k, d]) => `<button data-dsstyle="${k}" aria-pressed="${(b.style || 'daynight') === k}">${d.short}</button>`).join('')}</div><p class="hint">${DS[b.style || 'daynight'].help}</p></div>` : ''}
     ${b.type === 'weather' ? `<div class="field"><span class="lbl2">Example weather</span><div class="seg" role="group" aria-label="Example weather">${Object.entries(CONDS).map(([k,c]) => `<button data-cond="${k}" aria-pressed="${(b.cond || 'partly') === k}">${c[1]}</button>`).join('')}</div><p class="hint">For the preview only. In Home Assistant this card shows your real weather. The “Follows the weather” background uses it too.</p></div>` : ''}
     <div class="field"><span class="lbl2">Width</span><div class="seg" role="group" aria-label="Width">${SIZES.map(s => `<button data-size="${s}" aria-pressed="${b.size===s}">${SIZE_LABEL[s]}</button>`).join('')}</div></div>
@@ -2516,6 +2521,8 @@ insp.addEventListener('click', e => {
     if (b && del) { commit(); b.cars.splice(+del.dataset.cbdel, 1); renderDash(); renderInsp(); save(); return; } }
   { const b = find(selected), vm = e.target.closest('[data-vmodel]'), vp = e.target.closest('[data-vpaint]');
     const t = b?.type === 'hub' ? b.car : b, hc = e.target.closest('[data-hcar]');
+    const wx = e.target.closest('[data-wxst]');
+    if (b && wx) { commit(); b.station = wx.dataset.wxst; renderDash(); renderInsp(); save(); return; }
     const vs = e.target.closest('[data-vsleep]');
     if (t && vs) { commit(); t.asleep = vs.dataset.vsleep === 'true'; renderDash(); renderInsp(); save(); return; }
     const vr = e.target.closest('[data-vrev]');
@@ -2592,9 +2599,14 @@ function toYaml(v, ind=0){
 }
 function cardYaml(b){
   switch(b.type){
-    case 'header': return {type:'markdown', text_only:true, content:
+    case 'header': if (state.useCards) return {type:'custom:dashboard-studio-header', ...(b.title ? {name:b.title} : {})};
+      return {type:'markdown', text_only:true, content:
       `## {% set h = now().hour %}{% if h < 12 %}Good morning{% elif h < 18 %}Good afternoon{% else %}Good evening{% endif %}${b.title ? ', ' + b.title : ''}\n{{ now().strftime('%A %-d %B') }} · {{ states.light | selectattr('state','eq','on') | list | count }} lights on`};
-    case 'weather': return {type:'weather-forecast', entity:b.entity, name:b.title, show_current:true, show_forecast:b.size!=='s', forecast_type:'daily'};
+    case 'weather': {
+      const ent = realWeather(b.entity), known = !state.entities.length || state.entities.includes(ent);
+      if (state.useCards) return {type:'custom:dashboard-studio-weather', name:b.title, ...(known && ent ? {entity:ent} : {}), ...(b.station && b.station !== 'demo' ? {station:b.station} : {}), ...(b.size === 's' ? {forecast:false} : {})};
+      return {type:'weather-forecast', entity:ent, name:b.title, show_current:true, show_forecast:b.size!=='s', forecast_type:'daily'};
+    }
     case 'light': return {type:'tile', entity:b.entity, name:b.title, features_position:'bottom', features:[{type:'light-brightness'}]};
     case 'climate': return {type:'thermostat', entity:b.entity, name:b.title};
     case 'media': return {type:'media-control', entity:b.entity, name:b.title};
@@ -2673,7 +2685,9 @@ function visYaml(b){
   if (v.mode === 'big') return [{condition:'screen', media_query:'(min-width: 768px)'}];
   if (v.mode === 'state' && v.entity) return [{condition:'state', entity:v.entity, state:v.state || 'on'}];
 }
-const cardOut = b => ({...cardYaml(b), grid_options:{columns:SPAN[b.size]}, visibility:visYaml(b), card_mod:cardMod(b)});
+/* each page is one section 4 columns wide, and Home Assistant gives such a section a 4 × 12 column grid */
+const SECTION_SPAN = 4;
+const cardOut = b => ({...cardYaml(b), grid_options:{columns:b.size === 'xl' ? 'full' : SPAN[b.size] * SECTION_SPAN}, visibility:visYaml(b), card_mod:cardMod(b)});
 const themeName = k => 'Studio ' + getTheme(k).label + (k === 'pride' ? ' ' + (FLAGS[state.prideFlag] || FLAGS.rainbow).name : '');
 const fxActive = () => state.fx.bg !== 'off' || ['enter','tilt','edges','spill'].some(k => state.fx[k]) || ['page','tap','pop'].some(k => state.fx[k] && state.fx[k] !== 'off');
 const animYaml = () => ({page:state.fx.page || 'off', tap:state.fx.tap || 'off', state:state.fx.pop || 'off'});
@@ -2690,7 +2704,7 @@ function dashObj(){
   const viewPath = (p, i) => { const base = slug(p.name || 'page' + (i+1)).replace(/_/g, '-'); let path = base, n = 2; while (used.has(path)) path = `${base}-${n++}`; used.add(path); return path; };
   const views = state.pages.map((p, i) => ({title:p.name || 'Page ' + (i+1), path:viewPath(p, i), type:'sections', max_columns:4,
     theme: state.night.on ? undefined : themeName(state.theme),
-    sections:[{type:'grid', column_span:4, cards:[...p.blocks.map(cardOut), ...fxCardYaml()]}]}));
+    sections:[{type:'grid', column_span:SECTION_SPAN, cards:[...p.blocks.map(cardOut), ...fxCardYaml()]}]}));
   /* every control hub adds hidden subviews: one per device category and one per room */
   const theme = state.night.on ? undefined : themeName(state.theme);
   if (!state.useCards) allBlocks().filter(b => b.type === 'hub').forEach(b => {
@@ -3636,6 +3650,7 @@ insp.addEventListener('change', e => {
     if (e.target.dataset.cbk === 'device') { const d = carDevices().find(x => x.id === c.device); if (d) { c.title = d.name; const k = (TV_MODEL.find(([re]) => re.test(d.model + ' ' + d.name)) || [])[1]; if (k) c.model = k; } }
     renderDash(); renderInsp(); save(); return;
   }
+  if (e.target.id === 'wxEnt' || e.target.id === 'wxSt') { const blk = find(selected); if (!blk) return; commit(); blk[e.target.id === 'wxEnt' ? 'entity' : 'station'] = e.target.value; renderDash(); renderInsp(); save(); return; }
   if (e.target.id === 'vDev') {
     const blk = find(selected), t = blk?.type === 'hub' ? blk.car : blk; if (!t) return;
     commit(); t.device = e.target.value; const d = carDevices().find(c => c.id === t.device);
@@ -3687,6 +3702,25 @@ function carbayEditorHTML(b){
       <div class="field"><label for="cb_p${i}">Paint</label><select id="cb_p${i}" data-cb="${i}" data-cbk="paint">${VEH_PAINTS.map(([k, l]) => `<option value="${k}" ${c.paint === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>`).join('')}
     <div class="btnrow"><button class="btn" data-cbadd>${ic('plus')}Add a car</button></div>
     <p class="hint">Tap a car in the preview to switch it between home and away. In Home Assistant, cars park by themselves when they're home, and tapping one opens its vehicle card. Leave Which car empty and the card uses every car it finds.</p></div>`;
+}
+/* weather: the design's entity if Home Assistant has it, else the first real one (a Tempest's first) */
+const TEMPEST_PLATFORMS = ['weatherflow', 'weatherflow_cloud'];
+function realWeather(e){
+  const ws = state.entities.filter(x => x.startsWith('weather.'));
+  if (!ws.length || ws.includes(e)) return e;
+  return ws.find(x => TEMPEST_PLATFORMS.includes(window.__haPlat?.[x])) || ws[0];
+}
+function tempestStations(){
+  const dev = window.__haDev, plat = window.__haPlat; if (!dev || !plat) return [];
+  const ids = [...new Set(Object.entries(dev).filter(([id, d]) => d && id.startsWith('sensor.') && TEMPEST_PLATFORMS.includes(plat[id])).map(([, d]) => d))];
+  return ids.map(id => ({id, name:window.__haDevices?.[id]?.name || 'Tempest'}));
+}
+function wxEditorHTML(b){
+  const ws = state.entities.filter(x => x.startsWith('weather.')), st = tempestStations();
+  return `${ws.length ? `<div class="field"><label for="wxEnt">Weather</label><select id="wxEnt">${ws.map(w => `<option value="${esc(w)}" ${realWeather(b.entity) === w ? 'selected' : ''}>${esc(window.__haNames?.[w] || w)}${TEMPEST_PLATFORMS.includes(window.__haPlat?.[w]) ? ' · Tempest' : ''}</option>`).join('')}</select></div>` : ''}
+    <div class="field"><span class="lbl2">Tempest station</span>${st.length ? `<select id="wxSt"><option value="">None</option>${st.map(x => `<option value="${esc(x.id)}" ${b.station === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` :
+      `<div class="seg" role="group" aria-label="Preview a Tempest"><button data-wxst="" aria-pressed="${!b.station}">None</button><button data-wxst="demo" aria-pressed="${!!b.station}">Preview a Tempest</button></div>`}
+      <p class="hint">A Tempest adds live wind, humidity, rain and UV. WeatherFlow Cloud also gives a weather entity with a forecast. The local WeatherFlow integration gives the live readings. In Home Assistant the card finds both by itself.</p></div>`;
 }
 function vehEditorHTML(b){
   const cars = carDevices();

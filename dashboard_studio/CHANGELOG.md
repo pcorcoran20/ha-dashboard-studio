@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.0
+
+- **Pages look the same in Home Assistant.** Full width blocks are really full width now. Home Assistant gives a section that's 4 columns wide a 48 column grid, so the export now sizes blocks for that.
+- **Greeting and Weather match the Studio.** With the Dashboard Studio card on, they export as new cards with the big clock, the chips and the forecast tiles, in place of plain Markdown and the standard forecast card.
+- **Tempest weather stations.** The weather card reads a Tempest: WeatherFlow Cloud's weather entity gives the forecast, and the local WeatherFlow integration's sensors give live temperature, wind and gusts, humidity, rain today, UV and lightning. Pick the weather and the Tempest in the Studio, or let the card find them.
+- Fix: a Weather block that still pointed at the example `weather.home` showed "Entity not found". The export now uses your real weather entity.
+- Fix: the Control hub's icons were invisible inside the white "on" circles with some themes.
+- The greeting's chips skip your cars' thermostats and locks.
+
 ## 1.4.0
 
 - **Garage 🏠** A new Garage card and **Car garage** block for homes with more than one car. Each car has its own bay: parked in its paint when it's home, or an empty bay that says where it is when it's away. A Wall Connector shows next to a car that's charging. Each bay shows the car's battery and whether it's charging, asleep or locked. The garage door slides over the bays to match your real door, and you can tap to open or close it. Tap a car to open its vehicle card. Leave out `cars` and it shows every car Home Assistant knows.

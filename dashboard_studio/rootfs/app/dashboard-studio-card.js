@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.4.0';
+const STUDIO_VERSION = '1.5.0';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -679,11 +679,11 @@ const STYLE = `
 .fxl{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:var(--ha-card-border-radius,12px);z-index:9}
 ha-card.tap-press :is(button,.row):active{transform:scale(.94);transition:transform .08s}
 ha-card.tap-press button{transition:transform .2s cubic-bezier(.3,1.6,.5,1)}
-ha-card.ic-soft{--s-active:var(--s-text);--s-active-ink:var(--ico-ink,var(--card-background-color,var(--primary-background-color,#fff)))}
+ha-card.ic-soft{--s-active:var(--s-text);--s-active-ink:var(--ico-ink,var(--primary-background-color,#1d1e21))}
 ha-card.ic-accent{--s-active:var(--s-accent);--s-active-ink:var(--s-on)}
 ha-card.ic-warm{--s-active:var(--state-light-active-color,#ffc94d);--s-active-ink:#3a2a00}
 :host{--s-text:var(--primary-text-color,#1c1c1c);--s-muted:var(--secondary-text-color,#6b6b6b);--s-accent:var(--primary-color,#03a9f4);
-  --s-on:var(--text-primary-color,#fff);--s-active:var(--s-text);--s-active-ink:var(--ico-ink,var(--card-background-color,var(--primary-background-color,#fff)));--s-r:var(--ha-card-border-radius,12px);
+  --s-on:var(--text-primary-color,#fff);--s-active:var(--s-text);--s-active-ink:var(--ico-ink,var(--primary-background-color,#1d1e21));--s-r:var(--ha-card-border-radius,12px);
   --s-line:var(--ha-card-border-color,var(--divider-color,rgba(0,0,0,.12)));--s-soft:color-mix(in srgb,var(--s-text) 6%,transparent);--s-soft2:color-mix(in srgb,var(--s-text) 11%,transparent)}
 ha-card{padding:16px;display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden;color:var(--s-text)}
 button{font:inherit;color:inherit;cursor:pointer}
@@ -1991,6 +1991,195 @@ class DashboardStudioGarageEditor extends HTMLElement {
   }
 }
 
+/*
+ * Dashboard Studio header card: the greeting, the date, a big clock and chips for the house,
+ * the same as the Greeting block in the Studio.
+ *
+ *   type: custom:dashboard-studio-header
+ *   name: Alex                 # optional, added to the greeting
+ *   climate: climate.house     # optional: the inside temperature chip (default: the first thermostat)
+ *   alarm: alarm_control_panel.home   # optional (default: the first alarm panel)
+ */
+class DashboardStudioHeader extends HTMLElement {
+  constructor() { super(); this.attachShadow({mode: 'open'}); }
+  static getStubConfig() { return {}; }
+  setConfig(config) { this._config = config || {}; this._render(); }
+  set hass(hass) {
+    const old = this._hass; this._hass = hass;
+    if (!old || this._sig() !== this._last) this._render();
+  }
+  getCardSize() { return 2; }
+  getGridOptions() { return {columns: 'full', rows: 'auto'}; }
+  connectedCallback() { this._tick = setInterval(() => this._render(), 20000); }
+  disconnectedCallback() { clearInterval(this._tick); }
+
+  _facts() {
+    const h = this._hass, c = this._config, ids = Object.keys(h.states);
+    /* the house, not the cars: skip thermostats and locks that belong to a car */
+    const cars = new Set(findCars(h).map(x => x.device)), home = id => !cars.has(h.entities?.[id]?.device_id);
+    const lights = ids.filter(id => id.startsWith('light.') && h.states[id].state === 'on').length;
+    const clim = h.states[c.climate || ids.find(id => id.startsWith('climate.') && home(id))];
+    const locks = ids.filter(id => id.startsWith('lock.') && home(id)).map(id => h.states[id].state);
+    const alarm = h.states[c.alarm || ids.find(id => id.startsWith('alarm_control_panel.'))];
+    return {lights, inside: clim?.attributes.current_temperature, locks, alarm: alarm?.state};
+  }
+  _sig() { if (!this._hass) return ''; const f = this._facts(); return JSON.stringify(f) + new Date().getMinutes(); }
+
+  _render() {
+    if (!this._config || !this._hass) return;
+    this._last = this._sig();
+    const f = this._facts(), d = new Date(), hr = d.getHours();
+    const g = hr < 5 ? 'Good night' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
+    const unit = (this._hass.config?.unit_system?.temperature || '°').replace(/[CF]$/, '');
+    const open = f.locks.filter(s => s !== 'locked').length;
+    const ALARM = {disarmed: 'Alarm off', armed_home: 'Armed home', armed_away: 'Armed away', armed_night: 'Armed night', triggered: 'Alarm triggered!'};
+    const chip = (icon, text) => `<span class="chip"><ha-icon icon="${icon}"></ha-icon>${esc(text)}</span>`;
+    this.shadowRoot.innerHTML = `<style>${HEADER_STYLE}</style><ha-card>
+      <div class="row"><div><div class="greet">${g}${this._config.name ? ', ' + esc(this._config.name) : ''}</div><div class="date">${esc(d.toLocaleDateString([], {weekday: 'long', day: 'numeric', month: 'long'}))}</div></div>
+        <div class="time">${esc(d.toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'}))}</div></div>
+      <div class="chips">${chip('mdi:lightbulb-outline', `${f.lights} light${f.lights === 1 ? '' : 's'} on`)}
+        ${f.inside != null ? chip('mdi:thermometer', `${Math.round(f.inside)}${unit} inside`) : ''}
+        ${f.locks.length ? chip(open ? 'mdi:lock-open-variant-outline' : 'mdi:lock-outline', open ? `${open} unlocked` : 'Doors locked') : ''}
+        ${f.alarm ? chip('mdi:shield-home-outline', ALARM[f.alarm] || cap(f.alarm)) : ''}</div></ha-card>`;
+  }
+}
+const HEADER_STYLE = `
+ha-card{background:none;border:none;box-shadow:none;padding:6px 4px 10px;color:var(--primary-text-color)}
+.row{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.greet{font-size:clamp(28px,4.2vw,46px);font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.date{color:var(--secondary-text-color);font-size:15px;margin-top:6px}
+.time{font-size:clamp(34px,5.4vw,64px);font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:99px;background:var(--ha-card-background,var(--card-background-color));border:1px solid var(--ha-card-border-color,var(--divider-color));font-size:13px;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.chip ha-icon{--mdc-icon-size:15px;color:var(--primary-color)}
+`;
+
+/*
+ * Dashboard Studio weather card: now, a 5 day forecast, and live readings from a Tempest station.
+ *
+ *   type: custom:dashboard-studio-weather
+ *   entity: weather.home        # a weather entity (WeatherFlow Cloud gives one for a Tempest)
+ *   station: <device id>        # optional: a Tempest from the local WeatherFlow integration, for live readings
+ * Leave both out and the card picks your weather entity and Tempest by itself.
+ */
+const TEMPEST_PLATFORMS = ['weatherflow', 'weatherflow_cloud'];
+const STATION_KEYS = {
+  temperature: [/_air_temperature$/, /_temperature$/], humidity: [/_relative_humidity$/, /_humidity$/],
+  wind: [/_wind_speed_average$/, /_wind_speed$/], gust: [/_wind_gust$/], direction: [/_wind_direction(_average)?$/],
+  rain: [/_precipitation_today$/, /_rain_today$/, /_precipitation$/], rate: [/_rain_rate$/, /_precipitation_rate$/],
+  uv: [/_uv(_index)?$/], pressure: [/_sea_level_pressure$/, /_station_pressure$/, /_pressure$/], lightning: [/_lightning_count$/]
+};
+function tempestStations(hass) {
+  const by = {};
+  Object.values(hass.entities || {}).forEach(e => { if (TEMPEST_PLATFORMS.includes(e.platform) && e.device_id && e.entity_id.startsWith('sensor.')) (by[e.device_id] = by[e.device_id] || []).push(e.entity_id); });
+  return by;
+}
+class DashboardStudioWeather extends HTMLElement {
+  constructor() { super(); this.attachShadow({mode: 'open'}); this._fc = null; }
+  static getStubConfig() { return {}; }
+  static getConfigElement() { return document.createElement('dashboard-studio-weather-editor'); }
+  setConfig(config) { this._config = config || {}; this._pick = null; this._unsub?.(); this._unsub = null; this._fc = null; this._render(); }
+  set hass(hass) {
+    const old = this._hass; this._hass = hass;
+    if (!this._pick || old?.entities !== hass.entities) this._choose();
+    if (this.isConnected) this._subscribe();
+    const ids = [this._pick.entity, ...Object.values(this._pick.s)].filter(Boolean);
+    if (!old || ids.some(id => old.states[id] !== hass.states[id])) this._render();
+  }
+  getCardSize() { return 4; }
+  getGridOptions() { return {columns: 12, min_columns: 6}; }
+  connectedCallback() { if (this._hass) this._subscribe(); }
+  disconnectedCallback() { this._unsub?.(); this._unsub = null; this._subFor = null; }
+
+  _choose() {
+    const h = this._hass, c = this._config, ids = Object.keys(h.states), ents = h.entities || {};
+    const weathers = ids.filter(id => id.startsWith('weather.'));
+    const entity = c.entity && h.states[c.entity] ? c.entity
+      : weathers.find(id => TEMPEST_PLATFORMS.includes(ents[id]?.platform)) || weathers.find(id => id === c.entity) || weathers[0];
+    const stations = tempestStations(h), sid = c.station && stations[c.station] ? c.station : c.station === false ? null : Object.keys(stations)[0];
+    const pool = sid ? stations[sid] : [], s = {};
+    Object.entries(STATION_KEYS).forEach(([k, tests]) => { for (const t of tests) { const hit = pool.find(id => t.test(id)); if (hit) { s[k] = hit; break; } } });
+    this._pick = {entity, station: sid, s};
+  }
+
+  _subscribe() {
+    const e = this._pick?.entity, conn = this._hass?.connection;
+    if (!e || !conn || this._subFor === e) return;
+    this._unsub?.(); this._subFor = e;
+    conn.subscribeMessage(m => { this._fc = m.forecast || []; this._render(); }, {type: 'weather/subscribe_forecast', forecast_type: 'daily', entity_id: e})
+      .then(u => { if (this._subFor === e) this._unsub = u; else u(); }).catch(() => { this._fc = this._hass.states[e]?.attributes.forecast || []; this._render(); });
+  }
+
+  _render() {
+    if (!this._config || !this._hass || !this._pick) return;
+    const h = this._hass, c = this._config, w = this._pick.entity && h.states[this._pick.entity], st = k => this._pick.s[k] && h.states[this._pick.s[k]];
+    if (!w && !this._pick.station) { this.shadowRoot.innerHTML = `<style>${WEATHER_STYLE}</style><ha-card><p class="hint">No weather yet. Add a weather integration, or a Tempest with WeatherFlow.</p></ha-card>`; return; }
+    const num = x => { const v = parseFloat(x?.state); return isNaN(v) ? null : v; };
+    const deg = v => v == null ? '–' : `${Math.round(v)}°`;
+    const now = num(st('temperature')) ?? w?.attributes.temperature;
+    const raining = (num(st('rate')) || 0) > 0;
+    const cond = w?.state || (raining ? 'rainy' : 'partlycloudy');
+    const fc = (this._fc || []).slice(0, 6), today = fc[0];
+    const label = {sunny: 'Sunny', 'clear-night': 'Clear', partlycloudy: 'Partly cloudy', cloudy: 'Cloudy', rainy: 'Rainy', pouring: 'Pouring', snowy: 'Snowy', 'snowy-rainy': 'Sleet', lightning: 'Lightning', 'lightning-rainy': 'Storms', fog: 'Fog', windy: 'Windy', 'windy-variant': 'Windy', hail: 'Hail', exceptional: 'Unusual'}[cond] || cap(cond);
+    const unitOf = k => st(k)?.attributes.unit_of_measurement || '';
+    const chips = [
+      st('wind') ? ['mdi:weather-windy', `${Math.round(num(st('wind')))} ${unitOf('wind')}${st('gust') ? ` · gusts ${Math.round(num(st('gust')))}` : ''}`] : w?.attributes.wind_speed != null ? ['mdi:weather-windy', `${Math.round(w.attributes.wind_speed)} ${w.attributes.wind_speed_unit || ''}`] : null,
+      st('humidity') ? ['mdi:water-percent', `${Math.round(num(st('humidity')))}%`] : w?.attributes.humidity != null ? ['mdi:water-percent', `${Math.round(w.attributes.humidity)}%`] : null,
+      st('rain') ? ['mdi:weather-pouring', `${num(st('rain'))} ${unitOf('rain')} today`] : null,
+      st('uv') ? ['mdi:sun-wireless-outline', `UV ${num(st('uv'))}`] : w?.attributes.uv_index != null ? ['mdi:sun-wireless-outline', `UV ${w.attributes.uv_index}`] : null,
+      st('lightning') && num(st('lightning')) > 0 ? ['mdi:flash', `${num(st('lightning'))} strikes`] : null
+    ].filter(Boolean);
+    const days = fc.slice(today && new Date(today.datetime).toDateString() === new Date().toDateString() ? 1 : 0).slice(0, 5);
+    this.shadowRoot.innerHTML = `<style>${WEATHER_STYLE}</style><ha-card>
+      <div class="lbl">${esc(c.name || 'Weather')}${this._pick.station ? '<span class="live">Live from Tempest</span>' : ''}</div>
+      <div class="main"><ha-icon icon="${WX_ICON[cond] || 'mdi:weather-partly-cloudy'}"></ha-icon><div><div class="big">${deg(now)}</div>
+        <div class="sub">${esc(label)}${today ? ` · H ${deg(today.temperature)} L ${deg(today.templow)}` : ''}</div></div></div>
+      ${chips.length ? `<div class="chips">${chips.map(([i, t]) => `<span class="chip"><ha-icon icon="${i}"></ha-icon>${esc(t)}</span>`).join('')}</div>` : ''}
+      ${days.length && c.forecast !== false ? `<div class="fc">${days.map(d => `<div><span>${esc(new Date(d.datetime).toLocaleDateString([], {weekday: 'short'}))}</span><ha-icon icon="${WX_ICON[d.condition] || 'mdi:weather-partly-cloudy'}"></ha-icon><b>${deg(d.temperature)}</b><span>${deg(d.templow)}</span></div>`).join('')}</div>` : ''}
+    </ha-card>`;
+  }
+}
+const WEATHER_STYLE = `
+ha-card{padding:18px;display:flex;flex-direction:column;gap:12px;color:var(--primary-text-color)}
+.hint{margin:0;color:var(--secondary-text-color)}
+.lbl{font-size:13px;color:var(--secondary-text-color);display:flex;align-items:center;gap:8px}
+.live{font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:color-mix(in srgb,var(--primary-color) 18%,transparent);color:var(--primary-text-color)}
+.main{display:flex;align-items:center;gap:14px}
+.main ha-icon{--mdc-icon-size:52px;color:var(--primary-color)}
+.big{font-size:46px;font-weight:700;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
+.sub{font-size:13.5px;color:var(--secondary-text-color);margin-top:4px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:99px;background:color-mix(in srgb,var(--primary-text-color) 7%,transparent);font-size:12.5px}
+.chip ha-icon{--mdc-icon-size:15px;color:var(--primary-color)}
+.fc{display:grid;grid-template-columns:repeat(auto-fit,minmax(60px,1fr));gap:8px}
+.fc div{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:12px;background:color-mix(in srgb,var(--primary-text-color) 6%,transparent);font-size:12.5px}
+.fc span{color:var(--secondary-text-color)}
+.fc ha-icon{--mdc-icon-size:20px;color:var(--primary-color)}
+`;
+class DashboardStudioWeatherEditor extends HTMLElement {
+  setConfig(config) { this._config = config; this._render(); }
+  set hass(hass) { this._hass = hass; if (this._form) this._form.hass = hass; else this._render(); }
+  _render() {
+    if (!this._config || !this._hass) return;
+    if (!customElements.get('ha-form')) { this.innerHTML = '<p>Use the code editor to set up this card.</p>'; return; }
+    if (!this._form) {
+      const f = this._form = document.createElement('ha-form');
+      const L = {name: 'Label', entity: 'Weather (for the forecast)', station: 'Tempest station (for live readings)', forecast: 'Show the 5 day forecast'};
+      f.computeLabel = s => L[s.name] || s.name;
+      f.schema = [{name: 'name', selector: {text: {}}}, {name: 'entity', selector: {entity: {domain: 'weather'}}},
+        {name: 'station', selector: {device: {filter: TEMPEST_PLATFORMS.map(integration => ({integration}))}}}, {name: 'forecast', selector: {boolean: {}}}];
+      f.addEventListener('value-changed', e => {
+        const next = {...e.detail.value}; Object.keys(next).forEach(k => { if (next[k] === '' || next[k] == null) delete next[k]; });
+        if (next.forecast === true) delete next.forecast;
+        this._config = next; this.dispatchEvent(new CustomEvent('config-changed', {detail: {config: next}, bubbles: true, composed: true}));
+      });
+      this.innerHTML = '<p style="margin:0 0 12px;color:var(--secondary-text-color)">Leave these empty and the card picks your weather and Tempest by itself.</p>';
+      this.appendChild(f);
+    }
+    this._form.hass = this._hass; this._form.data = {forecast: true, ...this._config};
+  }
+}
+
 /* visual editor for the vehicle card */
 class DashboardStudioVehicleEditor extends HTMLElement {
   setConfig(config) { this._config = config; this._render(); }
@@ -2089,6 +2278,9 @@ if (!customElements.get('dashboard-studio-hub')) customElements.define('dashboar
 if (!customElements.get('dashboard-studio-dual-shade')) customElements.define('dashboard-studio-dual-shade', DashboardStudioDualShade);
 if (!customElements.get('dashboard-studio-fx')) customElements.define('dashboard-studio-fx', DashboardStudioFx);
 if (!customElements.get('dashboard-studio-vehicle')) customElements.define('dashboard-studio-vehicle', DashboardStudioVehicle);
+if (!customElements.get('dashboard-studio-header')) customElements.define('dashboard-studio-header', DashboardStudioHeader);
+if (!customElements.get('dashboard-studio-weather')) customElements.define('dashboard-studio-weather', DashboardStudioWeather);
+if (!customElements.get('dashboard-studio-weather-editor')) customElements.define('dashboard-studio-weather-editor', DashboardStudioWeatherEditor);
 if (!customElements.get('dashboard-studio-garage')) customElements.define('dashboard-studio-garage', DashboardStudioGarage);
 if (!customElements.get('dashboard-studio-garage-editor')) customElements.define('dashboard-studio-garage-editor', DashboardStudioGarageEditor);
 if (!customElements.get('dashboard-studio-vehicle-editor')) customElements.define('dashboard-studio-vehicle-editor', DashboardStudioVehicleEditor);
@@ -2099,6 +2291,10 @@ if (!window.customCards.some(c => c.type === 'dashboard-studio-hub')) {
 }
 if (!window.customCards.some(c => c.type === 'dashboard-studio-dual-shade')) {
   window.customCards.push({type: 'dashboard-studio-dual-shade', name: 'Dashboard Studio dual shade', description: 'One window, two shade motors: day/night honeycomb or top down, bottom up. With Open, Day and Night presets.', preview: false});
+}
+if (!window.customCards.some(c => c.type === 'dashboard-studio-weather')) {
+  window.customCards.push({type: 'dashboard-studio-weather', name: 'Dashboard Studio weather', description: 'Now, a 5 day forecast, and live readings from a Tempest weather station.', preview: true});
+  window.customCards.push({type: 'dashboard-studio-header', name: 'Dashboard Studio greeting', description: 'A greeting, the date, a big clock and chips for lights, temperature, locks and the alarm.', preview: true});
 }
 if (!window.customCards.some(c => c.type === 'dashboard-studio-garage')) {
   window.customCards.push({type: 'dashboard-studio-garage', name: 'Dashboard Studio garage', description: 'All your cars in a garage: parked when home, an empty bay when away, with the garage door. Tap a car for its vehicle card.', preview: true});
