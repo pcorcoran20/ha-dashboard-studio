@@ -20,7 +20,7 @@
 # ╰──────────────────────────────────────────────────────╯
 
 name: Dashboard Studio
-version: "1.7.0"
+version: "1.7.1"
 slug: dashboard_studio
 description: Design beautiful dashboards with drag and drop, then install them in one click.
 url: https://github.com/pcorcoran20/ha-dashboard-studio

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.1
+
+- Fix: the Control hub now treats a day/night shade as one window. Two shade entities on one device (like Smartwings, one for blackout and one for sheer) become one shade with **Open**, **Day** and **Night** buttons, plus a control for each fabric. This works in Home Assistant and in the Studio.
+- Fix: more shade pairs are found: numbered names like "1B" and "1S", and "blackout"/"sheer" names on any two shades in a room.
+- Fix: shades named "window" are no longer skipped when they have no device class.
+- Fix: rooms with lots of devices keep all their shades. The hub kept only 30 devices per room, and room pages kept 8 shades.
+- Open all, Close all, Good night and scenes control both fabrics.
+
 ## 1.7.0
 
 - New: holiday themes can switch on by themselves. Pick your holidays under **Style › Holiday themes**: Valentine's Day, Lunar New Year, Easter, Pride Month, Diwali, Halloween, Hanukkah and Christmas. Each one shows on its dates, then your own theme comes back. The exported automation checks the date every night, and it works with the sunset switch.

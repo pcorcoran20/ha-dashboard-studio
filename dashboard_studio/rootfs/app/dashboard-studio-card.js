@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.7.0';
+const STUDIO_VERSION = '1.7.1';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -59,6 +59,45 @@ const catOf = t => (t === 'lock' || t === 'alarm') ? 'security' : t;
 const TOUCH = [['watch', 'Watch', 'mdi:television'], ['listen', 'Listen', 'mdi:speaker'], ['light', 'Lighting', 'mdi:lightbulb'], ['climate', 'Comfort', 'mdi:thermostat'], ['car', 'Car', 'mdi:car-electric'],
   ['shade', 'Shades', 'mdi:blinds'], ['security', 'Security', 'mdi:shield-home'], ['camera', 'Cameras', 'mdi:cctv'], ['fan', 'Fans', 'mdi:fan'],
   ['switch', 'Outlets', 'mdi:power-socket-us'], ['quick', 'Shortcuts', 'mdi:gesture-tap-button']];
+/* one window with two shade motors (day/night fabrics, or top down, bottom up): two covers on one device, or names that only differ by a fabric word */
+const DS_SWAP = [['blackout', 'sheer'], ['blackout', 'light_filtering'], ['blackout', 'filtering'], ['blackout', 'day'], ['night', 'day'], ['room_darkening', 'light_filtering'],
+  ['dark', 'light'], ['privacy', 'sheer'], ['top', 'bottom'], ['upper', 'lower']];
+const DS_DARK = /night|blackout|dark|privacy|top|upper|(^|[\s_])\d*b$/i, DS_LITE = /sheer|day|light|filter|bottom|lower|(^|[\s_])\d*s$/i;
+function pairShades(list, hass) {
+  const ents = hass.entities || {}, devs = hass.devices || {}, used = new Set(), pairs = [];
+  const nm = id => hass.states[id]?.attributes?.friendly_name || id;
+  const sl = t => String(t).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  const covers = list.filter(d => d.entity.startsWith('cover.') && !d.entity2).map(d => d.entity);
+  const byDev = {};
+  covers.forEach(e => { const dv = ents[e]?.device_id; if (dv) (byDev[dv] ||= []).push(e); });
+  Object.entries(byDev).forEach(([dv, l]) => { if (l.length !== 2) return; l.forEach(e => used.add(e)); pairs.push([l[0], l[1], devs[dv]?.name_by_user || devs[dv]?.name || '']); });
+  const keys = () => covers.filter(e => !used.has(e)).map(e => [e, sl(nm(e)), sl(e.split('.')[1])]);
+  for (const [a, z] of DS_SWAP) for (const [e, k, o] of keys()) {
+    if (used.has(e)) continue;
+    const re = new RegExp(`(^|_)${a}(?=_|$)`), base = re.test(k) ? k : re.test(o) ? o : null; if (!base) continue;
+    const t = base.replace(re, (m, pre) => pre + z), tw = keys().find(([e2, k2, o2]) => e2 !== e && (k2 === t || o2 === t));
+    if (tw) { used.add(e); used.add(tw[0]); pairs.push([e, tw[0], nm(e).replace(new RegExp(a.replace('_', ' '), 'i'), '').replace(/\s+/g, ' ').trim()]); }
+  }
+  /* numbered pairs like "1B" and "1S" */
+  for (const [e, k] of keys()) {
+    if (used.has(e)) continue;
+    const m = k.match(/^(.*?)_?(\d+)_?b$/); if (!m) continue;
+    const tw = keys().find(([e2, k2]) => e2 !== e && (k2 === `${m[1]}${m[2]}s` || k2 === `${m[1]}_${m[2]}s` || k2 === `${m[1]}_${m[2]}_s`));
+    if (tw) { used.add(e); used.add(tw[0]); pairs.push([e, tw[0], `${m[1] ? m[1].replace(/_/g, ' ') + ' ' : ''}Shade ${m[2]}`.replace(/^\w/, c => c.toUpperCase())]); }
+  }
+  if (!pairs.length) return list;
+  const txt = e => `${e} ${nm(e)}`, label = (e, base, dark) => {
+    let n = nm(e); if (base && n.toLowerCase().startsWith(base.toLowerCase())) n = n.slice(base.length).trim();
+    return !n || /^\d*\s*[sb]$/i.test(n) || n.length > 18 ? (dark ? 'Blackout' : 'Sheer') : n;
+  };
+  const merged = new Map(pairs.map(([x, y, base]) => {
+    const [e1, e2] = (DS_DARK.test(txt(y)) && !DS_DARK.test(txt(x))) || (DS_LITE.test(txt(x)) && !DS_LITE.test(txt(y))) ? [y, x] : [x, y];
+    return [e1, {entity: e1, entity2: e2, type: 'shade', name: base || nm(e1), labels: [label(e1, base, true), label(e2, base, false)]}];
+  }));
+  const second = new Set([...merged.values()].map(d => d.entity2));
+  return list.filter(d => !second.has(d.entity)).map(d => merged.get(d.entity) || d);
+}
+const DS_PRESETS = [['Open', 100, 100, 'mdi:blinds-open'], ['Day', 100, 0, 'mdi:weather-sunny'], ['Night', 0, 0, 'mdi:weather-night']];
 const isTV = x => x.st?.attributes?.device_class === 'tv' || /(^|[._ ])(tv|roku|apple_?tv|shield|chromecast|fire_?tv|android_?tv|television)([._ ]|$)/i.test(`${x.entity} ${x.name}`);
 const WX_ICON = {sunny: 'mdi:weather-sunny', 'clear-night': 'mdi:weather-night', partlycloudy: 'mdi:weather-partly-cloudy', cloudy: 'mdi:weather-cloudy', rainy: 'mdi:weather-rainy',
   pouring: 'mdi:weather-pouring', snowy: 'mdi:weather-snowy', 'snowy-rainy': 'mdi:weather-snowy-rainy', lightning: 'mdi:weather-lightning', 'lightning-rainy': 'mdi:weather-lightning-rainy',
@@ -200,17 +239,17 @@ class DashboardStudioHub extends HTMLElement {
         if (cars.has(ents[id]?.device_id)) return;
         /* only shades are shades: not garage doors, gates, doors or windows, and not a car's frunk or trunk */
         if (dom === 'cover') { const dc = hass.states[id].attributes.device_class;
-          if (/frunk|trunk|tonneau|charge_?port|sunroof/.test(id) || (dc ? !['shade', 'blind', 'curtain', 'shutter', 'awning'].includes(dc) : /garage|gate|door|window|ratgdo/.test(id))) return; }
+          if (/frunk|trunk|tonneau|charge_?port|sunroof/.test(id) || (dc ? !['shade', 'blind', 'curtain', 'shutter', 'awning'].includes(dc) : /garage|gate|ratgdo|(^|[._])doors?($|_)/.test(id))) return; }
         const e = ents[id], aid = e?.area_id || devs[e?.device_id]?.area_id;
         if (aid && areas[aid]) (by[aid] = by[aid] || []).push({entity: id}); else loose.push({entity: id});
       });
-      let rooms = Object.keys(by).map(aid => ({id: aid, name: areas[aid].name || aid, devices: by[aid], level: floors[areas[aid].floor_id]?.level ?? 99}));
+      let rooms = Object.keys(by).map(aid => ({id: aid, name: areas[aid].name || aid, devices: pairShades(by[aid], hass), level: floors[areas[aid].floor_id]?.level ?? 99}));
       if (c.areas) {
         const want = [c.areas].flat().map(w => String(w).toLowerCase());
         rooms = want.map(w => rooms.find(r => r.id.toLowerCase() === w || r.name.toLowerCase() === w)).filter(Boolean);
       } else {
         rooms = rooms.filter(r => !skip.has(r.id) && !skip.has(r.name)).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
-        if (!rooms.length && loose.length) rooms = [{name: c.title || 'Home', devices: loose}];
+        if (!rooms.length && loose.length) rooms = [{name: c.title || 'Home', devices: pairShades(loose, hass)}];
       }
       c.rooms = rooms.map(r => ({name: r.name, devices: r.devices}));
     }
@@ -230,7 +269,7 @@ class DashboardStudioHub extends HTMLElement {
   _watched() {
     const c = this._config; if (!c) return [];
     const gn = typeof c.good_night === 'string' ? [c.good_night] : [];
-    return [...c.rooms.flatMap(r => r.devices.map(d => d.entity)), ...c.scenes.map(s => s.entity), ...gn];
+    return [...c.rooms.flatMap(r => r.devices.flatMap(d => [d.entity, ...(d.entity2 ? [d.entity2] : [])])), ...c.scenes.map(s => s.entity), ...gn];
   }
 
   _schedule() {
@@ -240,9 +279,9 @@ class DashboardStudioHub extends HTMLElement {
   }
 
   _dev(d, room) {
-    const st = this._hass?.states[d.entity];
+    const st = this._hass?.states[d.entity], st2 = d.entity2 ? this._hass?.states[d.entity2] : undefined;
     const type = d.type || DOMAIN_TYPE[d.entity.split('.')[0]] || 'switch';
-    return {...d, type, st, room, name: d.name || st?.attributes.friendly_name || d.entity};
+    return {...d, type, st, st2, room, name: d.name || st?.attributes.friendly_name || d.entity};
   }
 
   _devices(cat) {
@@ -262,7 +301,8 @@ class DashboardStudioHub extends HTMLElement {
 
   _isOn(x) {
     const s = x.st?.state;
-    if (x.type === 'shade') return s === 'open' || s === 'opening' || (x.st?.attributes.current_position > 0);
+    const open = st => !!st && (st.state === 'open' || st.state === 'opening' || st.attributes.current_position > 0);
+    if (x.type === 'shade') return open(x.st) || open(x.st2);
     if (x.type === 'media') return s === 'playing';
     return s === 'on';
   }
@@ -276,7 +316,12 @@ class DashboardStudioHub extends HTMLElement {
       case 'light': return st.state === 'on' ? (a.brightness != null ? `On · ${Math.round(a.brightness / 2.55)}%` : 'On') : 'Off';
       case 'switch': return cap(st.state);
       case 'fan': return st.state === 'on' ? (a.percentage != null ? `On · ${a.percentage}%` : 'On') : 'Off';
-      case 'shade': return a.current_position != null && st.state !== 'closed' ? (a.current_position >= 100 ? 'Open' : `${a.current_position}% open`) : cap(st.state);
+      case 'shade': {
+        const one = t => t.attributes.current_position != null && t.state !== 'closed' ? (t.attributes.current_position >= 100 ? 'Open' : `${t.attributes.current_position}% open`) : cap(t.state);
+        if (!x.entity2) return one(st);
+        const p = this._dsPreset(x);
+        return p ? p[0] === 'Open' ? 'Open' : `${p[0]} mode` : `${x.labels?.[0] || 'Blackout'} ${one(st).toLowerCase()} · ${x.labels?.[1] || 'Sheer'} ${x.st2 ? one(x.st2).toLowerCase() : 'not found'}`;
+      }
       case 'climate': return `${cap(st.state)}${a.temperature != null ? ` · set ${a.temperature}${u}` : ''}${a.current_temperature != null ? ` · now ${a.current_temperature}${u}` : ''}`;
       case 'media': return st.state === 'playing' ? (a.media_title ? `Playing · ${a.media_title}` : 'Playing') : cap(st.state);
       case 'lock': return cap(st.state);
@@ -308,6 +353,18 @@ class DashboardStudioHub extends HTMLElement {
     return {text: '', active: false};
   }
 
+  /* which of Open, Day or Night a pair of shades is in right now */
+  _dsPreset(x) {
+    const pos = t => t ? (t.attributes.current_position ?? (t.state === 'closed' ? 0 : 100)) : null, p1 = pos(x.st), p2 = pos(x.st2);
+    return p1 == null || p2 == null ? null : DS_PRESETS.find(([, a, b]) => Math.abs(a - p1) < 6 && Math.abs(b - p2) < 6) || null;
+  }
+
+  _setPos(id, p) {
+    const st = this._hass.states[id];
+    if (st?.attributes.current_position != null) return this._call('cover', 'set_cover_position', {entity_id: id, position: p});
+    return this._call('cover', p > 0 ? 'open_cover' : 'close_cover', {entity_id: id});
+  }
+
   _call(domain, service, data) {
     return this._hass.callService(domain, service, data).catch(err => {
       this._toast(err?.message || `Could not run ${domain}.${service}`, true);
@@ -337,6 +394,7 @@ class DashboardStudioHub extends HTMLElement {
       case 'toggle': this._call('homeassistant', 'toggle', {entity_id: id}); return;
       case 'fan': +el.dataset.v ? this._call('fan', 'set_percentage', {entity_id: id, percentage: +el.dataset.v}) : this._call('fan', 'turn_off', {entity_id: id}); return;
       case 'cover': this._call('cover', el.dataset.v, {entity_id: id}); return;
+      case 'dsp': { const p = DS_PRESETS[+el.dataset.v]; if (p) { this._setPos(id, p[1]); this._setPos(el.dataset.e2, p[2]); } return; }
       case 'temp': {
         const at = x.st?.attributes || {}, step = at.target_temp_step || (this._unit().includes('F') ? 1 : 0.5);
         if (at.temperature == null) return;
@@ -379,7 +437,7 @@ class DashboardStudioHub extends HTMLElement {
   }
 
   _all(on) {
-    const L = this._devices(this._view), ids = t => L.filter(x => x.type === t && x.st && x.st.state !== 'unavailable').map(x => x.entity);
+    const L = this._devices(this._view), ids = t => L.filter(x => x.type === t && x.st && x.st.state !== 'unavailable').flatMap(x => [x.entity, ...(x.entity2 ? [x.entity2] : [])]);
     const run = (t, domain, service) => { const e = ids(t); if (e.length) this._call(domain, service, {entity_id: e}); };
     if (this._view === 'light') run('light', 'light', on ? 'turn_on' : 'turn_off');
     if (this._view === 'switch') run('switch', 'homeassistant', on ? 'turn_on' : 'turn_off');
@@ -392,7 +450,7 @@ class DashboardStudioHub extends HTMLElement {
     const g = this._config.good_night;
     if (typeof g === 'string') { this._call('script', 'turn_on', {entity_id: g}).then(() => this._toast('Good night 🌙')); this._showNight(); return; }
     const opt = {...GN_DEFAULT, ...(typeof g === 'object' && g ? g : {})}, all = this._allDevices();
-    const ids = t => all.filter(x => x.type === t && x.st).map(x => x.entity);
+    const ids = t => all.filter(x => x.type === t && x.st).flatMap(x => [x.entity, ...(x.entity2 ? [x.entity2] : [])]);
     const run = (on, t, domain, service, data = {}) => { const e = ids(t); if (on && e.length) this._call(domain, service, {entity_id: e, ...data}); };
     run(opt.lights, 'light', 'light', 'turn_off');
     run(opt.switches, 'switch', 'homeassistant', 'turn_off');
@@ -428,6 +486,15 @@ class DashboardStudioHub extends HTMLElement {
         break;
       }
       case 'shade':
+        if (x.entity2) {
+          const cur = this._dsPreset(x), id2 = esc(x.entity2), lab = x.labels || ['Blackout', 'Sheer'];
+          more = `<div class="seg">${DS_PRESETS.map(([l, , , icon], k) => btn('dsp', `<ha-icon icon="${icon}"></ha-icon>${l}`, `data-v="${k}" data-e2="${id2}"`, `pbtn dsp${cur?.[0] === l ? ' on' : ''}`)).join('')}</div>` +
+            [[x.entity, x.st, lab[0]], [x.entity2, x.st2, lab[1]]].map(([e, t, l]) => { const eid = esc(e), ta = t?.attributes || {};
+              const b2 = (v, icon, al) => `<button class="ibtn" data-a="cover" data-e="${eid}" data-v="${v}" aria-label="${al} ${esc(l)}"><ha-icon icon="${icon}"></ha-icon></button>`;
+              return `<div class="dsl"><span>${esc(l)}</span>${t && t.state !== 'unavailable' ? b2('open_cover', 'mdi:arrow-up', 'Open') + b2('stop_cover', 'mdi:stop', 'Stop') + b2('close_cover', 'mdi:arrow-down', 'Close') : '<small>Unavailable</small>'}</div>` +
+                (ta.current_position != null ? `<input type="range" min="0" max="100" value="${ta.current_position}" data-e="${eid}" data-k="pos" aria-label="${esc(l)} position">` : ''); }).join('');
+          break;
+        }
         ctl = btn('cover', '<ha-icon icon="mdi:arrow-up"></ha-icon>', 'data-v="open_cover" aria-label="Open"', 'ibtn') + btn('cover', '<ha-icon icon="mdi:stop"></ha-icon>', 'data-v="stop_cover" aria-label="Stop"', 'ibtn') + btn('cover', '<ha-icon icon="mdi:arrow-down"></ha-icon>', 'data-v="close_cover" aria-label="Close"', 'ibtn');
         if (a.current_position != null) more = `<input type="range" min="0" max="100" value="${a.current_position}" data-e="${id}" data-k="pos" aria-label="${esc(x.name)} position">`;
         break;
@@ -733,6 +800,11 @@ ha-icon{--mdc-icon-size:20px;display:inline-flex}
 .nm span{font-size:12px;color:var(--s-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ctl{display:flex;align-items:center;gap:6px}
 .more{grid-column:1/-1;min-width:0}
+.dsl{display:flex;align-items:center;gap:6px;margin-top:10px}
+.dsl span{flex:1;font-size:13px;font-weight:600;color:var(--s-muted)}
+.dsl small{font-size:12px;color:var(--s-muted)}
+.pbtn.dsp{display:flex;align-items:center;justify-content:center;gap:5px}
+.pbtn.dsp ha-icon{--mdc-icon-size:17px}
 .val{font-weight:600;min-width:3ch;text-align:center;font-variant-numeric:tabular-nums}
 .ibtn{width:34px;height:34px;border-radius:50%;border:0;background:var(--s-soft2);display:grid;place-items:center;flex:none}
 .ibtn.big{width:44px;height:44px;background:var(--s-accent);color:var(--s-on)}

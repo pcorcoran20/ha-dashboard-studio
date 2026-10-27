@@ -704,6 +704,9 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .hr-val{font-family:var(--d-display); font-weight:600; min-width:3ch; text-align:center; font-variant-numeric:tabular-nums}
 .d-pbtn.sm{height:30px; font-size:calc(12px * var(--d-fs,1))}
 .posbar{height:6px; border-radius:6px; background:color-mix(in srgb, var(--d-text) 12%, transparent); overflow:hidden}
+.hr-ds{display:flex; align-items:center; gap:10px; margin-top:8px}
+.hr-ds span{width:84px; flex:none; font-size:calc(12px * var(--d-fs,1)); color:var(--d-muted)}
+.hr-ds .posbar{flex:1}
 .posbar i{display:block; height:100%; background:var(--d-active); transition:width .4s}
 .hub-ed-rooms{display:flex; flex-wrap:wrap; gap:6px}
 .hub-ed-rooms .pg small{opacity:.6; margin-left:5px}
@@ -1890,7 +1893,7 @@ function act(b, a, el){
       hubDevices(b, b.view).forEach(({d}) => {
         if (d.t === 'light' || d.t === 'switch') d.on = on;
         if (d.t === 'fan') d.speed = on ? (d.speed || 2) : 0;
-        if (d.t === 'shade') d.pos = on ? 100 : 0;
+        if (d.t === 'shade') { d.pos = on ? 100 : 0; if (d.entity2) d.pos2 = d.pos; }
         if (d.t === 'lock') d.locked = on;
       }); break; }
     case 'hub-gn': goodNight(b); break;
@@ -1907,6 +1910,7 @@ function act(b, a, el){
       if (op === 'play') { d.playing = !d.playing; if (d.playing) d.off = false; }
       if (op === 'power') { d.off = !d.off; if (d.off) d.playing = false; }
       if (op === 'lock') d.locked = !d.locked;
+      if (op === 'dsp') { const p = DS.daynight.presets.find(x => x[0] === v); if (p) { d.pos = p[2]; d.pos2 = p[3]; } }
       break; }
     case 'left': commit(); if (i > 0) blocks.splice(i-1, 0, blocks.splice(i,1)[0]); break;
     case 'right': commit(); if (i < blocks.length-1) blocks.splice(i+1, 0, blocks.splice(i,1)[0]); break;
@@ -2962,7 +2966,7 @@ function cardYaml(b){
     }
     case 'hub': {
       if (state.useCards) return {type:'custom:dashboard-studio-hub', title:b.title,
-        rooms:(b.rooms || []).map(r => ({name:r.name, devices:r.devices.map(d => ({entity:hubEnt(d), name:d.name, type:d.t}))})),
+        rooms:(b.rooms || []).map(r => ({name:r.name, devices:r.devices.map(d => ({entity:hubEnt(d), ...(d.entity2 ? {entity2:d.entity2, labels:d.labels} : {}), name:d.name, type:d.t}))})),
         scenes:(b.scenes || []).map(s => ({name:s.name, entity:'scene.' + slug(s.name)})),
         good_night:'script.' + gnScriptId(b), icon_color:b.iconColor || 'soft', animations:animYaml(),
         vehicle:b.car?.show ? {name:b.car.title, model:b.car.model, color:b.car.paint, ...vehImgOut(b.car), ...(b.car.vehicle ? {vehicle:b.car.vehicle} : {})} : false, ...(state.calm ? {calm:true} : {}),
@@ -3420,7 +3424,10 @@ function hubDevStatus(d){
     case 'light': return d.on ? `On · ${d.bri ?? 80}%` : 'Off';
     case 'switch': return d.on ? 'On' : 'Off';
     case 'fan': return ['Off','Low','Medium','High'][d.speed || 0];
-    case 'shade': return !d.pos ? 'Closed' : d.pos >= 100 ? 'Open' : `${d.pos}% open`;
+    case 'shade': { const one = p => !p ? 'Closed' : p >= 100 ? 'Open' : `${p}% open`;
+      if (!d.entity2) return one(d.pos);
+      const m = DS.daynight.presets.find(([, , a, z]) => a === (d.pos || 0) && z === (d.pos2 || 0));
+      return m ? (m[1] === 'Open' ? 'Open' : `${m[1]} mode`) : `${d.labels?.[0] || 'Blackout'} ${one(d.pos).toLowerCase()} · ${d.labels?.[1] || 'Sheer'} ${one(d.pos2).toLowerCase()}`; }
     case 'climate': return `Set to ${tC(d.target)}° · now ${tC(d.current)}°`;
     case 'media': return d.playing ? `Playing · volume ${d.vol ?? 30}%` : 'Paused';
     case 'lock': return d.locked ? 'Locked' : 'Unlocked';
@@ -3434,7 +3441,7 @@ function hubStatus(b, c){
   switch (c) {
     case 'light': case 'switch': { const k = n(d => d.on); return {text:k ? `${k} on` : 'All off', active:k > 0}; }
     case 'fan': { const k = n(d => d.speed > 0); return {text:k ? `${k} running` : 'All off', active:k > 0}; }
-    case 'shade': { const k = n(d => d.pos > 0); return {text:k ? `${k} open` : 'All closed', active:k > 0}; }
+    case 'shade': { const k = n(d => d.pos > 0 || d.pos2 > 0); return {text:k ? `${k} open` : 'All closed', active:k > 0}; }
     case 'climate': { const avg = L.reduce((a, d) => a + d.target, 0) / L.length; return {text:`Set to ${tC(avg)}°`, active:false}; }
     case 'media': { const p = L.filter(d => d.playing); return {text:p.length ? `Playing · ${p[0].name}` : 'Off', active:p.length > 0}; }
     case 'lock': {
@@ -3447,14 +3454,19 @@ function hubStatus(b, c){
 }
 function hubRow(x, showRoom){
   const {d, r, i, room} = x, a = (op, v) => `data-act="hub-dev" data-r="${r}" data-d="${i}" data-op="${op}"${v !== undefined ? ` data-v="${v}"` : ''}`;
-  const on = (d.t === 'light' || d.t === 'switch') ? d.on : d.t === 'fan' ? d.speed > 0 : d.t === 'shade' ? d.pos > 0 : d.t === 'media' ? d.playing : false;
+  const on = (d.t === 'light' || d.t === 'switch') ? d.on : d.t === 'fan' ? d.speed > 0 : d.t === 'shade' ? d.pos > 0 || d.pos2 > 0 : d.t === 'media' ? d.playing : false;
   let ctl = '', extra = '';
   switch (d.t) {
     case 'light': ctl = `<button class="sw-toggle" ${a('toggle')} aria-label="Turn ${esc(d.name)} ${d.on ? 'off' : 'on'}"></button>`;
       if (d.on) extra = `<input class="bri" type="range" min="1" max="100" value="${d.bri ?? 80}" data-hubr="${r},${i},bri" aria-label="${esc(d.name)} brightness">`; break;
     case 'switch': ctl = `<button class="sw-toggle" ${a('toggle')} aria-label="Turn ${esc(d.name)} ${d.on ? 'off' : 'on'}"></button>`; break;
     case 'fan': extra = `<div class="d-row" style="margin:0">${['Off','Low','Med','High'].map((l, k) => `<button class="d-pbtn sm ${(d.speed || 0) === k ? 'on' : ''}" ${a('speed', k)}>${l}</button>`).join('')}</div>`; break;
-    case 'shade': ctl = `<button class="d-btn" ${a('up')} aria-label="Open more">${ic('up')}</button><button class="d-btn" ${a('down')} aria-label="Close more">${ic('down')}</button>`;
+    case 'shade':
+      if (d.entity2) { const lab = d.labels || ['Blackout', 'Sheer'];
+        extra = `<div class="d-row" style="margin:0">${DS.daynight.presets.map(([k, l, p1, p2]) => `<button class="d-pbtn sm ${(d.pos || 0) === p1 && (d.pos2 || 0) === p2 ? 'on' : ''}" ${a('dsp', k)}>${l}</button>`).join('')}</div>` +
+          [[lab[0], d.pos], [lab[1], d.pos2]].map(([l, p]) => `<div class="hr-ds"><span>${esc(l)}</span><div class="posbar"><i style="width:${p || 0}%"></i></div></div>`).join('');
+        break; }
+      ctl = `<button class="d-btn" ${a('up')} aria-label="Open more">${ic('up')}</button><button class="d-btn" ${a('down')} aria-label="Close more">${ic('down')}</button>`;
       extra = `<div class="posbar"><i style="width:${d.pos || 0}%"></i></div>`; break;
     case 'climate': ctl = `<button class="d-btn" ${a('tminus')} aria-label="Lower">${ic('minus')}</button><span class="hr-val">${tC(d.target)}°</span><button class="d-btn" ${a('tplus')} aria-label="Raise">${ic('plus')}</button>`; break;
     case 'media': ctl = `<button class="d-btn lg" ${a('play')} aria-label="${d.playing ? 'Pause' : 'Play'}">${ic(d.playing ? 'pause' : 'play')}</button>`;
@@ -3583,7 +3595,7 @@ function hubEditorHTML(b){
 /* scenes, good night, keypad */
 const catOf = t => t === 'alarm' ? 'lock' : t;
 const devKey = (d, r, i) => d.entity || `${r}-${i}`;
-const SNAP_KEYS = {light:['on','bri'], switch:['on'], fan:['speed'], shade:['pos'], climate:['target'], media:['playing','vol'], lock:['locked']};
+const SNAP_KEYS = {light:['on','bri'], switch:['on'], fan:['speed'], shade:['pos','pos2'], climate:['target'], media:['playing','vol'], lock:['locked']};
 function hubSnap(b){
   const snap = {};
   (b.rooms || []).forEach((r, ri) => r.devices.forEach((d, i) => { const ks = SNAP_KEYS[d.t]; if (ks) snap[devKey(d, ri, i)] = Object.fromEntries(ks.map(k => [k, d[k]])); }));
@@ -3606,7 +3618,7 @@ function goodNight(b){
     if (g.lights && d.t === 'light' && d.on) { d.on = false; n++; }
     if (g.outlets && d.t === 'switch' && d.on) { d.on = false; n++; }
     if (g.fans && d.t === 'fan' && d.speed) { d.speed = 0; n++; }
-    if (g.shades && d.t === 'shade' && d.pos) { d.pos = 0; n++; }
+    if (g.shades && d.t === 'shade' && (d.pos || d.pos2)) { d.pos = 0; if (d.entity2) d.pos2 = 0; n++; }
     if (g.media && d.t === 'media' && d.playing) { d.playing = false; n++; }
     if (g.locks && d.t === 'lock' && !d.locked) { d.locked = true; n++; }
     if (g.alarm && d.t === 'alarm' && d.mode === 'disarmed') { d.mode = 'home'; n++; }
@@ -3679,7 +3691,16 @@ function hubFill(b){
     let name = window.__haNames?.[e];
     if (name && name.toLowerCase().startsWith(room.toLowerCase() + ' ')) name = name.slice(room.length + 1);
     name ||= human((w ? obj.replace(w, '') : obj).replace(/^_+|_+$/g, '').replace(/__+/g, '_')) || HUB_TYPES[t].name;
-    (groups[room] ||= []).length < 30 && groups[room].push({t, name, entity:e, ...structuredClone(HUB_TYPES[t].d)});
+    (groups[room] ||= []).length < 80 && groups[room].push({t, name, entity:e, ...structuredClone(HUB_TYPES[t].d)});
+  });
+  /* one window with two shade motors becomes one device with Open, Day and Night */
+  Object.entries(groups).forEach(([room, list]) => {
+    const pairs = dsPairs(list.filter(d => d.t === 'shade').map(d => d.entity)); if (!pairs.length) return;
+    const second = new Set(pairs.map(p => p.e2));
+    groups[room] = list.filter(d => !second.has(d.entity)).map(d => { const p = pairs.find(x => x.e1 === d.entity); if (!p) return d;
+      let name = p.name || shortName(p.e1, room).replace(new RegExp('\\b(' + DS_WORDS.flatMap(w => [w[0], w[1]]).join('|').replace(/_/g, ' ') + ')\\b', 'ig'), '').replace(/\s+/g, ' ').trim() || 'Shades';
+      if (name.toLowerCase().startsWith(room.toLowerCase() + ' ')) name = name.slice(room.length + 1);
+      return {...d, name, entity2:p.e2, labels:[p.l1, p.l2], pos:0, pos2:0}; });
   });
   const rooms = Object.entries(groups).sort((a, z) => (a[0] === 'Other') - (z[0] === 'Other')).map(([name, devices]) => ({name, devices}));
   if (!rooms.length) { toast('None of your entities are device types the hub knows yet'); return; }
@@ -3694,7 +3715,10 @@ function hubTileYaml(d){
     case 'light': return {type:'tile', ...base, features_position:'bottom', features:[{type:'light-brightness'}], grid_options:{columns:6}};
     case 'switch': return {type:'tile', ...base, grid_options:{columns:6}};
     case 'fan': return {type:'tile', ...base, features_position:'bottom', features:[{type:'fan-speed'}], grid_options:{columns:6}};
-    case 'shade': return {type:'tile', ...base, features_position:'bottom', features:[{type:'cover-open-close'}, {type:'cover-position'}], grid_options:{columns:6}};
+    case 'shade': {
+      const tile = (entity, name) => ({type:'tile', entity, name, features_position:'bottom', features:[{type:'cover-open-close'}, {type:'cover-position'}], grid_options:{columns:6}});
+      if (d.entity2) return {type:'vertical-stack', title:d.name, cards:[tile(entity, d.labels?.[0] || 'Blackout'), tile(d.entity2, d.labels?.[1] || 'Sheer')], grid_options:{columns:12}};
+      return tile(entity, d.name); }
     case 'lock': return {type:'tile', ...base, features_position:'bottom', features:[{type:'lock-commands'}], grid_options:{columns:6}};
     case 'climate': return {type:'thermostat', ...base, grid_options:{columns:12}};
     case 'media': return {type:'media-control', ...base, grid_options:{columns:12}};
@@ -3719,7 +3743,7 @@ function scenesOut(){
         case 'light': entities[e] = v.on ? {state:'on', brightness:Math.round((v.bri ?? 80) * 2.55)} : {state:'off'}; break;
         case 'switch': entities[e] = {state:v.on ? 'on' : 'off'}; break;
         case 'fan': entities[e] = v.speed ? {state:'on', percentage:[0,33,66,100][v.speed]} : {state:'off'}; break;
-        case 'shade': entities[e] = {state:v.pos > 0 ? 'open' : 'closed', current_position:v.pos}; break;
+        case 'shade': entities[e] = {state:v.pos > 0 ? 'open' : 'closed', current_position:v.pos}; if (d.entity2) entities[d.entity2] = {state:v.pos2 > 0 ? 'open' : 'closed', current_position:v.pos2 ?? 0}; break;
         case 'climate': entities[e] = {state:'heat', temperature:unitTemp(v.target)}; break;
         case 'media': entities[e] = {state:v.playing ? 'playing' : 'paused', volume_level:+((v.vol ?? 30) / 100).toFixed(2)}; break;
         case 'lock': entities[e] = {state:v.locked ? 'locked' : 'unlocked'}; break;
@@ -3736,7 +3760,7 @@ function scriptsOut(){
   const out = {};
   allBlocks().filter(b => b.type === 'dualshade' && !state.useCards).forEach(b => Object.assign(out, dsScripts(b)));
   allBlocks().filter(b => b.type === 'hub').forEach(b => {
-    const g = b.gn || {}, all = (b.rooms || []).flatMap(r => r.devices), ids = t => all.filter(d => d.t === t).map(hubEnt), seq = [];
+    const g = b.gn || {}, all = (b.rooms || []).flatMap(r => r.devices), ids = t => all.filter(d => d.t === t).flatMap(d => [hubEnt(d), ...(d.entity2 ? [d.entity2] : [])]), seq = [];
     const step = (on, t, action, data) => { if (on && ids(t).length) seq.push({action, target:{entity_id:ids(t)}, ...(data ? {data} : {})}); };
     step(g.lights, 'light', 'light.turn_off'); step(g.outlets, 'switch', 'switch.turn_off'); step(g.fans, 'fan', 'fan.turn_off');
     step(g.shades, 'shade', 'cover.close_cover'); step(g.media, 'media', 'media_player.media_pause'); step(g.locks, 'lock', 'lock.lock');
@@ -4112,9 +4136,11 @@ function dsPairs(covers){
   Object.values(byDev).filter(l => l.length === 2).forEach(([x, y]) => {
     const txt = e => (e + ' ' + (window.__haNames?.[e] || '')).toLowerCase();
     const tdbu = /top|bottom|upper|lower/.test(txt(x) + txt(y));
-    const first = /night|blackout|dark|top|upper|privacy/.test(txt(y)) && !/night|blackout|dark|top|upper|privacy/.test(txt(x)) ? [y, x] : [x, y];
+    const dark = /night|blackout|dark|top|upper|privacy|(^|[\s_])\d*b$/, lite = /sheer|day|light|filter|bottom|lower|(^|[\s_])\d*s$/;
+    const first = (dark.test(txt(y)) && !dark.test(txt(x))) || (lite.test(txt(x)) && !lite.test(txt(y))) ? [y, x] : [x, y];
+    const filt = /filter/.test(txt(first[1])), dev = window.__haDevices?.[window.__haDev?.[x]]?.name;
     used.add(x); used.add(y);
-    out.push({e1:first[0], e2:first[1], style:tdbu ? 'tdbu' : 'daynight', l1:tdbu ? 'Top rail' : 'Blackout', l2:tdbu ? 'Bottom rail' : 'Light filtering'});
+    out.push({e1:first[0], e2:first[1], style:tdbu ? 'tdbu' : 'daynight', l1:tdbu ? 'Top rail' : 'Blackout', l2:tdbu ? 'Bottom rail' : filt ? 'Light filtering' : 'Sheer', name:dev});
   });
   /* and by friendly name, for shades named "Bedroom Day" and "Bedroom Night" whatever their entity IDs */
   const key = e => window.__haNames?.[e] ? 'cover.' + slug(window.__haNames[e]) : e;
@@ -4125,6 +4151,13 @@ function dsPairs(covers){
     if (!re.test(id)) continue;
     const t = id.replace(re, (m, pre) => pre + z), twin = look === key ? byKey.get(t) : (set.has(t) ? t : null);
     if (twin && twin !== e && !used.has(twin)) { used.add(e); used.add(twin); out.push({e1:e, e2:twin, style, l1, l2}); }
+  }
+  /* numbered pairs like "1B" and "1S" */
+  for (const e of covers) {
+    if (used.has(e)) continue;
+    const m = key(e).split('.')[1].match(/^(.*?)_?(\d+)_?b$/); if (!m) continue;
+    const twin = covers.find(x => x !== e && !used.has(x) && [`${m[1]}${m[2]}s`, `${m[1]}_${m[2]}s`, `${m[1]}_${m[2]}_s`].includes(key(x).split('.')[1]));
+    if (twin) { used.add(e); used.add(twin); out.push({e1:e, e2:twin, style:'daynight', l1:'Blackout', l2:'Sheer', name:`${m[1] ? roomTitle(m[1]) + ' ' : ''}Shade ${m[2]}`}); }
   }
   return out;
 }
@@ -4160,7 +4193,7 @@ function coverKind(e){
   carDevCache = carDevCache || new Set(carDevices().map(c => c.id));
   if ((dev && carDevCache.has(dev)) || /frunk|trunk|tonneau|charge_?port|sunroof|liftgate|tailgate/.test(obj)) return 'car';
   if (dc === 'garage' || dc === 'gate' || plat === 'ratgdo' || /garage|gate|ratgdo/.test(obj)) return 'garage';
-  if (dc ? SHADE_DC.includes(dc) : !/door|window|valve|damper|vent/.test(obj)) return 'shade';
+  if (dc ? SHADE_DC.includes(dc) : !/(^|_)doors?($|_)|valve|damper|vent/.test(obj)) return 'shade';
   return 'other';
 }
 const ROOM_KINDS = [
@@ -4178,14 +4211,14 @@ const ROOM_KINDS = [
   ['air', e => e.startsWith('sensor.') && /co2|carbon_dioxide/.test(e), 'air sensor', 'air sensors'],
   ['plant', e => e.startsWith('sensor.') && /moisture/.test(e), 'plant', 'plants']
 ];
-const LIMITS = {light:12, climate:2, cover:8, garage:2, media:4, lock:3, alarm:1, camera:12, vacuum:1, temp:2, humid:1, air:1, plant:3};
+const LIMITS = {light:12, climate:2, cover:16, garage:2, media:4, lock:3, alarm:1, camera:12, vacuum:1, temp:2, humid:1, air:1, plant:3};
 function roomKinds(ents){
   carDevCache = new Set(carDevices().map(c => c.id));
   const out = {}, pairs = dsPairs(ents.filter(e => e.startsWith('cover.') && coverKind(e) === 'shade')), paired = new Set(pairs.flatMap(p => [p.e1, p.e2]));
   /* a car's lock, climate and covers belong on its Vehicle card, not on a room page */
   const carPart = e => { const d = window.__haDev?.[e]; return d && carDevCache.has(d); };
   const rest = ents.filter(e => !paired.has(e) && !carPart(e));
-  if (pairs.length) out.dualshade = pairs.slice(0, 4);
+  if (pairs.length) out.dualshade = pairs.slice(0, 12);
   ROOM_KINDS.forEach(([k, test]) => { const l = rest.filter(test).slice(0, LIMITS[k]); if (l.length) out[k] = l; });
   return out;
 }
@@ -4199,7 +4232,7 @@ function roomBlocks(room, kinds){
   (kinds.climate || []).forEach(e => b.push(mk('climate', {entity:e, title:n(e)})));
   (kinds.cover || []).forEach(e => b.push(mk('cover', {entity:e, title:n(e)})));
   (kinds.dualshade || []).forEach(p => b.push(mk('dualshade', {entity:p.e1, entity2:p.e2, style:p.style, label1:p.l1, label2:p.l2,
-    title:n(p.e1).replace(new RegExp('\\b(' + DS_WORDS.flatMap(w => [w[0], w[1]]).join('|').replace(/_/g, ' ') + ')\\b', 'ig'), '').replace(/\s+/g, ' ').trim() || 'Shades'})));
+    title:p.name ? (p.name.toLowerCase().startsWith(room.toLowerCase() + ' ') ? p.name.slice(room.length + 1) : p.name) : n(p.e1).replace(new RegExp('\\b(' + DS_WORDS.flatMap(w => [w[0], w[1]]).join('|').replace(/_/g, ' ') + ')\\b', 'ig'), '').replace(/\s+/g, ' ').trim() || 'Shades'})));
   (kinds.garage || []).forEach(e => b.push(mk('garage', {entity:e, title:n(e)})));
   (kinds.lock || []).forEach(e => b.push(mk('lock', {entity:e, title:n(e)})));
   (kinds.alarm || []).forEach(e => b.push(mk('alarm', {entity:e, title:n(e)})));
