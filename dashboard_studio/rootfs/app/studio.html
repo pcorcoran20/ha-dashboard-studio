@@ -440,8 +440,10 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .fun{position:absolute; inset:0; overflow:hidden; border-radius:inherit; pointer-events:none; z-index:0}
 .dgrid{position:relative; z-index:1}
 .fun button{pointer-events:auto; border:0; padding:0; background:none; cursor:pointer}
-.dash[data-fun="pride"] .card:not(.w-header):not(.bare){border-color:transparent; border-width:max(2px, var(--d-bw,1px)); background:linear-gradient(var(--d-card), var(--d-card)) padding-box, linear-gradient(var(--d-base), var(--d-base)) padding-box, var(--d-flag) border-box}
-.dash[data-fun="pride"] .w-light.is-on:not(.bare){background:linear-gradient(color-mix(in srgb, var(--d-active) 22%, var(--d-card)), color-mix(in srgb, var(--d-active) 22%, var(--d-card))) padding-box, linear-gradient(var(--d-base), var(--d-base)) padding-box, var(--d-flag) border-box}
+.dash[data-fun="pride"] .card:not(.w-header):not(.bare){border-color:transparent; border-width:max(2px, var(--d-bw,1px))}
+.dash[data-fun="pride"] .card:not(.w-header):not(.bare)::before{content:""; position:absolute; inset:calc(-1 * max(2px, var(--d-bw,1px))); padding:max(2px, var(--d-bw,1px)); border-radius:inherit; background:var(--d-flag); pointer-events:none; z-index:0;
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask:linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0)}
+.dash[data-fun="pride"] .w-light.is-on:not(.bare){background:color-mix(in srgb, var(--d-active) 22%, var(--d-card))}
 .dash[data-fun="pride"] .hd-greet{background:var(--d-flag); -webkit-background-clip:text; background-clip:text; color:transparent}
 .dash[data-fun="duck"]{padding-bottom:calc(var(--d-dpad,24px) + 70px)}
 .pond{position:absolute; left:0; right:0; bottom:0; height:76px; background:radial-gradient(14px 6px at 50% 0, transparent 98%, #8fd0d6 100%) 0 0 / 28px 12px repeat-x, linear-gradient(180deg, #8fd0d6, #5fb3bf)}
@@ -1159,13 +1161,16 @@ const FLAGS = {
   trans:{name:'Trans', c:['#5bcefa','#f5a9b8','#ffffff','#f5a9b8','#5bcefa'], a:'#5bcefa'},
   bi:{name:'Bi', c:['#d60270','#d60270','#9b4f96','#0038a8','#0038a8'], a:'#e0388f'},
   pan:{name:'Pan', c:['#ff218c','#ffd800','#21b1ff'], a:'#ff218c'},
+  gay:{name:'Gay (MLM)', c:['#078d70','#26ceaa','#98e8c1','#ffffff','#7bade2','#5049cc','#3d1a78'], a:'#26ceaa'},
   lesbian:{name:'Lesbian', c:['#d52d00','#ff9a56','#ffffff','#d362a4','#a30262'], a:'#ff9a56'},
   nonbinary:{name:'Non-binary', c:['#fcf434','#ffffff','#9c59d1','#2c2c2c'], a:'#fcf434'},
   ace:{name:'Asexual', c:['#000000','#a3a3a3','#ffffff','#800080'], a:'#b26ad9'},
   aro:{name:'Aromantic', c:['#3da542','#a7d379','#ffffff','#a9a9a9','#000000'], a:'#5cc461'},
   genderfluid:{name:'Genderfluid', c:['#ff76a4','#ffffff','#c011d7','#000000','#2f3cbe'], a:'#ff76a4'},
   agender:{name:'Agender', c:['#000000','#bcc4c7','#ffffff','#b7f684','#ffffff','#bcc4c7','#000000'], a:'#b7f684'},
-  intersex:{name:'Intersex', c:['#ffd800','#ffd800','#7902aa','#ffd800','#ffd800'], a:'#ffd800'}
+  intersex:{name:'Intersex', c:['#ffd800','#ffd800','#7902aa','#ffd800','#ffd800'], a:'#ffd800'},
+  genderqueer:{name:'Genderqueer', c:['#b57edc','#ffffff','#4a8123'], a:'#b57edc'},
+  demi:{name:'Demisexual', c:['#000000','#a4a4a4','#ffffff','#6e0070','#a4a4a4','#000000'], a:'#a24ec8'}
 };
 const flagGradient = (c, ang='180deg') => `linear-gradient(${ang}, ${c.map((x,i) => `${x} ${(i/c.length*100).toFixed(2)}% ${((i+1)/c.length*100).toFixed(2)}%`).join(', ')})`;
 function prideTheme(){
@@ -1523,7 +1528,11 @@ const R = {
       <div class="dial-ctl"><button class="d-btn" data-act="tminus" aria-label="Lower">${ic('minus')}</button><button class="d-btn" data-act="tplus" aria-label="Raise">${ic('plus')}</button></div>`;
   },
   media(b){
-    return `<div class="md"><div class="art"></div><div class="md-txt"><div class="d-label">${esc(b.title)}</div><div class="d-name" style="font-size:calc(16px * var(--d-fs,1))">Midnight City</div><div class="d-label">M83 · Hurry Up, We're Dreaming</div></div></div>
+    /* what's really playing when Home Assistant tells us; the sample song only on the sample speaker */
+    const live = window.__haMedia?.[b.entity], sample = b.entity === CATALOG.media.d.entity;
+    const song = live ? (live.title || 'Nothing playing') : b.song ?? (sample ? 'Midnight City' : 'Nothing playing');
+    const artist = live ? (live.artist || human(b.entity)) : b.artist ?? (sample ? "M83 · Hurry Up, We're Dreaming" : human(b.entity));
+    return `<div class="md"><div class="art"></div><div class="md-txt"><div class="d-label">${esc(b.title)}</div><div class="d-name" style="font-size:calc(16px * var(--d-fs,1))">${esc(song)}</div><div class="d-label">${esc(artist)}</div></div></div>
       <div class="prog"><i></i></div>
       <div class="md-ctl"><button class="d-btn" aria-label="Previous">${ic('prev')}</button><button class="d-btn lg" data-act="play" aria-label="${b.playing?'Pause':'Play'}">${ic(b.playing?'pause':'play')}</button><button class="d-btn" aria-label="Next">${ic('next')}</button></div>`;
   },
@@ -2752,7 +2761,9 @@ function themeObj(k){
   };
   if (t.flag) {
     obj['card-mod-theme'] = themeName(k);
-    obj['card-mod-card'] = `ha-card {\n  border: 2px solid transparent !important;\n  background: linear-gradient(${v.card}, ${v.card}) padding-box, linear-gradient(${v.base}, ${v.base}) padding-box, ${t.flag} border-box !important;\n` + (v.blur > 0 ? `  -webkit-backdrop-filter: blur(${v.blur}px);\n  backdrop-filter: blur(${v.blur}px);\n` : '') + `}`;
+    /* the flag is a ring drawn over the border, so cards keep their own see-through background */
+    obj['card-mod-card'] = `ha-card {\n  border-color: transparent !important;\n  border-width: 2px !important;\n  position: relative;\n` + (v.blur > 0 ? `  -webkit-backdrop-filter: blur(${v.blur}px);\n  backdrop-filter: blur(${v.blur}px);\n` : '') + `}\n`
+      + `ha-card::before {\n  content: "";\n  position: absolute;\n  inset: -2px;\n  padding: 2px;\n  border-radius: inherit;\n  background: ${t.flag};\n  pointer-events: none;\n  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);\n  -webkit-mask-composite: xor;\n  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);\n}`;
   }
   if (state.tw.font && FONTS[state.tw.font]) { const f = fontCss(state.tw.font); obj['primary-font-family'] = f; obj['ha-font-family-body'] = f; obj['ha-font-family-heading'] = f; }
   if (v.fs !== 1) obj['ha-font-size-scale'] = v.fs;
@@ -3342,9 +3353,12 @@ function roomOf(e){
   const w = ROOM_WORDS.find(x => (e.split('.')[1] || '').includes(x)); return w ? roomTitle(w) : 'Other';
 }
 function hubFill(b){
+  carDevCache = new Set(carDevices().map(c => c.id));
   const groups = {};
   state.entities.forEach(e => {
     const [dom, obj] = e.split('.'), t = DOMAIN_TYPE[dom]; if (!t || !obj) return;
+    if (dom === 'cover' && coverKind(e) !== 'shade') return;
+    if (carDevCache.has(window.__haDev?.[e])) return;
     const w = ROOM_WORDS.find(x => obj.includes(x)), room = roomOf(e);
     let name = window.__haNames?.[e];
     if (name && name.toLowerCase().startsWith(room.toLowerCase() + ' ')) name = name.slice(room.length + 1);
@@ -3771,16 +3785,30 @@ function dsScripts(b){
   return out;
 }
 /* two covers that only differ by these words are one window: the first word is the first shade */
-const DS_WORDS = [['night','day','daynight','Night','Day'], ['blackout','sheer','daynight','Blackout','Sheer'], ['blackout','light_filtering','daynight','Blackout','Light filtering'],
+const DS_WORDS = [['night','day','daynight','Night','Day'], ['blackout','day','daynight','Blackout','Day'], ['room_darkening','light_filtering','daynight','Room darkening','Light filtering'],
+  ['dark','light','daynight','Dark','Light'], ['privacy','sheer','daynight','Privacy','Sheer'], ['blackout','sheer','daynight','Blackout','Sheer'], ['blackout','light_filtering','daynight','Blackout','Light filtering'],
   ['blackout','filtering','daynight','Blackout','Light filtering'], ['top','bottom','tdbu','Top rail','Bottom rail'], ['upper','lower','tdbu','Top rail','Bottom rail']];
 function dsPairs(covers){
   const set = new Set(covers), used = new Set(), out = [];
-  for (const [a, z, style, l1, l2] of DS_WORDS) for (const e of covers) {
+  /* two shades on one device are one window (day/night shades often are one device with two motors) */
+  const byDev = {};
+  covers.forEach(e => { const d = window.__haDev?.[e]; if (d) (byDev[d] = byDev[d] || []).push(e); });
+  Object.values(byDev).filter(l => l.length === 2).forEach(([x, y]) => {
+    const txt = e => (e + ' ' + (window.__haNames?.[e] || '')).toLowerCase();
+    const tdbu = /top|bottom|upper|lower/.test(txt(x) + txt(y));
+    const first = /night|blackout|dark|top|upper|privacy/.test(txt(y)) && !/night|blackout|dark|top|upper|privacy/.test(txt(x)) ? [y, x] : [x, y];
+    used.add(x); used.add(y);
+    out.push({e1:first[0], e2:first[1], style:tdbu ? 'tdbu' : 'daynight', l1:tdbu ? 'Top rail' : 'Blackout', l2:tdbu ? 'Bottom rail' : 'Light filtering'});
+  });
+  /* and by friendly name, for shades named "Bedroom Day" and "Bedroom Night" whatever their entity IDs */
+  const key = e => window.__haNames?.[e] ? 'cover.' + slug(window.__haNames[e]) : e;
+  const byKey = new Map(covers.map(e => [key(e), e]));
+  for (const [a, z, style, l1, l2] of DS_WORDS) for (const look of [e => e, key]) for (const e of covers) {
     if (used.has(e)) continue;
-    const re = new RegExp(`(^|_|\\.)${a}(?=_|$)`);
-    if (!re.test(e)) continue;
-    const twin = e.replace(re, (m, pre) => pre + z);
-    if (twin !== e && set.has(twin) && !used.has(twin)) { used.add(e); used.add(twin); out.push({e1:e, e2:twin, style, l1, l2}); }
+    const id = look(e), re = new RegExp(`(^|_|\\.)${a}(?=_|$)`);
+    if (!re.test(id)) continue;
+    const t = id.replace(re, (m, pre) => pre + z), twin = look === key ? byKey.get(t) : (set.has(t) ? t : null);
+    if (twin && twin !== e && !used.has(twin)) { used.add(e); used.add(twin); out.push({e1:e, e2:twin, style, l1, l2}); }
   }
   return out;
 }
@@ -3797,16 +3825,33 @@ function roomGroups(){
   });
   return [...groups.entries()].map(([name, ents]) => ({name, ents})).sort((a, z) => (a.name === 'Other') - (z.name === 'Other') || a.name.localeCompare(z.name));
 }
+const GENERIC = /^(shade|shades|blind|blinds|curtain|curtains|cover|light|lights|lamp|switch|outlet|plug|fan|lock|door|camera|speaker|tv|thermostat|sensor|motor|1|2)$/i;
 function shortName(e, room){
   let n = human(e);
-  if (room !== 'Other' && n.toLowerCase().startsWith(room.toLowerCase() + ' ')) n = n.slice(room.length + 1);
+  const dev = window.__haDevices?.[window.__haDev?.[e]]?.name;
+  if (room !== 'Other' && n.toLowerCase().startsWith(room.toLowerCase() + ' ')) {
+    const cut = n.slice(room.length + 1);
+    /* "Master Bedroom Shade" would be just "Shade": use the device's name, or keep the full name */
+    n = GENERIC.test(cut.trim()) ? (dev && dev.toLowerCase() !== room.toLowerCase() && !dev.toLowerCase().startsWith(room.toLowerCase() + ' ') ? dev : n) : cut;
+  } else if (GENERIC.test(n.trim()) && dev) n = dev;
   return n ? n[0].toUpperCase() + n.slice(1) : n;
+}
+/* what a cover really is: a car's frunk or trunk, a garage door (ratgdo too), a shade, or something else */
+const SHADE_DC = ['shade', 'blind', 'curtain', 'shutter', 'awning'];
+let carDevCache = null;
+function coverKind(e){
+  const obj = e.split('.')[1] || '', dc = window.__haDC?.[e], plat = window.__haPlat?.[e], dev = window.__haDev?.[e];
+  carDevCache = carDevCache || new Set(carDevices().map(c => c.id));
+  if ((dev && carDevCache.has(dev)) || /frunk|trunk|tonneau|charge_?port|sunroof|liftgate|tailgate/.test(obj)) return 'car';
+  if (dc === 'garage' || dc === 'gate' || plat === 'ratgdo' || /garage|gate|ratgdo/.test(obj)) return 'garage';
+  if (dc ? SHADE_DC.includes(dc) : !/door|window|valve|damper|vent/.test(obj)) return 'shade';
+  return 'other';
 }
 const ROOM_KINDS = [
   ['light', e => e.startsWith('light.'), 'light', 'lights'],
   ['climate', e => e.startsWith('climate.'), 'thermostat', 'thermostats'],
-  ['cover', e => e.startsWith('cover.') && !/garage/.test(e), 'shade', 'shades'],
-  ['garage', e => e.startsWith('cover.') && /garage/.test(e), 'garage door', 'garage doors'],
+  ['cover', e => e.startsWith('cover.') && coverKind(e) === 'shade', 'shade', 'shades'],
+  ['garage', e => e.startsWith('cover.') && coverKind(e) === 'garage', 'garage door', 'garage doors'],
   ['media', e => e.startsWith('media_player.'), 'TV or speaker', 'TVs and speakers'],
   ['lock', e => e.startsWith('lock.'), 'lock', 'locks'],
   ['alarm', e => e.startsWith('alarm_control_panel.'), 'alarm', 'alarms'],
@@ -3817,10 +3862,13 @@ const ROOM_KINDS = [
   ['air', e => e.startsWith('sensor.') && /co2|carbon_dioxide/.test(e), 'air sensor', 'air sensors'],
   ['plant', e => e.startsWith('sensor.') && /moisture/.test(e), 'plant', 'plants']
 ];
-const LIMITS = {light:12, climate:2, cover:4, garage:1, media:2, lock:3, alarm:1, camera:2, vacuum:1, temp:2, humid:1, air:1, plant:3};
+const LIMITS = {light:12, climate:2, cover:8, garage:2, media:4, lock:3, alarm:1, camera:12, vacuum:1, temp:2, humid:1, air:1, plant:3};
 function roomKinds(ents){
-  const out = {}, pairs = dsPairs(ents.filter(e => e.startsWith('cover.'))), paired = new Set(pairs.flatMap(p => [p.e1, p.e2]));
-  const rest = ents.filter(e => !paired.has(e));
+  carDevCache = new Set(carDevices().map(c => c.id));
+  const out = {}, pairs = dsPairs(ents.filter(e => e.startsWith('cover.') && coverKind(e) === 'shade')), paired = new Set(pairs.flatMap(p => [p.e1, p.e2]));
+  /* a car's lock, climate and covers belong on its Vehicle card, not on a room page */
+  const carPart = e => { const d = window.__haDev?.[e]; return d && carDevCache.has(d); };
+  const rest = ents.filter(e => !paired.has(e) && !carPart(e));
   if (pairs.length) out.dualshade = pairs.slice(0, 4);
   ROOM_KINDS.forEach(([k, test]) => { const l = rest.filter(test).slice(0, LIMITS[k]); if (l.length) out[k] = l; });
   return out;
@@ -3844,7 +3892,8 @@ function roomBlocks(room, kinds){
   (kinds.humid || []).forEach(e => b.push(mk('sensor', {entity:e, title:n(e), unit:'%', value:'48'})));
   (kinds.air || []).forEach(e => b.push(mk('air', {entity:e, title:n(e)})));
   (kinds.plant || []).forEach(e => b.push(mk('plant', {entity:e, title:n(e).replace(/ ?moisture/i, '') || 'Plant'})));
-  (kinds.media || []).forEach(e => b.push(mk('media', {entity:e, title:n(e)})));
+  (kinds.media || []).forEach(e => { const m = window.__haMedia?.[e] || {};
+    b.push(mk('media', {entity:e, title:n(e), song:m.title || 'Nothing playing', artist:m.artist || (m.state ? m.state[0].toUpperCase() + m.state.slice(1) : 'Ready'), playing:m.state === 'playing'})); });
   (kinds.camera || []).forEach(e => b.push(mk('camera', {entity:e, title:n(e)})));
   return tidyList(b);
 }
@@ -4312,6 +4361,8 @@ async function haLoad(announce){
     window.__haDev = Object.fromEntries(j.entities.map(e => [e.entity_id, e.device]));
     window.__haPlat = Object.fromEntries(j.entities.map(e => [e.entity_id, e.platform]));
     window.__haDevices = Object.fromEntries((j.devices || []).map(d => [d.id, d]));
+    window.__haDC = Object.fromEntries(j.entities.filter(e => e.dc).map(e => [e.entity_id, e.dc]));
+    window.__haMedia = Object.fromEntries(j.entities.filter(e => e.entity_id.startsWith('media_player.')).map(e => [e.entity_id, {title:e.media_title, artist:e.media_artist, state:e.state}]));
     state.entities = parseEntities(j.entities.map(e => e.entity_id).join(' '));
     chip.classList.remove('off'); chip.innerHTML = `<i></i>${esc(j.location || 'Home Assistant')}`;
     chip.title = `Connected to Home Assistant ${j.version || ''} · ${state.entities.length} entities · ${j.areas.length} areas`;

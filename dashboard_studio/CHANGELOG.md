@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.5.1
+
+- Fix: garage door openers (like ratgdo) and gates are garage doors in Auto-build and the hub, not shades. Covers are sorted by their device class.
+- Fix: a car's frunk, trunk, charge port, lock and climate stay on its Vehicle card. They don't show up as house shades, locks or thermostats anymore.
+- Fix: day/night shades are found more often. Two shades on one device are one window, shades are matched by their names as well as their entity IDs, and more word pairs count (blackout/day, room darkening/light filtering, dark/light, privacy/sheer).
+- Fix: media blocks show what's really playing, not the sample song.
+- Fix: names that would be just "Shade" or "Light" after the room is taken off now use the device's name, or keep the full name.
+- Fix: Auto-build adds up to 12 cameras per room (it was 2), and more shades and speakers.
+- Fix: Pride cards keep their own see-through background. The flag is now a ring around the card, in the Studio and in Home Assistant.
+- New Pride flags: Gay (MLM), Genderqueer and Demisexual.
+
 ## 1.5.0
 
 - **Pages look the same in Home Assistant.** Full width blocks are really full width now. Home Assistant gives a section that's 4 columns wide a 48 column grid, so the export now sizes blocks for that.

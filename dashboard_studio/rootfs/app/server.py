@@ -39,7 +39,7 @@ from aiohttp import ClientSession, ClientTimeout, web
 
 import tesla
 
-VERSION = os.environ.get("STUDIO_VERSION", "1.5.0")
+VERSION = os.environ.get("STUDIO_VERSION", "1.5.1")
 def _token():
     """The Supervisor's token, from the environment or from where s6 keeps the container's environment."""
     tok = os.environ.get("SUPERVISOR_TOKEN", "")
@@ -160,6 +160,9 @@ async def ha_info(request):
             "area": entity_area.get(s["entity_id"]) if entity_area.get(s["entity_id"]) in known_areas else None,
             "device": ent_reg.get(s["entity_id"], {}).get("device_id"),
             "platform": ent_reg.get(s["entity_id"], {}).get("platform"),
+            "dc": s.get("attributes", {}).get("device_class"),
+            **({"media_title": s["attributes"].get("media_title"), "media_artist": s["attributes"].get("media_artist")}
+               if s["entity_id"].startswith("media_player.") else {}),
         } for s in states],
         "areas": [{"id": a["area_id"], "name": a["name"]} for a in areas],
         "devices": [{"id": d["id"], "name": d.get("name_by_user") or d.get("name") or "", "model": d.get("model"), "maker": d.get("manufacturer")}

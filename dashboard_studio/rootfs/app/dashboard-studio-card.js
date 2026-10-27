@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.5.0';
+const STUDIO_VERSION = '1.5.1';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -192,10 +192,15 @@ class DashboardStudioHub extends HTMLElement {
     const skip = new Set([c.exclude || []].flat().map(String));
     const shown = id => { const e = ents[id]; return !skip.has(id) && !(e && (e.hidden || e.entity_category)); };
     if (this._auto) {
-      const by = {}, loose = [];
+      const by = {}, loose = [], cars = new Set(findCars(hass).map(x => x.device));
       ids.forEach(id => {
         const dom = id.split('.')[0];
         if (!DOMAIN_TYPE[dom] || dom === 'input_boolean' || !shown(id)) return;
+        /* cars have their own tile: their locks, climate and covers aren't the house's */
+        if (cars.has(ents[id]?.device_id)) return;
+        /* only shades are shades: not garage doors, gates, doors or windows, and not a car's frunk or trunk */
+        if (dom === 'cover') { const dc = hass.states[id].attributes.device_class;
+          if (/frunk|trunk|tonneau|charge_?port|sunroof/.test(id) || (dc ? !['shade', 'blind', 'curtain', 'shutter', 'awning'].includes(dc) : /garage|gate|door|window|ratgdo/.test(id))) return; }
         const e = ents[id], aid = e?.area_id || devs[e?.device_id]?.area_id;
         if (aid && areas[aid]) (by[aid] = by[aid] || []).push({entity: id}); else loose.push({entity: id});
       });
