@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.11.0
+
+- New: until Tesla View or a 3D Tesla is set up, cars show a rendered 3D car in your paint color, in place of the flat drawing. That's on the vehicle card, the garage, the hub's car tiles and in the Studio. Set `drawing: true` to keep the drawing. The car picture is rendered from a Dodge Challenger model on Thingiverse (CC BY-NC-SA 4.0), see CREDITS.md.
+- The hub's car tiles show each car's picture (Tesla View's car once it's set up) in place of an icon.
+
 ## 1.10.3
 
 - Each car on the Control hub is now a tile with a car icon (a pickup for a Cybertruck), its name, battery and what it's doing, just like the other tiles. The picture cards are still there: turn on **Car pictures** in the hub's settings, or set `car_pictures: true`.

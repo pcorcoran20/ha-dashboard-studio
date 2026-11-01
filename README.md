@@ -114,9 +114,9 @@ In a Sections dashboard, make the card full width so the tiles have room.
 | `room_radius` | For the touchscreen layout: how round the room button is, from `0` (square corners) to `30` (fully round, the default). |
 | `icon_background` | `false` removes the circle behind the tile icons. Icons that are on glow, and icons that are off are dimmer. |
 | `animations` | `page`: `fade`, `slide` (the default), `zoom`, `flip`, `rise`, `blur`, `swing`, `bounce` or `off`. `tap`: `ripple` (the default), `press`, `sparkle`, `ring`, `glow` or `off`. `state`: `pop` (the default), `glow`, `bounce`, `flash`, `burst` or `off`. `calm: true` turns them all off. |
-| `vehicle` | Your cars. Every car Home Assistant knows gets a tile with a car icon, its battery and what it's doing, and tapping one opens it. Leave it out and the card finds your cars by itself. Set `false` to hide them, or give the same settings as the vehicle card for your main car, like `{name: Ruby, model: model_3, color: ultra_red}`. |
+| `vehicle` | Your cars. Every car Home Assistant knows gets a tile with its picture, its battery and what it's doing, and tapping one opens it. Leave it out and the card finds your cars by itself. Set `false` to hide them, or give the same settings as the vehicle card for your main car, like `{name: Ruby, model: model_3, color: ultra_red}`. |
 | `vehicles` | Set `false` to show only the car in `vehicle`, not every car. |
-| `car_pictures` | Set `true` to show every car on a little card with its picture (Tesla View's render when it's installed). By default each car is a tile with a car icon. |
+| `car_pictures` | Set `true` to show every car on a bigger card with its picture. By default each car is a tile with its picture, like the other tiles. |
 | `laundry` | Your washers and dryers get a Laundry tile that says what they're doing and opens them. Set `false` to hide it. |
 | `touch_style` | For the touchscreen layout: `dark` (the default) or `theme` to follow your Home Assistant theme. |
 | `full_height` | `true` makes the card fill the screen. Good in a panel view. |
@@ -199,6 +199,8 @@ entities:
 ```
 
 ### Tesla View: the car exactly like the app
+
+Until Tesla View or a 3D Tesla is set up, the card shows a rendered car in your paint color (a Dodge Challenger model, see [CREDITS.md](CREDITS.md)). Set `drawing: true` for the flat drawing instead.
 
 If [Tesla View](https://github.com/koenhendriks/tesla-view) is installed with an asset pack, the vehicle card shows Tesla View's car in place of the drawing, with the app's lighting, charge cable and tap targets. The card hands it your car's device and the entities it found. Set `tesla_view: false` to keep the drawing, or set it to Tesla View options like `{paint: Quicksilver, camera: charging}`. The card picks the matching car from your pack by itself. By default the card shows Tesla View see-through, so just the car sits on your card. Set `tesla_view_look: dark` for the app's dark box faded into the card, or `light` for the app's light mode. `tesla_view_brightness` (0.6 to 2, default 1.25) lifts the car.
 

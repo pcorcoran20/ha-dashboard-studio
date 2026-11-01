@@ -31,6 +31,16 @@ How Dashboard Studio uses it:
 | [ya-webadb / Tango](https://github.com/yume-chan/ya-webadb) by Simon Chan | Talks to your phone over USB from the browser (`@yume-chan/adb`, `adb-daemon-webusb`, `adb-credential-web`), bundled in `dashboard_studio/rootfs/app/adb.js` | MIT |
 | [three.js](https://threejs.org) | Draws GLB cars in 3D, loaded from jsDelivr when a card shows one | MIT |
 
+## The default car picture
+
+Until Tesla View or a 3D Tesla is set up, cars show a picture rendered from the [Dodge Challenger 3D model on Thingiverse (thing:3163692)](https://www.thingiverse.com/thing:3163692), licensed [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+
+What we changed: we rendered the model as a picture with dark wheels and windows, and made a mask so the body takes your paint color.
+
+The two pictures made from it (`CLAY_CAR` and `CLAY_MASK` in `dist/dashboard-studio-card.js` and the Studio) are shared under the same CC BY-NC-SA 4.0 license, not the MIT license of the rest of Dashboard Studio. That means they're free to share and change with credit, but not for commercial use.
+
+Dodge and Challenger are trademarks of FCA US LLC. Dashboard Studio isn't affiliated with or endorsed by them.
+
 ## About Tesla's material
 
 Neither this project nor the projects above include anything made by Tesla. Your car's 3D files come from your own copy of the Tesla app, are made on your own Home Assistant, and are for you alone. Please don't share them.
