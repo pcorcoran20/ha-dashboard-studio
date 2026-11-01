@@ -4067,13 +4067,16 @@ insp.addEventListener('change', e => {
   img.onerror = () => toast('That file isn’t a picture the browser can open'); img.src = url;
 });
 /* cars in Home Assistant: devices from a Tesla integration, or with a battery level and a lock, climate or frunk */
-const CAR_PLATFORMS = ['tesla_fleet', 'teslemetry', 'tessie', 'tesla_custom'];
+const CAR_PLATFORMS = ['tesla_fleet', 'teslemetry', 'tessie', 'tesla_custom', 'mytesla', 'tesla', 'rivian', 'kia_uvo', 'hyundai_kia_connect', 'bmw_connected_drive', 'mercedesme', 'volvo', 'volvooncall',
+  'polestar_api', 'fordpass', 'volkswagen_we_connect_id', 'volkswagencarnet', 'audiconnect', 'renault', 'nissan_leaf', 'smartcar', 'subaru', 'toyota', 'mazda', 'mg_saic', 'skodaconnect'];
+/* only a car has these: a smart lock has a battery and a lock too, but never a frunk, a charge port or a range */
+const CAR_HINT = /_(frunk|trunk|tailgate|charge_port|charge_cable|charging|charger|charge_limit|charge_state|charge_rate|odometer|range|estimated_range|battery_range|tire_pressure|tpms|sentry|fuel_level|ev_range)(_|$)/;
 function carDevices(){
   const dev = window.__haDev; if (!dev) return [];
   const by = {};
   Object.entries(dev).forEach(([id, d]) => { if (d) (by[d] = by[d] || []).push(id); });
   return Object.entries(by).filter(([d, ids]) => ids.some(i => CAR_PLATFORMS.includes(window.__haPlat?.[i])) ||
-      (ids.some(i => /^sensor\..*_battery_level$/.test(i)) && ids.some(i => /^(lock|climate)\./.test(i) || /^cover\..*_frunk$/.test(i))))
+      (ids.some(i => /^sensor\..*_battery_level$/.test(i)) && ids.some(i => CAR_HINT.test(i.split('.')[1]))))
     .map(([d]) => ({id:d, name:window.__haDevices?.[d]?.name || d, model:window.__haDevices?.[d]?.model || ''}));
 }
 const CHARGERS = [['auto','Find it'], ['supercharger','Supercharger'], ['wall_connector','Wall Connector'], ['none','Only the cable']];

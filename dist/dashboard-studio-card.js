@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.9.0';
+const STUDIO_VERSION = '1.9.1';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -1873,7 +1873,10 @@ function vehAsleep(st) {
   if (id.startsWith('binary_sensor.')) return s === 'off';
   return s === 'asleep' || s === 'offline' || s === 'sleeping';
 }
-const VEH_PLATFORMS = ['tesla_fleet', 'teslemetry', 'tessie', 'tesla_custom', 'mytesla', 'tesla'];
+const VEH_PLATFORMS = ['tesla_fleet', 'teslemetry', 'tessie', 'tesla_custom', 'mytesla', 'tesla', 'rivian', 'kia_uvo', 'hyundai_kia_connect', 'bmw_connected_drive', 'mercedesme', 'volvo', 'volvooncall',
+  'polestar_api', 'fordpass', 'volkswagen_we_connect_id', 'volkswagencarnet', 'audiconnect', 'renault', 'nissan_leaf', 'smartcar', 'subaru', 'toyota', 'mazda', 'mg_saic', 'skodaconnect'];
+/* only a car has these: a smart lock or a phone has a battery and maybe a lock, but never a frunk, a charge port or a range */
+const CAR_HINT = /_(frunk|trunk|tailgate|charge_port|charge_cable|charging|charger|charge_limit|charge_state|charge_rate|odometer|range|estimated_range|battery_range|tire_pressure|tpms|sentry|fuel_level|ev_range)(_|$)/;
 
 function findVehicle(hass, cfg) {
   const ids = Object.keys(hass.states), ents = hass.entities || {};
@@ -1885,7 +1888,8 @@ function findVehicle(hass, cfg) {
     const dev = Object.values(ents).find(e => VEH_PLATFORMS.includes(e.platform) && /_battery_level$/.test(e.entity_id))?.device_id;
     if (dev) pool = ids.filter(id => ents[id]?.device_id === dev);
     else {
-      const bat = ids.find(id => /^sensor\..*_battery_level$/.test(id) && ids.some(x => x.startsWith('lock.' + id.split('.')[1].replace(/_battery_level$/, ''))));
+      const bat = ids.find(id => { if (!/^sensor\..*_battery_level$/.test(id)) return false; const pre = id.split('.')[1].replace(/_battery_level$/, '');
+        return ids.some(x => x.split('.')[1].startsWith(pre + '_') && CAR_HINT.test(x.split('.')[1])); });
       if (bat) { const pre = bat.split('.')[1].replace(/_battery_level$/, ''); pool = ids.filter(id => id.split('.')[1].startsWith(pre)); }
     }
   }
@@ -2202,7 +2206,7 @@ function findCars(hass) {
   const ents = Object.values(hass.entities || {}), by = {};
   ents.forEach(e => { if (e.device_id && hass.states[e.entity_id]) (by[e.device_id] = by[e.device_id] || []).push(e); });
   return Object.entries(by).filter(([, es]) => es.some(e => /_battery_level$/.test(e.entity_id) && e.entity_id.startsWith('sensor.')) &&
-      (es.some(e => VEH_PLATFORMS.includes(e.platform)) || es.some(e => /^(lock|climate)\./.test(e.entity_id) || /^cover\..*_frunk$/.test(e.entity_id))))
+      (es.some(e => VEH_PLATFORMS.includes(e.platform)) || es.some(e => CAR_HINT.test(e.entity_id.split('.')[1]))))
     .map(([id]) => ({device: id}));
 }
 

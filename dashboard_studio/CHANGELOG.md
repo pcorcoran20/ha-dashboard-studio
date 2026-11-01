@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.1
+
+- Fix: smart door locks no longer show up as cars. A device counts as a car only when it comes from a car integration, or has something only a car has (a frunk, a charge port, a range, an odometer). This also brings those locks back to Security.
+- Cars from more brands are found by themselves: Rivian, Kia, Hyundai, BMW, Mercedes, Volvo, Polestar, Ford, Volkswagen, Audi, Renault, Nissan, Subaru, Toyota and more.
+
 ## 1.9.0
 
 - New: laundry cards. Your washer and dryer, with a drum that spins while they run, a progress ring, what they're doing, the time left and when they'll be done. A finished load says **Done** until you open the door. Works with SmartThings, LG ThinQ, Home Connect, Miele, GE, Whirlpool and smart plugs.
