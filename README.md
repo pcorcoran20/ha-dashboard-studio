@@ -116,6 +116,7 @@ In a Sections dashboard, make the card full width so the tiles have room.
 | `animations` | `page`: `fade`, `slide` (the default), `zoom`, `flip`, `rise`, `blur`, `swing`, `bounce` or `off`. `tap`: `ripple` (the default), `press`, `sparkle`, `ring`, `glow` or `off`. `state`: `pop` (the default), `glow`, `bounce`, `flash`, `burst` or `off`. `calm: true` turns them all off. |
 | `vehicle` | Your cars. Every car Home Assistant knows gets a little card with its picture (Tesla View's render when it's installed) on the home page, and tapping one opens it. Leave it out and the card finds your cars by itself. Set `false` to hide them, or give the same settings as the vehicle card for your main car, like `{name: Ruby, model: model_3, color: ultra_red}`. |
 | `vehicles` | Set `false` to show only the car in `vehicle`, not every car. |
+| `laundry` | Your washers and dryers get a Laundry tile that says what they're doing and opens them. Set `false` to hide it. |
 | `touch_style` | For the touchscreen layout: `dark` (the default) or `theme` to follow your Home Assistant theme. |
 | `full_height` | `true` makes the card fill the screen. Good in a panel view. |
 | `weather_entity` | The weather shown in the touchscreen layout's bottom bar. Leave it out to use your first weather entity. |
@@ -299,7 +300,7 @@ name: Laundry
 machines:                 # optional: leave out to use every washer and dryer it finds
   - device: <device id>
     name: Washer
-    kind: washer          # washer or dryer
+    kind: washer          # washer, dryer, or combo (one machine that washes and dries, like an LG WashCombo)
     # optional, when the card guesses wrong:
     status: sensor.washer_machine_state
     stage: sensor.washer_job_state
@@ -311,6 +312,8 @@ machines:                 # optional: leave out to use every washer and dryer it
 ```
 
 Tap a machine to open its details in Home Assistant.
+
+A washer-dryer combo shows as one machine that turns from washing to drying as the cycle goes. A stacked pair that Home Assistant sees as one device, like an LG WashTower, shows as a washer and a dryer.
 
 ## Credits
 

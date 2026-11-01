@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.9.1';
+const STUDIO_VERSION = '1.10.0';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -52,13 +52,13 @@ const TYPE_ICON = {
 const CATS = [
   ['light', 'Lights', 'mdi:lightbulb-group'], ['shade', 'Shades', 'mdi:blinds'], ['climate', 'Comfort', 'mdi:thermostat'],
   ['media', 'Listen & Watch', 'mdi:play-circle'], ['security', 'Security', 'mdi:shield-home'], ['camera', 'Cameras', 'mdi:cctv'],
-  ['fan', 'Fans', 'mdi:fan'], ['switch', 'Outlets', 'mdi:power-socket-us'], ['car', 'Car', 'mdi:car-electric']
+  ['fan', 'Fans', 'mdi:fan'], ['switch', 'Outlets', 'mdi:power-socket-us'], ['laundry', 'Laundry', 'mdi:washing-machine'], ['car', 'Car', 'mdi:car-electric']
 ];
 const catOf = t => (t === 'lock' || t === 'alarm') ? 'security' : t;
 /* touchscreen layout tiles, in screen order */
 const TOUCH = [['watch', 'Watch', 'mdi:television'], ['listen', 'Listen', 'mdi:speaker'], ['light', 'Lighting', 'mdi:lightbulb'], ['climate', 'Comfort', 'mdi:thermostat'], ['car', 'Car', 'mdi:car-electric'],
   ['shade', 'Shades', 'mdi:blinds'], ['security', 'Security', 'mdi:shield-home'], ['camera', 'Cameras', 'mdi:cctv'], ['fan', 'Fans', 'mdi:fan'],
-  ['switch', 'Outlets', 'mdi:power-socket-us'], ['quick', 'Shortcuts', 'mdi:gesture-tap-button']];
+  ['switch', 'Outlets', 'mdi:power-socket-us'], ['laundry', 'Laundry', 'mdi:washing-machine'], ['quick', 'Shortcuts', 'mdi:gesture-tap-button']];
 /* one window with two shade motors (day/night fabrics, or top down, bottom up): two covers on one device, or names that only differ by a fabric word */
 const DS_SWAP = [['blackout', 'sheer'], ['blackout', 'light_filtering'], ['blackout', 'filtering'], ['blackout', 'day'], ['night', 'day'], ['room_darkening', 'light_filtering'],
   ['dark', 'light'], ['privacy', 'sheer'], ['top', 'bottom'], ['upper', 'lower']];
@@ -198,6 +198,8 @@ class DashboardStudioHub extends HTMLElement {
       this._cars = this._findCars(hass);
     }
     const car = this._view === 'car' ? [] : (this._cars || []).flatMap(x => Object.values(x.e));
+    if (old?.entities !== hass.entities) this._lfound = null;
+    if (this._lc) car.push(...(this._lc._machines || []).flatMap(m => Object.values(m.r).filter(Boolean)));
     if (filled || !old || [...this._watched(), ...car].some(e => old.states[e] !== hass.states[e]) || old.themes !== hass.themes) this._schedule();
     const v = this._root?.querySelector('.hub-car'); if (v) v.hass = hass;
     Object.values(this._minis || {}).forEach(m => { if (m.isConnected) m.hass = hass; });
@@ -218,6 +220,32 @@ class DashboardStudioHub extends HTMLElement {
       const name = x.cfg.name || d.name_by_user || d.name || hass.states[x.e.battery]?.attributes.friendly_name?.replace(/ battery( level)?$/i, '') || `Car ${i + 1}`;
       return {cfg: {...x.cfg, ...(dev ? {device: dev} : {}), name, model: x.cfg.model || carKey(d.model) || 'model_y'}, e: x.e, name, i};
     });
+  }
+
+  /* the washers and dryers in the room on screen (every one on All rooms) */
+  _laundryHere() {
+    const h = this._hass; if (!h || this._config.laundry === false) return [];
+    const all = this._lfound ||= findLaundry(h);
+    if (this._room < 0) return all;
+    const room = (this._config.rooms[this._room]?.name || '').toLowerCase();
+    return all.filter(m => { const aid = h.devices?.[m.device]?.area_id || h.entities?.[m.ids[0]]?.area_id; return aid && (h.areas?.[aid]?.name || '').toLowerCase() === room; });
+  }
+
+  _laundryCard() {
+    const ms = this._laundryHere(), sig = ms.map(m => m.device || m.name).join('|') + (this._config.calm ? '|calm' : '');
+    this._lc ||= document.createElement('dashboard-studio-laundry');
+    if (this._lcSig !== sig) { this._lc.setConfig({name: 'Laundry', machines: ms.map(m => m.device ? {device: m.device, ...(m.sub ? {sub: m.sub} : {}), name: m.name, kind: m.kind} : {...m}), bare: true, calm: !!this._config.calm}); this._lcSig = sig; }
+    if (this._hass) this._lc.hass = this._hass;
+    return this._lc;
+  }
+
+  _laundryStatus() {
+    const lc = this._laundryCard(), ms = lc._machines || [], sts = ms.map(m => lc._state(m));
+    const run = sts.map((x, i) => [x, ms[i]]).filter(([x]) => x.mode === 'running').sort((a, b) => (a[0].left ?? 1e9) - (b[0].left ?? 1e9));
+    if (run.length) { const [x, m] = run[0]; return {text: x.left != null ? `${m.name} · ${Math.max(1, Math.round(x.left))} min left` : `${m.name} · ${x.word}`, active: true}; }
+    const done = sts.map((x, i) => [x, ms[i]]).filter(([x]) => x.mode === 'done');
+    if (done.length) return {text: done.length === 1 ? `${done[0][1].name} is done 🧺` : `${done.length} loads ready 🧺`, active: true};
+    return {text: sts.some(x => x.mode === 'paused') ? 'Paused' : 'All quiet', active: false};
   }
 
   _carState(car) {
@@ -380,6 +408,7 @@ class DashboardStudioHub extends HTMLElement {
       }
       case 'camera': return {text: `${L.length} live`, active: false};
       case 'car': { const i = this._carInfo(); return {text: i.text, active: i.chg}; }
+      case 'laundry': return this._laundryStatus();
     }
     return {text: '', active: false};
   }
@@ -577,6 +606,9 @@ class DashboardStudioHub extends HTMLElement {
       const tag = this._garage() ? 'dashboard-studio-garage' : 'dashboard-studio-vehicle';
       body = `${c.layout === 'touchscreen' ? '' : '<div class="head"><button class="ibtn" data-a="back" aria-label="Back"><ha-icon icon="mdi:chevron-left"></ha-icon></button></div>'}<${tag} class="hub-car"></${tag}>`;
     }
+    else if (this._view === 'laundry' && this._laundryHere().length) {
+      body = `${c.layout === 'touchscreen' ? '' : '<div class="head"><button class="ibtn" data-a="back" aria-label="Back"><ha-icon icon="mdi:chevron-left"></ha-icon></button><div><div class="title">Laundry</div></div></div>'}<div class="hub-laundry"></div>`;
+    }
     else if (this._view && this._devices(this._view).length) {
       const cat = CATS.find(x => x[0] === this._view) || TOUCH.find(x => x[0] === this._view), L = this._devices(this._view);
       const all = {light: ['All on', 'All off'], fan: ['All on', 'All off'], switch: ['All on', 'All off'], shade: ['Open all', 'Close all'], security: ['Lock all', 'Unlock all']}[this._view];
@@ -591,7 +623,7 @@ class DashboardStudioHub extends HTMLElement {
       body = this._touchHome();
     } else {
       this._view = null;
-      const cats = CATS.filter(([k]) => k === 'car' ? false : this._devices(k).length), cars = this._carCards();
+      const cats = CATS.filter(([k]) => k === 'car' ? false : k === 'laundry' ? this._laundryHere().length : this._devices(k).length), cars = this._carCards();
       const quick = (c.good_night !== false ? `<button class="gn" data-a="goodnight"><ha-icon icon="mdi:weather-night"></ha-icon><span><b>Good night</b><small>Lights off, lock up and settle in</small></span></button>` : '') +
         c.scenes.map(s => { const on = this._hass.states[s.entity]; return `<button class="scene" data-a="scene" data-e="${esc(s.entity)}" data-n="${esc(s.name || on?.attributes.friendly_name || s.entity)}"><ha-icon icon="${esc(s.icon || on?.attributes.icon || 'mdi:palette')}"></ha-icon>${esc(s.name || on?.attributes.friendly_name || s.entity)}</button>`; }).join('');
       body = `${quick ? `<div class="quick">${quick}</div>` : ''}${cars}
@@ -633,6 +665,7 @@ class DashboardStudioHub extends HTMLElement {
     const card = this._root.querySelector('ha-card'), an = this._anim();
     const veh = card.querySelector('dashboard-studio-vehicle');
     if (veh) { veh.setConfig({...(this._cars?.[this._carPick || 0]?.cfg || this._carCfg()), bare: true, calm: !!this._config.calm}); veh.hass = this._hass; }
+    const ls = card.querySelector('.hub-laundry'); if (ls) ls.append(this._laundryCard());
     const gar = card.querySelector('dashboard-studio-garage');
     if (gar) { gar.setConfig({name: 'Garage', ...(this._config.garage_door ? {door: this._config.garage_door} : {}), bare: true, calm: !!this._config.calm}); gar.hass = this._hass; }
     /* each little car card keeps its own render (Tesla View when it's installed), so redraws don't reload it */
@@ -697,7 +730,7 @@ class DashboardStudioHub extends HTMLElement {
 
   _touchHome() {
     const c = this._config;
-    const tiles = TOUCH.filter(([k]) => k === 'quick' ? (c.scenes.length || c.good_night !== false) : k === 'car' ? false : this._devices(k).length).map(([k, label, icon]) => {
+    const tiles = TOUCH.filter(([k]) => k === 'quick' ? (c.scenes.length || c.good_night !== false) : k === 'car' ? false : k === 'laundry' ? this._laundryHere().length : this._devices(k).length).map(([k, label, icon]) => {
       let s;
       if (k === 'quick') s = {text: c.scenes.length ? `${c.scenes.length} scene${c.scenes.length === 1 ? '' : 's'}` : 'Good night', active: false};
       else if (k === 'watch' || k === 'listen') { const p = this._devices(k).find(x => x.st?.state === 'playing'); s = {text: p ? `Playing · ${p.name}` : 'Off', active: !!p}; }
@@ -786,6 +819,7 @@ ha-card.ts.noicobg .ts-tile.warn .ts-ico{background:none;color:#ff8a7a}
 
 const STYLE = `
 :host{display:block;position:relative}
+.hub-laundry{display:block;width:100%;max-width:640px;margin:0 auto;--primary-text-color:var(--s-text);--secondary-text-color:var(--s-muted)}
 .hub-car{display:block;width:100%;max-width:640px;margin:0 auto;--primary-text-color:var(--s-text);--secondary-text-color:var(--s-muted)}
 .cars{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
 .carc{border:1px solid var(--s-line);background:var(--t-tile,var(--s-soft));border-radius:calc(var(--s-r)*.8 + 6px);padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;text-align:left;min-width:0;overflow:hidden;transition:transform .15s}
@@ -2651,7 +2685,7 @@ class DashboardStudioHubEditor extends HTMLElement {
  *   machines:                 # optional: leave out to use every washer and dryer it finds
  *     - device: <device id>   # pick it in the visual editor
  *       name: Washer
- *       kind: washer          # washer or dryer
+ *       kind: washer          # washer, dryer, or combo (one machine that washes and dries, like an LG WashCombo)
  *       # optional, when the card guesses wrong:
  *       status: sensor.washer_machine_state
  *       stage: sensor.washer_job_state
@@ -2663,6 +2697,10 @@ class DashboardStudioHubEditor extends HTMLElement {
  */
 const LAUNDRY_ROLES = ['status', 'stage', 'remaining', 'finish', 'progress', 'power', 'door', 'running'];
 const isLaundry = t => /wash|dryer|laundry|lavadora|secadora/i.test(t) && !/dish/i.test(t);
+/* one machine that washes and then dries: its name says so, or it has both spin and dry settings */
+const L_COMBO = /combo|washer[\s_-]?dryer|wash[\s_-]?(and[\s_-]?)?dry|all[\s_-]?in[\s_-]?one/i;
+const laundryKind = (name, ids) => L_COMBO.test(name) || L_COMBO.test(ids.join(' ')) || (ids.some(i => /spin/.test(i)) && ids.some(i => /dry_?level|drying|dry_?time/.test(i))) ? 'combo'
+  : /dry/i.test(name || ids.join(' ')) && !/wash/i.test(name) ? 'dryer' : 'washer';
 /* the entities that say what a machine is doing, picked from one device's entities */
 function laundryRoles(hass, ids) {
   const st = id => hass.states[id], dc = id => st(id)?.attributes.device_class, unit = id => st(id)?.attributes.unit_of_measurement || '';
@@ -2689,10 +2727,18 @@ function findLaundry(hass) {
   Object.entries(by).forEach(([dev, ids]) => {
     const d = hass.devices?.[dev] || {}, name = d.name_by_user || d.name || '';
     if (!isLaundry(`${name} ${d.model || ''} ${ids.join(' ')}`) || !ids.some(id => /^(sensor|binary_sensor)\./.test(id))) return;
-    out.push({device: dev, name: name.replace(/\s*\b(smart\s*)?(plug|outlet|power|energy)\b\s*/ig, ' ').trim() || name, kind: /dry/i.test(name || ids.join(' ')) && !/wash/i.test(name) ? 'dryer' : 'washer', ids});
+    const nice = name.replace(/\s*\b(smart\s*)?(plug|outlet|power|energy)\b\s*/ig, ' ').trim() || name;
+    /* a stacked washer and dryer that is one device (like an LG WashTower) is two machines */
+    const wIds = ids.filter(i => /(^|_)washer(_|$)/.test(i.split('.')[1]) && !/dryer/.test(i)), dIds = ids.filter(i => /(^|_)dryer(_|$)/.test(i.split('.')[1]));
+    if (!L_COMBO.test(nice) && wIds.some(i => /status|state/.test(i)) && dIds.some(i => /status|state/.test(i))) {
+      out.push({device: dev, sub: 'washer', name: `${nice} washer`, kind: 'washer', ids: wIds}, {device: dev, sub: 'dryer', name: `${nice} dryer`, kind: 'dryer', ids: dIds});
+      return;
+    }
+    out.push({device: dev, name: nice, kind: laundryKind(nice, ids), ids});
   });
-  Object.entries(loose).forEach(([k, ids]) => out.push({name: cap(k), kind: /dry/.test(k) ? 'dryer' : 'washer', ids}));
-  return out.sort((a, b) => (a.kind === 'dryer') - (b.kind === 'dryer'));
+  Object.entries(loose).forEach(([k, ids]) => out.push({name: cap(k), kind: laundryKind(k, ids), ids}));
+  /* washers first, dryers last; the two halves of a stacked pair stay together */
+  return out.sort((a, b) => (!a.sub && a.kind === 'dryer') - (!b.sub && b.kind === 'dryer'));
 }
 const L_NORM = s => String(s ?? '').split('.').pop().toLowerCase().replace(/[\s-]+/g, '_');
 const L_DONE = /^(end|finish|finished|complete|completed|done|cycle_?complete|program_?finished)$/;
@@ -2711,7 +2757,7 @@ function lMinutes(st) {
 }
 /* the machine drawing: a front loader whose drum tumbles while it runs, with the progress as a ring round the door */
 function laundryArt(kind, mode, prog, uid) {
-  const C = 2 * Math.PI * 27, run = mode === 'running', dry = kind === 'dryer';
+  const C = 2 * Math.PI * 27, dry = kind === 'dryer' || kind === 'combo-dry';
   const inside = dry
     ? `<g class="lw-drum"><circle cx="14" cy="-6" r="5" fill="#ff9fbf"/><circle cx="-12" cy="8" r="6" fill="#8fd3ff"/><rect x="-6" y="-16" width="10" height="7" rx="3" fill="#ffd36e"/><circle cx="2" cy="12" r="4" fill="#b9a6ff"/></g>`
     : `<g class="lw-drum"><path d="M-22 6c8-5 14 5 22 0s14-5 22 0v20h-44z" fill="#5fc0ff" opacity=".55"/><circle cx="12" cy="-8" r="5" fill="#ff9fbf"/><rect x="-14" y="-10" width="10" height="7" rx="3" fill="#ffd36e"/><circle cx="-2" cy="10" r="4" fill="#fff" opacity=".8"/></g>`;
@@ -2720,7 +2766,7 @@ function laundryArt(kind, mode, prog, uid) {
     <rect x="8" y="4" width="84" height="104" rx="12" class="lw-body"/>
     <rect x="8" y="4" width="84" height="22" rx="12" class="lw-panel"/><rect x="8" y="18" width="84" height="8" class="lw-panel"/>
     <circle cx="74" cy="15" r="5.5" class="lw-knob"/><rect x="20" y="12" width="26" height="6" rx="3" class="lw-screen"/><circle cx="56" cy="15" r="2" class="lw-led"/>
-    <circle cx="50" cy="66" r="31" class="lw-rim"/>
+    ${kind.startsWith('combo') ? '<g aria-hidden="true"><circle cx="62" cy="15" r="2.4" fill="#f59e0b"/><path d="M66.5 12.2c1.2 1.6 1.8 2.5 1.8 3.2a1.8 1.8 0 0 1-3.6 0c0-.7.6-1.6 1.8-3.2z" fill="#38bdf8"/></g>' : ''}<circle cx="50" cy="66" r="31" class="lw-rim"/>
     <circle cx="50" cy="66" r="27" class="lw-track"/>
     <circle cx="50" cy="66" r="27" class="lw-prog${(prog ?? 0) > 0 ? '' : ' zero'}" stroke-dasharray="${(C * Math.max(0, Math.min(1, prog ?? 0))).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 50 66)"/>
     <circle cx="50" cy="66" r="22" class="lw-glass"/>
@@ -2804,12 +2850,12 @@ class DashboardStudioLaundry extends HTMLElement {
   _find() {
     const h = this._hass, found = findLaundry(h), list = this._config.machines?.length ? this._config.machines : found;
     this._machines = list.map((m, i) => {
-      const f = m.device ? found.find(x => x.device === m.device) : m.ids ? m : null;
+      const f = m.device ? found.find(x => x.device === m.device && (!m.sub || x.sub === m.sub)) : m.ids ? m : null;
       const ids = f?.ids || (m.device ? Object.values(h.entities || {}).filter(e => e.device_id === m.device).map(e => e.entity_id) : []);
       const auto = laundryRoles(h, ids), r = {};
       LAUNDRY_ROLES.forEach(k => { r[k] = m[k] || auto[k]; });
       const kind = m.kind || f?.kind || 'washer';
-      return {key: m.device || f?.device || (r.status || r.remaining || r.power || `m${i}`), name: m.name || f?.name || (kind === 'dryer' ? 'Dryer' : 'Washer'), kind, r};
+      return {key: (m.device || f?.device || (r.status || r.remaining || r.power || `m${i}`)) + (m.sub || f?.sub ? ':' + (m.sub || f.sub) : ''), name: m.name || f?.name || (kind === 'dryer' ? 'Dryer' : 'Washer'), kind, r};
     });
   }
 
@@ -2842,7 +2888,8 @@ class DashboardStudioLaundry extends HTMLElement {
     const pct = parseFloat(s(r.progress)?.state);
     const prog = mode === 'done' ? 1 : mode === 'running' || mode === 'paused' ? (!isNaN(pct) ? pct / 100 : left != null && this._total[k] ? 1 - left / this._total[k] : null) : 0;
     const word = L_STAGE[stage] || L_STAGE[status] || (m.kind === 'dryer' ? 'Drying' : 'Washing');
-    return {mode, left, prog, word};
+    const drying = m.kind === 'dryer' || (m.kind === 'combo' && /Drying|Cooling|Wrinkle/.test(word));
+    return {mode, left, prog, word, drying};
   }
 
   _render() {
@@ -2855,11 +2902,11 @@ class DashboardStudioLaundry extends HTMLElement {
     const clock = mins => new Date(Date.now() + mins * 60000).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
     const dur = mins => mins >= 60 ? `${Math.floor(mins / 60)} h ${Math.round(mins % 60)} min` : `${Math.max(1, Math.round(mins))} min`;
     const tiles = this._machines.map((m, i) => {
-      const st = sts[i], dry = m.kind === 'dryer';
-      const line = st.mode === 'running' ? `${st.word}${st.left != null ? ` · ${dur(st.left)} left` : ''}` : st.mode === 'paused' ? 'Paused' : st.mode === 'done' ? (dry ? 'Done! Time to fold 🧺' : 'Done! Ready to move 🧺') : st.mode === 'off' ? 'Offline' : 'Ready';
+      const st = sts[i], dry = m.kind === 'dryer', combo = m.kind === 'combo';
+      const line = st.mode === 'running' ? `${st.word}${st.left != null ? ` · ${dur(st.left)} left` : ''}` : st.mode === 'paused' ? 'Paused' : st.mode === 'done' ? (combo ? 'Done! Clean and dry 🧺' : dry ? 'Done! Time to fold 🧺' : 'Done! Ready to move 🧺') : st.mode === 'off' ? 'Offline' : 'Ready';
       const sub = st.mode === 'running' && st.left != null ? `Done at ${clock(st.left)}` : st.mode === 'done' && this._doneAt[m.key] ? `Finished at ${new Date(this._doneAt[m.key]).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'})}` : '';
       return `<button class="lm ${st.mode}" data-e="${esc(m.r.status || m.r.stage || m.r.remaining || m.r.power || '')}" aria-label="${esc(m.name)}: ${esc(line)}">
-        ${laundryArt(m.kind, st.mode, st.prog, this._uid + i)}<b>${esc(m.name)}</b><span class="l-st">${esc(line)}</span><span class="l-sub">${esc(sub)}</span></button>`;
+        ${laundryArt(m.kind === 'combo' ? (st.drying && st.mode === 'running' ? 'combo-dry' : 'combo') : m.kind, st.mode, st.prog, this._uid + i)}<b>${esc(m.name)}</b><span class="l-st">${esc(line)}</span><span class="l-sub">${esc(sub)}</span></button>`;
     }).join('');
     const running = sts.filter(x => x.mode === 'running'), done = sts.filter(x => x.mode === 'done').length;
     const soon = running.filter(x => x.left != null).sort((a, b) => a.left - b.left)[0];

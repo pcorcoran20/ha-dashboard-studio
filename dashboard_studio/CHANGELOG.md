@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.10.0
+
+- New: a Laundry tile on the Control hub, on the touchscreen and the regular layout. It says what your machines are doing ("Washer · 32 min left", "Dryer is done 🧺") and opens them right in the hub. Each room shows the machines in that room.
+- New: washer-dryer combos (like an LG WashCombo) are one machine that turns from washing to drying as the cycle goes, and says "Done! Clean and dry" at the end.
+- New: a stacked washer and dryer that is one device (like an LG WashTower) shows as two machines.
+
 ## 1.9.1
 
 - Fix: smart door locks no longer show up as cars. A device counts as a car only when it comes from a car integration, or has something only a car has (a frunk, a charge port, a range, an odometer). This also brings those locks back to Security.

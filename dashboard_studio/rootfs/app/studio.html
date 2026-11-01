@@ -800,6 +800,7 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .w-vehicle{gap:12px}
 .w-carbay{gap:12px}
 .w-laundry{gap:12px}
+.hub-laundry{display:flex; flex-direction:column; gap:12px}
 .l-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px}
 .lm{border:0; background:color-mix(in srgb, var(--d-text) 6%, transparent); border-radius:calc(var(--d-r, 18px) * .75); padding:12px 10px; display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; min-width:0; color:var(--d-text); font:inherit; cursor:pointer}
 .lm.done{background:color-mix(in srgb, #22c55e 14%, transparent)}
@@ -1449,7 +1450,7 @@ const CATALOG = {
     {title:'Zoom', model:'model_y', paint:'deep_blue', device:'', home:false, where:'Work', battery:33, charging:false, locked:true}]}},
   vehicle:{name:'Vehicle', desc:'Tesla app style car: battery, charging and controls', icon:'car', size:'l', isNew:1, d:{title:'Model Y', model:'model_y', paint:'pearl_white', vehicle:'', battery:78, range:245, limit:80, charging:false, locked:true, climate:false, frunk:false, trunk:false, port:false, sentry:false, inside:21, outside:14}},
   dualshade:{name:'Dual shade', desc:'Day/night or top-down shades with two motors', icon:'blinds', size:'m', isNew:1, d:{title:'Bedroom Shades', style:'daynight', entity:'cover.bedroom_shade_night', entity2:'cover.bedroom_shade_day', label1:'Blackout', label2:'Light filtering', pos1:100, pos2:40}},
-  hub:{name:'Control hub', desc:'Room-by-room device tiles, touchscreen style', icon:'tiles', size:'xl', isNew:1, d:{title:'My Home', room:-1, view:null, car:{show:true, title:'Model Y', model:'model_y', paint:'pearl_white', vehicle:'', battery:78, range:245, limit:80, charging:false, locked:true, climate:false, frunk:false, trunk:false, port:false, sentry:false, inside:21, outside:14}, rooms:HUB_SAMPLE,
+  hub:{name:'Control hub', desc:'Room-by-room device tiles, touchscreen style', icon:'tiles', size:'xl', isNew:1, d:{title:'My Home', room:-1, view:null, lmach:[{name:'Washer', kind:'washer', mode:'running', stage:'Rinsing', left:32}, {name:'Dryer', kind:'dryer', mode:'done'}], car:{show:true, title:'Model Y', model:'model_y', paint:'pearl_white', vehicle:'', battery:78, range:245, limit:80, charging:false, locked:true, climate:false, frunk:false, trunk:false, port:false, sentry:false, inside:21, outside:14}, rooms:HUB_SAMPLE,
     gn:{lights:true, outlets:true, fans:false, shades:true, media:true, locks:true, alarm:true, temp:18},
     scenes:[
       {id:'movie', name:'Movie night', snap:{'light.living_room_ceiling':{on:false}, 'light.living_room_floor_lamp':{on:true, bri:20}, 'cover.living_room_front_shades':{pos:0}, 'media_player.living_room_tv':{playing:true, vol:40}}},
@@ -1908,7 +1909,7 @@ function act(b, a, el){
     case 'ds': { const k = 'pos' + el.dataset.n, v = el.dataset.v; if (v === 'up') b[k] = Math.min(100, (b[k] ?? 100) + 25); if (v === 'down') b[k] = Math.max(0, (b[k] ?? 100) - 25); break; }
     case 'dsp': { const pr = DS[b.style || 'daynight'].presets.find(x => x[0] === el.dataset.v); if (pr) { b.pos1 = pr[2]; b.pos2 = pr[3]; } break; }
     case 'cb-car': { const c = b.cars?.[+el.dataset.i]; if (c) c.home = !c.home; break; }
-    case 'lm-tap': { const m = b.machines?.[+el.dataset.i]; if (m) m.mode = {running:'done', done:'idle'}[m.mode] || 'running'; break; }
+    case 'lm-tap': { const m = (b.type === 'hub' ? b.lmach : b.machines)?.[+el.dataset.i]; if (m) m.mode = {running:'done', done:'idle'}[m.mode] || 'running'; break; }
     case 'cb-door': b.open = !b.open; break;
     case 'car': { const v = el.dataset.v, t = b.type === 'hub' ? b.car : b; if (!t) break;
       if (v === 'lock') t.locked = !t.locked;
@@ -2980,7 +2981,7 @@ function cardYaml(b){
     case 'garage': return {type:'tile', entity:b.entity, name:b.title, icon:'mdi:garage', features_position:'bottom', features:[{type:'cover-open-close'}]};
     case 'laundry': {
       const picked = (b.machines || []).filter(m => m.device);
-      if (state.useCards) return {type:'custom:dashboard-studio-laundry', name:b.title, ...(picked.length ? {machines:picked.map(m => ({device:m.device, name:m.name, kind:m.kind}))} : {})};
+      if (state.useCards) return {type:'custom:dashboard-studio-laundry', name:b.title, ...(picked.length ? {machines:picked.map(m => ({device:m.device, ...(m.sub ? {sub:m.sub} : {}), name:m.name, kind:m.kind}))} : {})};
       const found = laundryDevices(), use = picked.length ? picked.map(m => found.find(f => f.id === m.device)).filter(Boolean) : found;
       const ents = use.flatMap(f => f.ids.filter(i => /^sensor\./.test(i) && /state|status|remain|time_left|complet|finish|progress|job|stage|phase/.test(i)).slice(0, 4));
       return ents.length ? {type:'entities', title:b.title, entities:ents} : {type:'markdown', content:`### ${b.title}\nNo washer or dryer found yet. Turn on **Use the Dashboard Studio card** for the full laundry card.`};
@@ -3012,7 +3013,7 @@ function cardYaml(b){
       if (state.useCards) return {type:'custom:dashboard-studio-hub', title:b.title,
         rooms:(b.rooms || []).map(r => ({name:r.name, devices:r.devices.map(d => ({entity:hubEnt(d), ...(d.entity2 ? {entity2:d.entity2, labels:d.labels} : {}), name:d.name, type:d.t}))})),
         scenes:(b.scenes || []).map(s => ({name:s.name, entity:'scene.' + slug(s.name)})),
-        good_night:'script.' + gnScriptId(b), icon_color:b.iconColor || 'soft', animations:animYaml(),
+        good_night:'script.' + gnScriptId(b), icon_color:b.iconColor || 'soft', animations:animYaml(), ...(b.lmach && !b.lmach.length ? {laundry:false} : {}),
         vehicle:b.car?.show ? {name:b.car.title, model:b.car.model, color:b.car.paint, ...vehImgOut(b.car), ...(b.car.vehicle ? {vehicle:b.car.vehicle} : {})} : false, ...(state.calm ? {calm:true} : {}),
         ...(b.layout === 'touchscreen' ? {layout:'touchscreen', touch_style:b.touchStyle || 'dark', opacity:b.opacity ?? 0, room_radius:b.roomRadius ?? 30, ...(b.iconBg === false ? {icon_background:false} : {}), ...(state.nav === 'touch' ? {full_height:true} : {}), ...(allBlocks().find(x => x.type === 'weather') ? {weather_entity:allBlocks().find(x => x.type === 'weather').entity} : {})} : {})};
       const url = dashUrl(), rooms = b.rooms || [];
@@ -3527,6 +3528,7 @@ R.hub = b => {
     ? `<label class="hub-roomsel">${ic('door')}<select data-hubroomsel aria-label="Room">${opts.map(([i, n]) => `<option value="${i}" ${ri === i ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>${ic('down')}</label>`
     : `<div class="hub-rooms">${opts.map(([i, n]) => `<button class="hub-chip${ri === i ? ' on' : ''}" data-act="hub-room" data-r="${i}">${esc(n)}</button>`).join('')}</div>`;
   if (b.layout === 'touchscreen') return hubTouch(b, ri, rooms);
+  if (b.view === 'laundry' && hubLaundry(b, ri, rooms).length) return chips + `<div class="hub-head"><button class="d-btn" data-act="hub-back" aria-label="Back to all categories">${ic('left')}</button><div class="hub-title">Laundry</div></div>` + laundryView(b, hubLaundry(b, ri, rooms));
   if (b.view === 'car' && hubCar(b, ri, rooms)) return chips + `<div class="hub-head"><button class="d-btn" data-act="hub-back" aria-label="Back to all categories">${ic('left')}</button><div class="hub-title">${esc(b.car.title)}</div></div><div class="hub-car w-vehicle">${R.vehicle(b.car, b.id + 'c')}</div>`;
   if (b.view && HUB_CATS[b.view] && hubDevices(b, b.view).length) return chips + hubDetailHTML(b, ri, rooms);
   return hubTilesHTML(b, ri, rooms, chips);
@@ -3547,13 +3549,13 @@ function hubTilesHTML(b, ri, rooms, chips){
   const flash = gnFlash.delete(b.id) ? `<div class="gn-ov" aria-hidden="true">${ic('moon')}<b>Good night</b><span>Sleep well. The house is settling in.</span></div>` : '';
   const quick = `<div class="hub-quick"><button class="hub-gn" data-act="hub-gn">${ic('moon')}<span><b>Good night</b><small>${esc(gnSummary(b))}</small></span></button>${(b.scenes || []).map(s => `<button class="hub-scene${b.activeScene === s.id ? ' on' : ''}" data-act="hub-scene" data-s="${esc(s.id)}">${ic('sparkle')}${esc(s.name)}</button>`).join('')}</div>`;
   return flash + `<div class="hub-title">${esc(ri >= 0 ? rooms[ri].name : b.title)}</div>` + chips + quick +
-    (cats.length || hubCar(b, ri, rooms) ? `<div class="hub-tiles">${cats.map(c => { const st = hubStatus(b, c);
-      return `<button class="hub-tile${st.active ? ' on' : ''}${st.warn ? ' warn' : ''}" data-act="hub-cat" data-c="${c}"><span class="ht-ico">${ic(HUB_TYPES[c].icon)}</span><span class="ht-l">${HUB_CATS[c].label}</span><span class="ht-s">${esc(st.text)}</span></button>`; }).join('')}${hubCar(b, ri, rooms) ? `<button class="hub-tile${b.car.charging ? ' on' : ''}" data-act="hub-cat" data-c="car"><span class="ht-ico">${ic('car')}</span><span class="ht-l">${esc(b.car.title)}</span><span class="ht-s">${esc(carText(b.car))}</span></button>` : ''}</div>`
+    (cats.length || hubCar(b, ri, rooms) || hubLaundry(b, ri, rooms).length ? `<div class="hub-tiles">${cats.map(c => { const st = hubStatus(b, c);
+      return `<button class="hub-tile${st.active ? ' on' : ''}${st.warn ? ' warn' : ''}" data-act="hub-cat" data-c="${c}"><span class="ht-ico">${ic(HUB_TYPES[c].icon)}</span><span class="ht-l">${HUB_CATS[c].label}</span><span class="ht-s">${esc(st.text)}</span></button>`; }).join('')}${hubCar(b, ri, rooms) ? `<button class="hub-tile${b.car.charging ? ' on' : ''}" data-act="hub-cat" data-c="car"><span class="ht-ico">${ic('car')}</span><span class="ht-l">${esc(b.car.title)}</span><span class="ht-s">${esc(carText(b.car))}</span></button>` : ''}${hubLaundry(b, ri, rooms).length ? (st => `<button class="hub-tile${st.active ? ' on' : ''}" data-act="hub-cat" data-c="laundry"><span class="ht-ico">${ic('laundry')}</span><span class="ht-l">Laundry</span><span class="ht-s">${esc(st.text)}</span></button>`)(laundryTile(hubLaundry(b, ri, rooms))) : ''}</div>`
       : `<p class="d-label">No devices here yet. Select this block and add some in the right panel.</p>`);
 }
 /* touchscreen layout: room name at the top center opens the room list; now playing; a grid of big tiles; clock and weather below */
 const TOUCH_TILES = [['watch','Watch','tv'], ['listen','Listen','music'], ['light','Lighting','bulb'], ['climate','Comfort','thermo'], ['car','Car','car'], ['shade','Shades','blinds'],
-  ['lock','Security','shield'], ['camera','Cameras','cam'], ['fan','Fans','fan'], ['switch','Outlets','plug'], ['quick','Shortcuts','tiles']];
+  ['lock','Security','shield'], ['camera','Cameras','cam'], ['fan','Fans','fan'], ['switch','Outlets','plug'], ['laundry','Laundry','laundry'], ['quick','Shortcuts','tiles']];
 const isTVd = d => /(^|[._ ])(tv|roku|apple_?tv|shield|chromecast|fire_?tv|android_?tv|television)([._ ]|$)/i.test(`${d.entity || ''} ${d.name || ''}`);
 const touchMenu = new Set();
 function touchNowPlaying(b){
@@ -3565,6 +3567,15 @@ function touchNowPlaying(b){
       <div class="ts-tr"><button ${a('noop')} aria-label="Previous">${ic('prev')}</button><button class="big" ${a('play')} aria-label="${d.playing ? 'Pause' : 'Play'}">${ic(d.playing ? 'pause' : 'play')}</button><button ${a('noop')} aria-label="Next">${ic('next')}</button></div></div>
     <button class="ts-pw" ${a('power')} aria-label="Turn ${esc(d.name)} ${on ? 'off' : 'on'}">${ic('power')}</button></div>`;
 }
+/* washers and dryers: on All rooms, and in the room they're in */
+const hubLaundry = (b, ri, rooms) => (b.lmach || []).map((m, i) => ({...m, _i:i})).filter(m => ri < 0 || (m.room ? m.room === rooms[ri]?.name : /laundry|utility|mud/i.test(rooms[ri]?.name || '')));
+function laundryTile(ms){
+  const run = ms.filter(m => m.mode === 'running').sort((a, z) => (a.left ?? 30) - (z.left ?? 30)), done = ms.filter(m => m.mode === 'done');
+  if (run.length) return {text:`${run[0].name} · ${run[0].left ?? 30} min left`, active:true};
+  if (done.length) return {text:done.length === 1 ? `${done[0].name} is done 🧺` : `${done.length} loads ready 🧺`, active:true};
+  return {text:'All quiet', active:false};
+}
+const laundryView = (b, ms) => `<div class="w-laundry hub-laundry">${R.laundry({id:b.id + 'l', title:'Laundry', machines:ms})}</div>`;
 /* the car shows on All rooms, and in a room that sounds like where it parks */
 const hubCar = (b, ri, rooms) => !!b.car?.show && (ri < 0 || /garage|driveway|carport|car/i.test(rooms[ri]?.name || ''));
 const carText = c => `${c.battery}% · ${c.charging ? 'Charging' : c.asleep ? 'Asleep' : c.locked ? 'Locked' : 'Unlocked'}`;
@@ -3579,15 +3590,17 @@ function hubTouch(b, ri, rooms){
     body = `<div class="hub-head"><div class="hub-title">Shortcuts</div></div><div class="ts-quick"><button class="hub-gn" data-act="hub-gn">${ic('moon')}<span><b>Good night</b><small>${esc(gnSummary(b))}</small></span></button>
       ${(b.scenes || []).map(s => `<button class="hub-scene${b.activeScene === s.id ? ' on' : ''}" data-act="hub-scene" data-s="${esc(s.id)}">${ic('sparkle')}${esc(s.name)}</button>`).join('')}</div>`;
   } else if (b.view === 'car' && hubCar(b, ri, rooms)) body = `<div class="hub-car w-vehicle">${R.vehicle(b.car, b.id + 'c')}</div>`;
+  else if (b.view === 'laundry' && hubLaundry(b, ri, rooms).length) body = laundryView(b, hubLaundry(b, ri, rooms));
   else if (b.view && hubDevices(b, b.view).length) body = hubDetailHTML(b, ri, rooms);
   else {
     b.view = null;
     const temps = hubDevices(b, 'climate').map(x => x.d.current).filter(v => v != null);
-    const tiles = TOUCH_TILES.filter(([k]) => k === 'quick' || (k === 'car' ? hubCar(b, ri, rooms) : hubDevices(b, k).length)).map(([k, label, icon]) => {
+    const tiles = TOUCH_TILES.filter(([k]) => k === 'quick' || (k === 'car' ? hubCar(b, ri, rooms) : k === 'laundry' ? hubLaundry(b, ri, rooms).length : hubDevices(b, k).length)).map(([k, label, icon]) => {
       let text, on = false, warn = false;
       if (k === 'car') { text = carText(b.car); on = b.car.charging;
         return `<button class="ts-tile${on ? ' on' : ''}" data-act="hub-cat" data-c="car"><span class="ts-ring car${on ? ' chg' : ''}"><b>${b.car.battery}</b></span><span class="ts-l">${esc(b.car.title || label)}</span><span class="ts-s">${esc(text)}</span></button>`; }
       if (k === 'quick') text = `${(b.scenes || []).length} scene${(b.scenes || []).length === 1 ? '' : 's'} · Good night`;
+      else if (k === 'laundry') ({text, active:on} = laundryTile(hubLaundry(b, ri, rooms)));
       else if (k === 'watch' || k === 'listen') { const p = hubDevices(b, k).map(x => x.d).find(d => d.playing && !d.off); text = p ? `Playing · ${p.name}` : 'Off'; on = !!p; }
       else ({text, active:on, warn = false} = hubStatus(b, k));
       const ico = k === 'climate' && temps.length ? `<span class="ts-ring"><b>${tC(temps.reduce((a, v) => a + v, 0) / temps.length, 0)}</b></span>` : `<span class="ts-ico">${ic(icon)}</span>`;
@@ -3749,6 +3762,7 @@ function hubFill(b){
   const rooms = Object.entries(groups).sort((a, z) => (a[0] === 'Other') - (z[0] === 'Other')).map(([name, devices]) => ({name, devices}));
   if (!rooms.length) { toast('None of your entities are device types the hub knows yet'); return; }
   b.rooms = rooms; b.room = -1; b.view = null;
+  b.lmach = laundryDevices().map(d => ({name:d.name, kind:d.kind, device:d.id, ...(d.sub ? {sub:d.sub} : {}), mode:'idle', room:roomOf(d.ids[0])}));
   toast(`Filled ${rooms.length} rooms with ${rooms.reduce((a, r) => a + r.devices.length, 0)} devices`);
 }
 const dashUrl = () => { let u = slug(state.dashUrl || 'home-studio').replace(/_/g, '-'); if (!u.includes('-')) u += '-dash'; return u; };
@@ -4083,7 +4097,7 @@ const CHARGERS = [['auto','Find it'], ['supercharger','Supercharger'], ['wall_co
 /* the car garage: a bay per car, the door slides over them */
 /* laundry: the same washer drawing as the Home Assistant card */
 function laundryArt(kind, mode, prog, uid){
-  const C = 2 * Math.PI * 27, dry = kind === 'dryer';
+  const C = 2 * Math.PI * 27, dry = kind === 'dryer' || kind === 'combo-dry';
   const inside = dry
     ? `<g class="lw-drum"><circle cx="14" cy="-6" r="5" fill="#ff9fbf"/><circle cx="-12" cy="8" r="6" fill="#8fd3ff"/><rect x="-6" y="-16" width="10" height="7" rx="3" fill="#ffd36e"/><circle cx="2" cy="12" r="4" fill="#b9a6ff"/></g>`
     : `<g class="lw-drum"><path d="M-22 6c8-5 14 5 22 0s14-5 22 0v20h-44z" fill="#5fc0ff" opacity=".55"/><circle cx="12" cy="-8" r="5" fill="#ff9fbf"/><rect x="-14" y="-10" width="10" height="7" rx="3" fill="#ffd36e"/><circle cx="-2" cy="10" r="4" fill="#fff" opacity=".8"/></g>`;
@@ -4091,7 +4105,7 @@ function laundryArt(kind, mode, prog, uid){
     <defs><clipPath id="lw${uid}"><circle cx="50" cy="66" r="22"/></clipPath><radialGradient id="lg${uid}" cx=".35" cy=".3" r=".9"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".5" stop-color="#cfe6ff" stop-opacity=".18"/><stop offset="1" stop-color="#8aa7c4" stop-opacity=".1"/></radialGradient></defs>
     <rect x="8" y="4" width="84" height="104" rx="12" class="lw-body"/><rect x="8" y="4" width="84" height="22" rx="12" class="lw-panel"/><rect x="8" y="18" width="84" height="8" class="lw-panel"/>
     <circle cx="74" cy="15" r="5.5" class="lw-knob"/><rect x="20" y="12" width="26" height="6" rx="3" class="lw-screen"/><circle cx="56" cy="15" r="2" class="lw-led"/>
-    <circle cx="50" cy="66" r="31" class="lw-rim"/><circle cx="50" cy="66" r="27" class="lw-track"/>
+    ${kind.startsWith('combo') ? '<g aria-hidden="true"><circle cx="62" cy="15" r="2.4" fill="#f59e0b"/><path d="M66.5 12.2c1.2 1.6 1.8 2.5 1.8 3.2a1.8 1.8 0 0 1-3.6 0c0-.7.6-1.6 1.8-3.2z" fill="#38bdf8"/></g>' : ''}<circle cx="50" cy="66" r="31" class="lw-rim"/><circle cx="50" cy="66" r="27" class="lw-track"/>
     <circle cx="50" cy="66" r="27" class="lw-prog${(prog ?? 0) > 0 ? '' : ' zero'}" stroke-dasharray="${(C * Math.max(0, Math.min(1, prog ?? 0))).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 50 66)"/>
     <circle cx="50" cy="66" r="22" class="lw-glass"/>
     <g clip-path="url(#lw${uid})"><g transform="translate(50 66)">${inside}</g><circle cx="50" cy="66" r="22" fill="url(#lg${uid})"/></g>
@@ -4100,9 +4114,10 @@ function laundryArt(kind, mode, prog, uid){
 R.laundry = b => {
   const ms = b.machines || [], at = m => new Date(Date.now() + m * 60000).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
   const tiles = ms.map((m, i) => {
-    const dry = m.kind === 'dryer', mode = m.mode || 'idle', left = m.left ?? 30;
-    const line = mode === 'running' ? `${m.stage || (dry ? 'Drying' : 'Washing')} · ${left} min left` : mode === 'done' ? (dry ? 'Done! Time to fold 🧺' : 'Done! Ready to move 🧺') : 'Ready';
-    return `<button class="lm ${mode}" data-act="lm-tap" data-i="${i}" title="Tap to try running, done and ready in the preview">${laundryArt(m.kind, mode, mode === 'running' ? .45 : mode === 'done' ? 1 : 0, b.id + i)}
+    const dry = m.kind === 'dryer', combo = m.kind === 'combo', mode = m.mode || 'idle', left = m.left ?? 30, stage = m.stage || (dry ? 'Drying' : 'Washing');
+    const line = mode === 'running' ? `${stage} · ${left} min left` : mode === 'done' ? (combo ? 'Done! Clean and dry 🧺' : dry ? 'Done! Time to fold 🧺' : 'Done! Ready to move 🧺') : 'Ready';
+    const art = combo ? (mode === 'running' && /Dry|Cool/.test(stage) ? 'combo-dry' : 'combo') : m.kind;
+    return `<button class="lm ${mode}" data-act="lm-tap" data-i="${m._i ?? i}" title="Tap to try running, done and ready in the preview">${laundryArt(art, mode, mode === 'running' ? .45 : mode === 'done' ? 1 : 0, b.id + i)}
       <b>${esc(m.name)}</b><span class="l-st">${esc(line)}</span><span class="l-sub">${mode === 'running' ? 'Done at ' + at(left) : ''}</span></button>`;
   }).join('');
   const run = ms.filter(m => m.mode === 'running'), done = ms.filter(m => m.mode === 'done').length;
@@ -4116,16 +4131,22 @@ function laundryDevices(){
   Object.entries(dev).forEach(([id, d]) => { if (d) (by[d] ||= []).push(id); });
   return Object.entries(by).filter(([d, ids]) => { const x = window.__haDevices?.[d] || {};
       return /wash|dryer|laundry/i.test(`${x.name || ''} ${x.model || ''} ${ids.join(' ')}`) && !/dish/i.test(`${x.name || ''} ${ids.join(' ')}`) && ids.some(i => /^(sensor|binary_sensor)\./.test(i)); })
-    .map(([d, ids]) => { const n = (window.__haDevices?.[d]?.name || 'Washer').replace(/\s*\b(smart\s*)?(plug|outlet|power|energy)\b\s*/ig, ' ').trim();
-      return {id:d, name:n, kind:/dry/i.test(n) && !/wash/i.test(n) ? 'dryer' : 'washer', ids}; })
-    .sort((a, z) => (a.kind === 'dryer') - (z.kind === 'dryer'));
+    .flatMap(([d, ids]) => { const n = (window.__haDevices?.[d]?.name || 'Washer').replace(/\s*\b(smart\s*)?(plug|outlet|power|energy)\b\s*/ig, ' ').trim();
+      const combo = /combo|washer[\s_-]?dryer|wash[\s_-]?(and[\s_-]?)?dry|all[\s_-]?in[\s_-]?one/i;
+      const w = ids.filter(i => /(^|_)washer(_|$)/.test(i.split('.')[1]) && !/dryer/.test(i)), y = ids.filter(i => /(^|_)dryer(_|$)/.test(i.split('.')[1]));
+      /* a stacked washer and dryer that is one device (like an LG WashTower) is two machines */
+      if (!combo.test(n) && w.some(i => /status|state/.test(i)) && y.some(i => /status|state/.test(i)))
+        return [{id:d, sub:'washer', name:`${n} washer`, kind:'washer', ids:w}, {id:d, sub:'dryer', name:`${n} dryer`, kind:'dryer', ids:y}];
+      const kind = combo.test(n) || combo.test(ids.join(' ')) || (ids.some(i => /spin/.test(i)) && ids.some(i => /dry_?level|drying|dry_?time/.test(i))) ? 'combo' : /dry/i.test(n) && !/wash/i.test(n) ? 'dryer' : 'washer';
+      return [{id:d, name:n, kind, ids}]; })
+    .sort((a, z) => (!a.sub && a.kind === 'dryer') - (!z.sub && z.kind === 'dryer'));
 }
 function laundryEditorHTML(b){
   const found = laundryDevices();
   return `<div class="field"><span class="lbl2">Machines</span>${(b.machines || []).map((m, i) => `<div class="fp-room"><div class="row"><b>${esc(m.name)}</b><button class="btn danger" data-lmdel="${i}" aria-label="Remove ${esc(m.name)}">${ic('trash')}</button></div>
       <div class="field"><label for="lm_n${i}">Name</label><input type="text" id="lm_n${i}" data-lm="${i}" data-lmk="name" value="${esc(m.name)}"></div>
-      <div class="field"><label for="lm_k${i}">Kind</label><select id="lm_k${i}" data-lm="${i}" data-lmk="kind">${[['washer','Washer'], ['dryer','Dryer']].map(([k, l]) => `<option value="${k}" ${m.kind === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
-      ${found.length ? `<div class="field"><label for="lm_d${i}">Which machine</label><select id="lm_d${i}" data-lm="${i}" data-lmk="device"><option value="">Find it by itself</option>${found.map(f => `<option value="${esc(f.id)}" ${m.device === f.id ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select></div>` : ''}</div>`).join('')}
+      <div class="field"><label for="lm_k${i}">Kind</label><select id="lm_k${i}" data-lm="${i}" data-lmk="kind">${[['washer','Washer'], ['dryer','Dryer'], ['combo','Washer-dryer combo']].map(([k, l]) => `<option value="${k}" ${m.kind === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+      ${found.length ? `<div class="field"><label for="lm_d${i}">Which machine</label><select id="lm_d${i}" data-lm="${i}" data-lmk="device"><option value="">Find it by itself</option>${found.map(f => `<option value="${esc(f.id + (f.sub ? ':' + f.sub : ''))}" ${(m.device + (m.sub ? ':' + m.sub : '')) === f.id + (f.sub ? ':' + f.sub : '') ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select></div>` : ''}</div>`).join('')}
     <div class="btnrow"><button class="btn" data-lmadd>${ic('plus')}Add a machine</button></div>
     <p class="hint">Tap a machine in the preview to see it running, done and ready. In Home Assistant, the card reads your washer and dryer by itself (SmartThings, LG ThinQ, Home Connect, Miele, GE, Whirlpool, or a smart plug), and a finished load stays “Done” until you open the door.</p></div>`;
 }
@@ -4146,7 +4167,7 @@ insp.addEventListener('change', e => {
   const t = e.target; if (t.dataset.lm == null) return;
   const b = find(selected), m = b?.machines?.[+t.dataset.lm]; if (!m) return;
   commit('lm' + t.dataset.lm + t.dataset.lmk); m[t.dataset.lmk] = t.value;
-  if (t.dataset.lmk === 'device') { const d = laundryDevices().find(x => x.id === t.value); if (d) { m.name = d.name; m.kind = d.kind; } }
+  if (t.dataset.lmk === 'device') { const [id, sub] = t.value.split(':'); m.device = id; m.sub = sub || undefined; const d = laundryDevices().find(x => x.id === id && (x.sub || '') === (sub || '')); if (d) { m.name = d.name; m.kind = d.kind; } }
   renderDash(); renderInsp(); save();
 });
 insp.addEventListener('click', e => {
@@ -4356,7 +4377,7 @@ function roomBlocks(room, kinds){
   (kinds.media || []).forEach(e => { const m = window.__haMedia?.[e] || {};
     b.push(mk('media', {entity:e, title:n(e), song:m.title || 'Nothing playing', artist:m.artist || (m.state ? m.state[0].toUpperCase() + m.state.slice(1) : 'Ready'), playing:m.state === 'playing'})); });
   (kinds.camera || []).forEach(e => b.push(mk('camera', {entity:e, title:n(e)})));
-  if (kinds.laundry) b.push(mk('laundry', {machines:kinds.laundry.map(d => ({name:d.name, kind:d.kind, device:d.id, mode:'idle'}))}));
+  if (kinds.laundry) b.push(mk('laundry', {machines:kinds.laundry.map(d => ({name:d.name, kind:d.kind, device:d.id, ...(d.sub ? {sub:d.sub} : {}), mode:'idle'}))}));
   return tidyList(b);
 }
 /* shades that won't be on any page, and why: so a missing shade is never a mystery */
@@ -4403,7 +4424,7 @@ function openAutoHome(){
           hubFill(hub);
           const w = state.entities.find(e => e.startsWith('weather.'));
           const lm = laundryDevices();
-          pages.push({id:uid(), name:'Home', blocks:[mk('header'), ...(w ? [mk('weather', {entity:w, size:'xl'})] : []), hub, ...(lm.length ? [mk('laundry', {machines:lm.map(d => ({name:d.name, kind:d.kind, device:d.id, mode:'idle'}))})] : [])]});
+          pages.push({id:uid(), name:'Home', blocks:[mk('header'), ...(w ? [mk('weather', {entity:w, size:'xl'})] : []), hub, ...(lm.length ? [mk('laundry', {machines:lm.map(d => ({name:d.name, kind:d.kind, device:d.id, ...(d.sub ? {sub:d.sub} : {}), mode:'idle'}))})] : [])]});
         }
         picked.forEach(r => pages.push({id:uid(), name:r.name, blocks:roomBlocks(r.name, r.kinds)}));
         commit();
