@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.12.0
+
+- The Tesla drawings are more realistic. Model 3, Model Y, Model S, Model X and Cybertruck each have their own shape now, drawn to the real car's proportions. Each has sky and ground reflections in the paint, tinted glass with black trim, black pillars, door lines, flush handles, dark wheel wells and its own wheels (aero covers on the 3 and Y, turbine wheels on the S and X, the Cybertruck's flat covers and angular arches). Opening the frunk or trunk, charging, climate and sentry work like before.
+
 ## 1.11.1
 
 - Fix: picking a Tesla model now shows that Tesla, not the Challenger. The rendered Challenger is for cars that aren't Teslas or have no model picked. A Tesla found from your car's details shows as that Tesla by itself, and Tesla View's car still takes over once it's set up.

@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.11.1';
+const STUDIO_VERSION = '1.12.0';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -1654,25 +1654,41 @@ button:focus-visible{outline:2px solid var(--s-accent);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.f{transition:none}}
 `;
 
-/* side view of a car, drawn like the Tesla app: paint color, open lids, charging, climate and sentry */
+/* side view of each Tesla, front to the right, drawn to its real proportions: the body line from the front bumper over the roof
+   to the rear, where the wheels sit, the side glass, and the lids that open. The ground is at y 150 */
 const CAR_SHAPES = {
-  sedan: {body: 'M22 112 C20 100 28 92 46 89 L112 80 C138 62 168 50 206 49 C246 48 276 58 306 76 L352 83 C372 86 382 95 382 108 L382 116 C382 121 378 124 372 124 L30 124 C25 124 22 120 22 116 Z',
-    glass: 'M126 80 C150 61 176 53 206 52 C240 51 266 60 296 77 Z', pillar: [212, 53, 79], belt: 'M48 94 C150 89 262 89 370 95',
-    hood: 'M306 76 L352 83 C368 85 377 91 380 99', hoodAt: [306, 76], trunk: 'M112 80 L46 89 C34 91 27 96 24 103', trunkAt: [112, 80],
-    wheels: [[100, 122], [306, 122]], r: 24, head: 'M362 93 L381 100', tail: 'M23 103 L42 97', port: [38, 100], eye: [214, 62], air: [140, 56, 150, 22],
-    mirror: 'M284 78 L296 71 L304 73 L302 79 Z', handles: [[168, 92], [252, 92]], rocker: [62, 344, 117]},
-  suv: {body: 'M22 112 C20 98 30 89 48 86 L108 76 C134 52 168 39 210 38 C252 38 284 50 312 72 L354 80 C373 84 382 93 382 107 L382 116 C382 121 378 124 372 124 L30 124 C25 124 22 120 22 116 Z',
-    glass: 'M128 76 C152 54 180 45 210 45 C244 45 270 55 296 72 Z', pillar: [214, 46, 75], belt: 'M48 91 C150 86 262 86 372 92',
-    hood: 'M312 72 L354 80 C370 83 378 90 381 98', hoodAt: [312, 72], trunk: 'M108 76 L48 86 C36 88 28 93 25 100', trunkAt: [108, 76],
-    wheels: [[100, 122], [308, 122]], r: 25, head: 'M364 90 L381 97', tail: 'M24 99 L44 94', port: [38, 97], eye: [216, 51], air: [136, 46, 156, 26],
-    mirror: 'M290 73 L302 66 L310 68 L308 74 Z', handles: [[170, 89], [256, 89]], rocker: [62, 345, 117]},
-  cyber: {body: 'M20 108 L28 90 L204 34 L384 78 L386 110 L382 124 L24 124 Z',
-    glass: 'M150 62 L204 43 L280 61 L274 70 L156 71 Z', pillar: [214, 46, 71], belt: 'M30 96 L382 92',
-    hood: 'M280 61 L384 78', hoodAt: [280, 61], trunk: 'M120 61 L28 90', trunkAt: [120, 61],
-    wheels: [[96, 121], [314, 121]], r: 25, head: 'M372 80 L386 82', tail: 'M22 96 L40 92', port: [34, 98], eye: [216, 50], air: [156, 46, 120, 24],
-    mirror: 'M272 66 L284 60 L290 62 L288 68 Z', handles: [[176, 86], [258, 86]], rocker: [60, 350, 116]}
+  model_3: {R: 25.5, wheels: [97, 317], wheel: 'aero', yb: 131,
+    top: [[382, 117], [380, 105], [371, 98], [342, 92], [300, 86], [264, 58], [242, 47], [212, 40], [182, 41], [152, 47], [120, 62], [94, 76], [70, 82], [44, 86], [27, 92], [22, 104]],
+    rear: [[22, 120], [27, 131]], front: [[375, 131], [382, 125]],
+    glass: [[294, 86], [264, 60], [242, 50], [212, 44], [182, 45], [154, 50], [126, 63], [100, 78]], sill: [[112, 81], [200, 84], [294, 86]], pillars: [205], doors: [262, 205, 128],
+    hood: [[300, 86], [340, 92], [370, 98], [379, 104]], trunk: [[94, 76], [70, 82], [44, 86], [28, 91]],
+    head: [[368, 99], [381, 106]], tail: [[23, 95], [42, 90]], port: [36, 98], mirror: [290, 83], handles: [[236, 93], [168, 91]]},
+  model_y: {R: 27, wheels: [98, 317], wheel: 'aero', yb: 130, cladding: true,
+    top: [[383, 112], [381, 99], [371, 92], [340, 86], [302, 80], [264, 50], [240, 36], [208, 29], [172, 30], [142, 35], [114, 46], [88, 59], [64, 70], [44, 75], [30, 79], [24, 86], [22, 100]],
+    rear: [[22, 119], [27, 130]], front: [[376, 130], [383, 122]],
+    glass: [[296, 80], [264, 52], [240, 39], [208, 33], [172, 34], [144, 39], [118, 49], [96, 60], [84, 66]], sill: [[92, 70], [205, 76], [296, 80]], pillars: [208, 122], doors: [264, 208, 126],
+    hood: [[300, 80], [338, 86], [370, 92], [380, 99]], trunk: [[114, 46], [88, 59], [64, 70], [44, 75], [30, 79]],
+    head: [[368, 93], [381, 100]], tail: [[24, 88], [44, 82]], port: [36, 92], mirror: [292, 77], handles: [[238, 87], [170, 85]]},
+  model_s: {R: 25.8, wheels: [100, 314], wheel: 'turbine', yb: 131,
+    top: [[382, 118], [380, 106], [368, 99], [336, 93], [298, 88], [262, 60], [238, 50], [205, 46], [172, 47], [140, 53], [110, 68], [84, 80], [62, 85], [40, 88], [26, 94], [22, 106]],
+    rear: [[22, 121], [27, 131]], front: [[375, 131], [382, 126]],
+    glass: [[294, 88], [262, 62], [238, 53], [205, 50], [172, 51], [142, 57], [114, 70], [98, 80]], sill: [[112, 83], [204, 86], [294, 88]], pillars: [204, 140], doors: [262, 204, 140],
+    hood: [[298, 88], [336, 93], [368, 99], [379, 106]], trunk: [[110, 68], [84, 80], [62, 85], [40, 88], [27, 94]],
+    head: [[366, 100], [380, 107]], tail: [[24, 97], [44, 92]], port: [36, 100], mirror: [290, 85], handles: [[234, 95], [170, 93]]},
+  model_x: {R: 26.5, wheels: [102, 314], wheel: 'turbine', yb: 130, cladding: true,
+    top: [[382, 113], [380, 100], [369, 92], [336, 86], [304, 80], [264, 46], [238, 33], [200, 29], [160, 30], [128, 35], [102, 47], [78, 60], [56, 70], [38, 75], [26, 80], [22, 96]],
+    rear: [[22, 119], [27, 130]], front: [[375, 130], [382, 122]],
+    glass: [[298, 80], [264, 49], [238, 36], [200, 33], [160, 34], [130, 39], [106, 49], [86, 60], [76, 66]], sill: [[84, 70], [205, 75], [298, 80]], pillars: [210, 126], doors: [262, 210, 130],
+    hood: [[302, 80], [334, 86], [368, 92], [380, 100]], trunk: [[102, 47], [78, 60], [56, 70], [38, 75], [26, 80]],
+    head: [[368, 93], [381, 101]], tail: [[24, 90], [42, 84]], port: [36, 94], mirror: [294, 77], handles: [[238, 87], [172, 85]]},
+  cybertruck: {R: 28, wheels: [85, 326], wheel: 'cyber', yb: 128, sharp: true, cladding: true,
+    top: [[385, 110], [385, 99], [381, 93], [212, 37], [24, 87], [22, 93]],
+    rear: [[22, 114], [24, 128]], front: [[380, 128], [385, 122]],
+    glass: [[284, 65], [212, 42], [146, 59]], sill: [[150, 71], [280, 71]], pillars: [214], doors: [284, 214, 146],
+    hood: [[284, 61], [381, 93]], trunk: [[146, 55], [24, 87]],
+    head: [[372, 90], [385, 97]], tail: [[22, 93], [32, 90]], port: [34, 100], mirror: [280, 66], handles: []}
 };
-const CAR_MODELS = {model_3: 'sedan', model_s: 'sedan', model_y: 'suv', model_x: 'suv', cybertruck: 'cyber', sedan: 'sedan', suv: 'suv', truck: 'cyber'};
+const CAR_MODELS = {sedan: 'model_3', suv: 'model_y', cyber: 'cybertruck', truck: 'cybertruck'};
 const CAR_PAINT = {pearl_white: '#eef0f2', solid_black: '#141518', midnight_silver: '#3e4247', stealth_grey: '#5b5f64', quicksilver: '#b9bdc3', deep_blue: '#1f3b70', ultra_red: '#a5121d', stainless: '#a7abb0'};
 const carMix = (hex, to, t) => {
   const p = h => { h = String(h).replace('#', ''); if (h.length === 3) h = h.replace(/./g, x => x + x); const n = parseInt(h, 16); return isNaN(n) ? [217, 220, 225] : [n >> 16 & 255, n >> 8 & 255, n & 255]; };
@@ -1691,14 +1707,41 @@ function clayCar(o) {
   return `<div class="${cls}" style="--paint:${paint}"><img src="${CLAY_CAR}" alt="${esc(o.label || 'Car')}"><i class="clay-paint"></i><i class="clay-shine"></i><i class="cp-glow"></i><i class="cp-eye"></i><i class="cp-air"></i></div>`;
 }
 function carSVG(o, uid) {
-  const s = CAR_SHAPES[CAR_MODELS[o.model] || o.model] || CAR_SHAPES.suv, c = o.color || '#d9dce1', id = 'car' + uid;
-  /* aero style wheels: a tire, a metallic cover with five curved vents, and a center cap */
-  const wheel = ([x, y]) => `<circle cx="${x}" cy="${y}" r="${s.r + 5}" fill="#07080a"/><circle cx="${x}" cy="${y}" r="${s.r}" fill="#141518"/>`
-    + `<circle cx="${x}" cy="${y}" r="${(s.r * .72).toFixed(1)}" fill="url(#${id}rim)" stroke="#2b2e33" stroke-width="1"/>`
-    + [0, 72, 144, 216, 288].map(a => `<ellipse cx="${x}" cy="${(y - s.r * .4).toFixed(1)}" rx="${(s.r * .17).toFixed(1)}" ry="${(s.r * .1).toFixed(1)}" fill="#1a1c20" transform="rotate(${a + 18} ${x} ${y})"/>`).join('')
-    + `<circle cx="${x}" cy="${y}" r="${(s.r * .16).toFixed(1)}" fill="#24262b" stroke="#8d939b" stroke-width=".8"/><circle cx="${x - s.r * .25}" cy="${y - s.r * .3}" r="${(s.r * .5).toFixed(1)}" fill="#fff" opacity=".06"/>`;
-  const [ax, ay, aw, ah] = s.air, airC = o.climate === 'heat' ? '#ff9a5c' : '#7cc8ff';
-  const waves = [0, 1, 2].map(i => { const y = ay + ah * (.35 + i * .25); let d = `M${ax} ${y.toFixed(1)}`; for (let x = 0; x < aw; x += 24) d += ' q 6 -5 12 0 t 12 0'; return `<path class="car-air" d="${d}" stroke="${airC}" style="animation-delay:${i * .5}s"/>`; }).join('');
+  const s = CAR_SHAPES[CAR_MODELS[o.model] || o.model] || CAR_SHAPES.model_y, c = o.color || '#d9dce1', id = 'car' + uid, G = 150, R = s.R, yb = s.yb;
+  const f = n => +n.toFixed(1);
+  /* a smooth line through the points (straight for the Cybertruck) */
+  const line = (pts, start = true) => (start ? `M${pts[0][0]} ${pts[0][1]}` : '') + (s.sharp ? pts.slice(1).map(p => ` L${p[0]} ${p[1]}`).join('') : pts.slice(0, -1).map((p1, i) => {
+    const p0 = pts[i - 1] || p1, p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    return ` C${f(p1[0] + (p2[0] - p0[0]) / 6)} ${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)} ${f(p2[1] - (p3[1] - p1[1]) / 6)} ${p2[0]} ${p2[1]}`; }).join(''));
+  const wy = G - R, A = R + 3.2, dy = yb - wy, dx = f(Math.sqrt(Math.max(1, A * A - dy * dy)));
+  const [wr, wf] = s.wheels;
+  /* round wheel arches, or the Cybertruck's angular ones */
+  const arch = x => s.sharp ? ` L${f(x - A - 3)} ${yb} L${f(x - A * .72)} ${f(wy - A * .82)} L${f(x + A * .72)} ${f(wy - A * .82)} L${f(x + A + 3)} ${yb}`
+    : ` L${f(x - dx)} ${yb} A${A} ${A} 0 1 1 ${f(x + dx)} ${yb}`;
+  const body = line(s.top) + s.rear.map(p => ` L${p[0]} ${p[1]}`).join('') + arch(wr) + arch(wf) + s.front.map(p => ` L${p[0]} ${p[1]}`).join('') + ' Z';
+  const glass = line(s.glass) + s.sill.map(p => ` L${p[0]} ${p[1]}`).join('') + ' Z';
+  const gx = s.glass.map(p => p[0]).concat(s.sill.map(p => p[0])), gy = s.glass.map(p => p[1]).concat(s.sill.map(p => p[1]));
+  const air = [Math.min(...gx) + 12, Math.min(...gy) + 4, Math.max(...gx) - Math.min(...gx) - 24, Math.max(...gy) - Math.min(...gy) - 6];
+  const belt = s.sill[s.sill.length - 1][1];
+  const beltAt = x => { const [a, b] = [s.sill[0], s.sill[s.sill.length - 1]]; return f(a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0])); };
+  /* wheels: a tire with a soft sidewall, then the model's own wheel */
+  const rim = x => {
+    const k = R * .74;
+    if (s.wheel === 'cyber') return `<circle cx="${x}" cy="${wy}" r="${f(k)}" fill="#3b3e44" stroke="#5a5e65" stroke-width="1"/>`
+      + Array.from({length: 8}, (_, i) => `<line x1="${x}" y1="${wy}" x2="${f(x + Math.cos(i * Math.PI / 4) * k)}" y2="${f(wy + Math.sin(i * Math.PI / 4) * k)}" stroke="#2a2c31" stroke-width="1.4"/>`).join('')
+      + `<polygon points="${Array.from({length: 6}, (_, i) => `${f(x + Math.cos(i * Math.PI / 3) * k * .32)},${f(wy + Math.sin(i * Math.PI / 3) * k * .32)}`).join(' ')}" fill="#4a4e55" stroke="#2a2c31" stroke-width="1"/>`;
+    if (s.wheel === 'turbine') return `<circle cx="${x}" cy="${wy}" r="${f(k)}" fill="url(#${id}rim)" stroke="#2b2e33" stroke-width="1"/>`
+      + Array.from({length: 10}, (_, i) => `<path d="M${x} ${f(wy - k * .3)} L${f(x - k * .08)} ${f(wy - k * .92)} L${f(x + k * .1)} ${f(wy - k * .92)} Z" fill="#202227" transform="rotate(${i * 36 + 8} ${x} ${wy})"/>`).join('')
+      + `<circle cx="${x}" cy="${wy}" r="${f(k * .26)}" fill="url(#${id}rim)" stroke="#202227" stroke-width="1"/>`;
+    return `<circle cx="${x}" cy="${wy}" r="${f(k)}" fill="url(#${id}rim)" stroke="#2b2e33" stroke-width="1"/><circle cx="${x}" cy="${wy}" r="${f(k * .9)}" fill="#2a2d33"/>`
+      + Array.from({length: 5}, (_, i) => `<path d="M${f(x - k * .16)} ${f(wy - k * .3)} Q${x} ${f(wy - k * .42)} ${f(x + k * .16)} ${f(wy - k * .3)} L${f(x + k * .3)} ${f(wy - k * .84)} Q${x} ${f(wy - k * .95)} ${f(x - k * .3)} ${f(wy - k * .84)} Z" fill="url(#${id}rim)" opacity=".85" transform="rotate(${i * 72 + 14} ${x} ${wy})"/>`).join('')
+      + `<circle cx="${x}" cy="${wy}" r="${f(k * .2)}" fill="#1d1f24" stroke="#8d939b" stroke-width=".8"/>`;
+  };
+  const wheel = x => `<ellipse cx="${x}" cy="${G - .5}" rx="${f(R * .95)}" ry="3.6" fill="#000" opacity=".55"/><circle cx="${x}" cy="${wy}" r="${R}" fill="url(#${id}tire)"/>`
+    + `<circle cx="${x}" cy="${wy}" r="${f(R - 2.4)}" fill="none" stroke="#fff" stroke-opacity=".05" stroke-width="1.6"/>${rim(x)}`
+    + `<path d="M${f(x - R * .62)} ${f(wy - R * .5)} A${f(R * .8)} ${f(R * .8)} 0 0 1 ${f(x + R * .2)} ${f(wy - R * .78)}" stroke="#fff" stroke-opacity=".14" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+  const [ax, ay, aw, ah] = air, airC = o.climate === 'heat' ? '#ff9a5c' : '#7cc8ff';
+  const waves = [0, 1, 2].map(i => { const y = ay + ah * (.35 + i * .25); let d = `M${f(ax)} ${f(y)}`; for (let x = 0; x < aw; x += 24) d += ' q 6 -5 12 0 t 12 0'; return `<path class="car-air" d="${d}" stroke="${airC}" style="animation-delay:${i * .5}s"/>`; }).join('');
   const [px, py] = s.port, chg = o.charging && (o.charger === 'supercharger' || o.charger === 'wall') ? o.charger : '';
   /* a Supercharger stall or a Wall Connector stands next to the car while it charges */
   const plug = chg === 'supercharger' ? [-41, 92] : [-47, 99];
@@ -1712,32 +1755,48 @@ function carSVG(o, uid) {
   const cable = o.charging ? `${station}<path d="${cd}" stroke="#26282d" stroke-width="5" fill="none" stroke-linecap="round"/>
     <path class="car-flow" d="${cd}" stroke="#4ade80" stroke-width="2.4" fill="none" stroke-dasharray="4 10" stroke-linecap="round"/>` : '';
   const cls = ['car', o.charging && 'charging', o.climate && 'climate', o.sentry && 'sentry', o.lights && 'lights'].filter(Boolean).join(' ');
+  const gTop = Math.min(...s.top.map(p => p[1]));
+  /* the shoulder: a crisp highlight where the side turns toward the sky, and the horizon reflected just under it */
+  const shoulder = `M${wf + A + 6} ${f(belt + 9)} C${f(wf - 40)} ${f(belt + 5)} ${f(wr + 40)} ${f(beltAt(wr) + 4)} ${f(s.rear[0][0] + 8)} ${f(beltAt(wr) + 6)}`;
+  const cut = x => `<path d="M${x} ${beltAt(x)} C${x - 1} ${f((beltAt(x) + yb) / 2)} ${x - 2} ${yb - 6} ${x - 3} ${yb - 2}" stroke="#000" stroke-opacity=".3" stroke-width="1.1" fill="none"/><path d="M${x + 1.2} ${beltAt(x)} C${x} ${f((beltAt(x) + yb) / 2)} ${x - 1} ${yb - 6} ${x - 2} ${yb - 2}" stroke="#fff" stroke-opacity=".12" stroke-width=".8" fill="none"/>`;
   return `<svg class="${cls}" viewBox="${chg ? '-80 0 480 154' : '0 0 400 154'}" role="img" aria-label="${o.label || 'Car'}">
-    <defs><linearGradient id="${id}b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${carMix(c, '#ffffff', .3)}"/><stop offset=".45" stop-color="${carMix(c, '#ffffff', 0)}"/><stop offset="1" stop-color="${carMix(c, '#000000', .42)}"/></linearGradient>
-      <linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2e3946"/><stop offset=".55" stop-color="#0e1218"/><stop offset="1" stop-color="#1b232d"/></linearGradient>
-      <radialGradient id="${id}rim" cx=".4" cy=".35"><stop offset="0" stop-color="#d4d8dd"/><stop offset=".6" stop-color="#8c9199"/><stop offset="1" stop-color="#4b4f56"/></radialGradient>
-      <linearGradient id="${id}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".32" stop-color="#fff" stop-opacity=".16"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset=".82" stop-color="#fff" stop-opacity=".1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-      <clipPath id="${id}c"><path d="${s.glass}"/></clipPath></defs>
-    <ellipse cx="200" cy="146" rx="186" ry="7" fill="#000" opacity=".38"/>
+    <defs><linearGradient id="${id}b" x1="0" y1="0" x2="0" y2="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(0 ${gTop}) scale(1 ${G - gTop})">
+        <stop offset="0" stop-color="${carMix(c, '#ffffff', .42)}"/><stop offset=".3" stop-color="${carMix(c, '#ffffff', .2)}"/><stop offset=".5" stop-color="${carMix(c, '#ffffff', .08)}"/>
+        <stop offset=".54" stop-color="${carMix(c, '#000000', .22)}"/><stop offset=".6" stop-color="${carMix(c, '#ffffff', .03)}"/><stop offset=".78" stop-color="${carMix(c, '#000000', .1)}"/><stop offset="1" stop-color="${carMix(c, '#000000', .55)}"/></linearGradient>
+      <linearGradient id="${id}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7f93a8"/><stop offset=".35" stop-color="#2a3644"/><stop offset=".7" stop-color="#0e131a"/><stop offset="1" stop-color="#161d26"/></linearGradient>
+      <radialGradient id="${id}rim" cx=".38" cy=".32"><stop offset="0" stop-color="#e2e5e9"/><stop offset=".55" stop-color="#9aa0a8"/><stop offset="1" stop-color="#50545b"/></radialGradient>
+      <radialGradient id="${id}tire" cx=".5" cy=".5" r=".5"><stop offset=".6" stop-color="#1c1d21"/><stop offset=".9" stop-color="#121316"/><stop offset="1" stop-color="#060708"/></radialGradient>
+      <linearGradient id="${id}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".3" stop-color="#fff" stop-opacity=".12"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset=".8" stop-color="#fff" stop-opacity=".08"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <clipPath id="${id}c"><path d="${glass}"/></clipPath><clipPath id="${id}bc"><path d="${body}"/></clipPath></defs>
+    <ellipse cx="202" cy="${G - 1}" rx="184" ry="6" fill="#000" opacity=".32"/>
     ${cable}
-    <path d="${s.body}" fill="url(#${id}b)"/>
-    <path d="${s.body}" fill="url(#${id}s)"/>
-    <path d="M${s.rocker[0]} ${s.rocker[2]} L${s.rocker[1]} ${s.rocker[2]} L${s.rocker[1] - 4} 124 L${s.rocker[0] + 4} 124 Z" fill="#000" opacity=".28"/>
-    <path d="${s.belt}" stroke="#fff" stroke-opacity=".22" stroke-width="1.4" fill="none"/>
-    <path d="${s.glass}" fill="url(#${id}g)" stroke="#0a0c10" stroke-width="2.2" stroke-linejoin="round"/>
-    <path d="${s.mirror}" fill="${carMix(c, '#000000', .2)}" stroke="#0a0c10" stroke-width="1"/>
-    ${s.handles.map(([x, y]) => `<rect x="${x}" y="${y}" width="18" height="2.6" rx="1.3" fill="#000" opacity=".3"/><rect x="${x}" y="${y - .6}" width="18" height="1.2" rx=".6" fill="#fff" opacity=".35"/>`).join('')}
-    <g clip-path="url(#${id}c)" fill="none" stroke-width="2" stroke-linecap="round">${waves}<path d="${s.glass}" fill="#fff" opacity=".06" transform="translate(-30 -6)"/></g>
-    <line x1="${s.pillar[0]}" y1="${s.pillar[1]}" x2="${s.pillar[0]}" y2="${s.pillar[2]}" stroke="${carMix(c, '#000000', .5)}" stroke-width="5"/>
-    <line x1="${s.pillar[0]}" y1="${s.pillar[2]}" x2="${s.pillar[0] - 4}" y2="118" stroke="#000" stroke-opacity=".25" stroke-width="1.2"/>
-    ${o.frunk ? `<path d="${s.hood}" stroke="#000" stroke-opacity=".55" stroke-width="3" fill="none"/>` : ''}${o.trunk ? `<path d="${s.trunk}" stroke="#000" stroke-opacity=".55" stroke-width="3" fill="none"/>` : ''}
-    <path class="car-lid hood${o.frunk ? ' open' : ''}" d="${s.hood}" style="transform-origin:${s.hoodAt[0]}px ${s.hoodAt[1]}px" stroke="${carMix(c, '#ffffff', .35)}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-    <path class="car-lid trunk${o.trunk ? ' open' : ''}" d="${s.trunk}" style="transform-origin:${s.trunkAt[0]}px ${s.trunkAt[1]}px" stroke="${carMix(c, '#ffffff', .35)}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-    <path d="${s.head}" stroke="#0a0c10" stroke-width="6" stroke-linecap="round"/><path class="car-head" d="${s.head}" stroke-width="2.6" stroke-linecap="round"/>
-    <path d="${s.tail}" stroke="#2a0507" stroke-width="6" stroke-linecap="round"/><path class="car-tail" d="${s.tail}" stroke-width="2.6" stroke-linecap="round"/>
+    ${[wr, wf].map(x => `<circle cx="${x}" cy="${wy}" r="${f(A - .5)}" fill="#0a0b0d"/>`).join('')}
+    <path d="${body}" fill="url(#${id}b)"/>
+    <path d="${body}" fill="url(#${id}s)"/>
+    <g clip-path="url(#${id}bc)">
+      <path d="${shoulder}" stroke="#fff" stroke-opacity=".38" stroke-width="1.6" fill="none"/>
+      <path d="${line(s.top)}" stroke="#fff" stroke-opacity=".28" stroke-width="1.6" fill="none" transform="translate(0 1.2)"/>
+      ${s.cladding ? `<rect x="0" y="${yb - 7}" width="400" height="12" fill="#121316" opacity=".88"/>` : `<rect x="0" y="${yb - 5}" width="400" height="8" fill="#000" opacity=".28"/>`}
+      ${[wr, wf].map(x => s.sharp ? '' : `<circle cx="${x}" cy="${wy}" r="${f(A + 2.5)}" fill="none" stroke="${s.cladding ? '#121316' : '#000'}" stroke-opacity="${s.cladding ? .9 : .22}" stroke-width="${s.cladding ? 6 : 3}"/>`).join('')}
+    </g>
+    ${s.sharp ? [wr, wf].map(x => `<path d="M${f(x - A - 3)} ${yb} L${f(x - A * .72)} ${f(wy - A * .82)} L${f(x + A * .72)} ${f(wy - A * .82)} L${f(x + A + 3)} ${yb}" stroke="#121316" stroke-width="7" fill="none" stroke-linejoin="round"/>`).join('') : ''}
+    ${s.doors.map(cut).join('')}
+    <path d="${glass}" fill="url(#${id}g)" stroke="#07090c" stroke-width="2.6" stroke-linejoin="round"/>
+    <g clip-path="url(#${id}c)" fill="none" stroke-width="2" stroke-linecap="round">${waves}
+      <path d="M${ax - 20} ${ay + ah + 8} L${ax + aw * .28} ${ay - 10} L${ax + aw * .42} ${ay - 10} L${ax + aw * .1} ${ay + ah + 8} Z" fill="#fff" opacity=".07" stroke="none"/>
+      <path d="M${ax + aw * .5} ${ay + ah + 8} L${ax + aw * .74} ${ay - 10} L${ax + aw * .8} ${ay - 10} L${ax + aw * .56} ${ay + ah + 8} Z" fill="#fff" opacity=".05" stroke="none"/></g>
+    ${s.pillars.map(x => `<path d="M${x - 3} ${f(Math.min(...gy) - 2)} L${x + 3} ${f(Math.min(...gy) - 2)} L${x + 3} ${beltAt(x)} L${x - 3} ${beltAt(x)} Z" fill="#07090c" clip-path="url(#${id}c)"/>`).join('')}
+    <path d="M${s.mirror[0]} ${s.mirror[1]} l1.5 -6.5 c3 -2 9 -2 11.5 .5 l-1 5.5 c-4 1.5 -8.5 1.5 -12 .5 Z" fill="${carMix(c, '#000000', .15)}" stroke="#07090c" stroke-width="1"/>
+    ${s.handles.map(([x, y]) => `<rect x="${x}" y="${y}" width="20" height="3" rx="1.5" fill="#000" opacity=".32"/><rect x="${x}" y="${y - .5}" width="20" height="1" rx=".5" fill="#fff" opacity=".4"/>`).join('')}
+    <rect x="${f(wf - A - 9)}" y="${f(beltAt(wf - A) + 16)}" width="6" height="2.4" rx="1.2" fill="#0a0b0d" opacity=".8"/>
+    ${o.frunk ? `<path d="${line(s.hood)}" stroke="#000" stroke-opacity=".55" stroke-width="3" fill="none"/>` : ''}${o.trunk ? `<path d="${line(s.trunk)}" stroke="#000" stroke-opacity=".55" stroke-width="3" fill="none"/>` : ''}
+    <path class="car-lid hood${o.frunk ? ' open' : ''}" d="${line(s.hood)}" style="transform-origin:${s.hood[0][0]}px ${s.hood[0][1]}px" stroke="${carMix(c, '#ffffff', .35)}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <path class="car-lid trunk${o.trunk ? ' open' : ''}" d="${line(s.trunk)}" style="transform-origin:${s.trunk[0][0]}px ${s.trunk[0][1]}px" stroke="${carMix(c, '#ffffff', .35)}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <path d="M${s.head[0].join(' ')} L${s.head[1].join(' ')}" stroke="#0a0c10" stroke-width="6" stroke-linecap="round"/><path class="car-head" d="M${s.head[0].join(' ')} L${s.head[1].join(' ')}" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M${s.tail[0].join(' ')} L${s.tail[1].join(' ')}" stroke="#2a0507" stroke-width="6" stroke-linecap="round"/><path class="car-tail" d="M${s.tail[0].join(' ')} L${s.tail[1].join(' ')}" stroke-width="2.6" stroke-linecap="round"/>
     <circle class="car-port${o.port || o.charging ? ' open' : ''}" cx="${px}" cy="${py}" r="3.6"/>
-    <circle class="car-eye" cx="${s.eye[0]}" cy="${s.eye[1]}" r="3.4"/>
-    ${s.wheels.map(wheel).join('')}
+    <circle class="car-eye" cx="${s.pillars[0] + 3}" cy="${f(belt - 12)}" r="3.4"/>
+    ${[wr, wf].map(wheel).join('')}
   </svg>`;
 }
 
