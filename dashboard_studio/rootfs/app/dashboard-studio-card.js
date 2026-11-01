@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.10.2';
+const STUDIO_VERSION = '1.10.3';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -257,9 +257,18 @@ class DashboardStudioHub extends HTMLElement {
     return {bat: isNaN(bat) ? null : bat, chg, text: !home ? (loc === 'not_home' ? 'Away' : `At ${cap(loc)}`) : chg ? 'Charging' : sleep ? 'Asleep' : lock === 'locked' ? 'Locked' : lock === 'unlocked' ? 'Unlocked' : 'Home'};
   }
 
-  /* a little card for every car, with its picture: tap one to open it */
+  /* every car is a tile with a car icon, like the other tiles: tap one to open it */
+  _carTiles(touch) {
+    return this._cars.map((car, i) => { const st = this._carState(car), icon = car.cfg.model === 'cybertruck' ? 'mdi:car-pickup' : 'mdi:car-electric';
+      const text = `${st.bat != null ? `${st.bat}% · ` : ''}${st.text}`;
+      return touch
+        ? `<button class="ts-tile${st.chg ? ' on' : ''}" data-a="cat" data-c="car" data-i="${i}"><span class="ts-ico"><ha-icon icon="${icon}"></ha-icon></span><span class="ts-l">${esc(car.name)}</span><span class="ts-s">${esc(text)}</span></button>`
+        : `<button class="tile${st.chg ? ' on' : ''}" data-a="cat" data-c="car" data-i="${i}"><span class="t-ico"><ha-icon icon="${icon}"></ha-icon></span><b>${esc(car.name)}</b><span>${esc(text)}</span></button>`; }).join('');
+  }
+
+  /* car_pictures: true shows a little card for every car, with its picture */
   _carCards() {
-    if (!this._carHere()) return '';
+    if (this._config.car_pictures !== true || !this._carHere()) return '';
     return `<div class="cars">${this._cars.map((car, i) => { const st = this._carState(car), c = car.cfg;
       return `<button class="carc${st.chg ? ' chg' : ''}" data-a="cat" data-c="car" data-i="${i}" aria-label="${esc(car.name)}">
         <span class="carc-art" data-minicar="${i}"></span>
@@ -623,11 +632,11 @@ class DashboardStudioHub extends HTMLElement {
       body = this._touchHome();
     } else {
       this._view = null;
-      const cats = CATS.filter(([k]) => k === 'car' ? false : k === 'laundry' ? this._laundryHere().length : this._devices(k).length), cars = this._carCards();
+      const cats = CATS.filter(([k]) => k === 'car' ? c.car_pictures !== true && this._carHere() : k === 'laundry' ? this._laundryHere().length : this._devices(k).length), cars = this._carCards();
       const quick = (c.good_night !== false ? `<button class="gn" data-a="goodnight"><ha-icon icon="mdi:weather-night"></ha-icon><span><b>Good night</b><small>Lights off, lock up and settle in</small></span></button>` : '') +
         c.scenes.map(s => { const on = this._hass.states[s.entity]; return `<button class="scene" data-a="scene" data-e="${esc(s.entity)}" data-n="${esc(s.name || on?.attributes.friendly_name || s.entity)}"><ha-icon icon="${esc(s.icon || on?.attributes.icon || 'mdi:palette')}"></ha-icon>${esc(s.name || on?.attributes.friendly_name || s.entity)}</button>`; }).join('');
       body = `${quick ? `<div class="quick">${quick}</div>` : ''}${cars}
-        ${cats.length ? `<div class="tiles">${cats.map(([k, label, icon]) => { const s = this._catStatus(k);
+        ${cats.length ? `<div class="tiles">${cats.map(([k, label, icon]) => { if (k === 'car') return this._carTiles(false); const s = this._catStatus(k);
           return `<button class="tile${s.active ? ' on' : ''}${s.warn ? ' warn' : ''}" data-a="cat" data-c="${k}"><span class="t-ico"><ha-icon icon="${icon}"></ha-icon></span><b>${label}</b><span>${esc(s.text)}</span></button>`; }).join('')}</div>`
         : cars ? '' : '<p class="hint">No devices in this room yet.</p>'}`;
     }
@@ -730,7 +739,8 @@ class DashboardStudioHub extends HTMLElement {
 
   _touchHome() {
     const c = this._config;
-    const tiles = TOUCH.filter(([k]) => k === 'quick' ? (c.scenes.length || c.good_night !== false) : k === 'car' ? false : k === 'laundry' ? this._laundryHere().length : this._devices(k).length).map(([k, label, icon]) => {
+    const tiles = TOUCH.filter(([k]) => k === 'quick' ? (c.scenes.length || c.good_night !== false) : k === 'car' ? c.car_pictures !== true && this._carHere() : k === 'laundry' ? this._laundryHere().length : this._devices(k).length).map(([k, label, icon]) => {
+      if (k === 'car') return this._carTiles(true);
       let s;
       if (k === 'quick') s = {text: c.scenes.length ? `${c.scenes.length} scene${c.scenes.length === 1 ? '' : 's'}` : 'Good night', active: false};
       else if (k === 'watch' || k === 'listen') { const p = this._devices(k).find(x => x.st?.state === 'playing'); s = {text: p ? `Playing · ${p.name}` : 'Off', active: !!p}; }

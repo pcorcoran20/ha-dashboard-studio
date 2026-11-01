@@ -3020,7 +3020,7 @@ function cardYaml(b){
       if (state.useCards) return {type:'custom:dashboard-studio-hub', title:b.title,
         rooms:(b.rooms || []).map(r => ({name:r.name, devices:r.devices.map(d => ({entity:hubEnt(d), ...(d.entity2 ? {entity2:d.entity2, labels:d.labels} : {}), name:d.name, type:d.t}))})),
         scenes:(b.scenes || []).map(s => ({name:s.name, entity:'scene.' + slug(s.name)})),
-        good_night:'script.' + gnScriptId(b), icon_color:b.iconColor || 'soft', animations:animYaml(), ...(b.lmach && !b.lmach.length ? {laundry:false} : {}),
+        good_night:'script.' + gnScriptId(b), icon_color:b.iconColor || 'soft', animations:animYaml(), ...(b.lmach && !b.lmach.length ? {laundry:false} : {}), ...(b.carPics ? {car_pictures:true} : {}),
         vehicle:b.car?.show ? {name:b.car.title, model:b.car.model, color:b.car.paint, ...vehImgOut(b.car), ...(b.car.vehicle ? {vehicle:b.car.vehicle} : {})} : false, ...(state.calm ? {calm:true} : {}),
         ...(b.layout === 'touchscreen' ? {layout:'touchscreen', touch_style:b.touchStyle || 'dark', opacity:b.opacity ?? 0, room_radius:b.roomRadius ?? 30, ...(b.iconBg === false ? {icon_background:false} : {}), ...(state.nav === 'touch' ? {full_height:true} : {}), ...(allBlocks().find(x => x.type === 'weather') ? {weather_entity:allBlocks().find(x => x.type === 'weather').entity} : {})} : {})};
       const url = dashUrl(), rooms = b.rooms || [];
@@ -3605,7 +3605,7 @@ function hubTouch(b, ri, rooms){
     const tiles = TOUCH_TILES.filter(([k]) => k === 'quick' || (k === 'car' ? hubCar(b, ri, rooms) : k === 'laundry' ? hubLaundry(b, ri, rooms).length : hubDevices(b, k).length)).map(([k, label, icon]) => {
       let text, on = false, warn = false;
       if (k === 'car') { text = carText(b.car); on = b.car.charging;
-        return `<button class="ts-tile${on ? ' on' : ''}" data-act="hub-cat" data-c="car"><span class="ts-ring car${on ? ' chg' : ''}"><b>${b.car.battery}</b></span><span class="ts-l">${esc(b.car.title || label)}</span><span class="ts-s">${esc(text)}</span></button>`; }
+        return `<button class="ts-tile${on ? ' on' : ''}" data-act="hub-cat" data-c="car"><span class="ts-ico">${ic('car')}</span><span class="ts-l">${esc(b.car.title || label)}</span><span class="ts-s">${esc(text)}</span></button>`; }
       if (k === 'quick') text = `${(b.scenes || []).length} scene${(b.scenes || []).length === 1 ? '' : 's'} · Good night`;
       else if (k === 'laundry') ({text, active:on} = laundryTile(hubLaundry(b, ri, rooms)));
       else if (k === 'watch' || k === 'listen') { const p = hubDevices(b, k).map(x => x.d).find(d => d.playing && !d.off); text = p ? `Playing · ${p.name}` : 'Off'; on = !!p; }
@@ -3633,7 +3633,7 @@ function hubEditorHTML(b){
     <label class="lbl2" for="hRr">Room button roundness <b id="hRrV">${rrLabel(b.roomRadius ?? 30)}</b></label><input type="range" id="hRr" min="0" max="30" step="2" value="${b.roomRadius ?? 30}">
     <p class="hint">Room name in the middle of the top bar opens the room list. To make this the only screen in Home Assistant, go to Export › Dashboard › Room switching.</p>` : ''}</div>
     <div class="field"><span class="lbl2">Your car</span><div class="seg" role="group" aria-label="Show your car">${[['on','Show a car tile'], ['off','No car']].map(([k, l]) => `<button data-hcar="${k}" aria-pressed="${(b.car?.show ? 'on' : 'off') === k}">${l}</button>`).join('')}</div>
-      ${b.car?.show ? vehEditorHTML(b.car) : ''}</div>
+      ${b.car?.show ? `<label class="switch"><span><b>Car pictures</b><small>Show each car on a little card with its picture in Home Assistant, in place of a tile with a car icon</small></span><input type="checkbox" id="hubCarPics" ${b.carPics ? 'checked' : ''}></label>` + vehEditorHTML(b.car) : ''}</div>
     <div class="field"><span class="lbl2">Rooms</span>
     <div class="hub-ed-rooms">${rooms.map((rm, i) => `<button class="pg" data-hsel="${i}" aria-pressed="${i === hubSel}">${esc(rm.name)}<small>${rm.devices.length}</small></button>`).join('')}<button class="pg add" data-hadd-room aria-label="Add a room">${ic('plus')}</button></div>
     ${state.entities.length ? `<button class="btn" data-hfill>${ic('sparkle')}${window.__haAreaNames ? 'Fill rooms from my HA areas' : 'Fill rooms from my entities'}</button>` : '<p class="hint">Tip: add your entity list in Magic and the studio can fill these rooms for you.</p>'}</div>
@@ -4175,6 +4175,7 @@ R.carbay = b => {
     <div class="g-scene" style="--n:${Math.max(1, Math.min(3, cars.length))}"><div class="g-bays">${bays || '<p class="d-label">Add a car in the right panel.</p>'}</div>${b.door ? `<div class="g-door${b.open ? '' : ' shut'}" aria-hidden="true"></div>` : ''}</div>`;
 };
 insp.addEventListener('change', e => {
+  if (e.target.id === 'hubCarPics') { const b = find(selected); if (!b) return; commit(); b.carPics = e.target.checked; save(); return; }
   const t = e.target; if (t.dataset.lm == null) return;
   const b = find(selected), m = b?.machines?.[+t.dataset.lm]; if (!m) return;
   commit('lm' + t.dataset.lm + t.dataset.lmk); m[t.dataset.lmk] = t.value;

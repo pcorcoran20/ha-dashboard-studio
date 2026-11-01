@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.3
+
+- Each car on the Control hub is now a tile with a car icon (a pickup for a Cybertruck), its name, battery and what it's doing, just like the other tiles. The picture cards are still there: turn on **Car pictures** in the hub's settings, or set `car_pictures: true`.
+
 ## 1.10.2
 
 - The moving background now sits in **Style**, right under your theme, with your own photo next to it. The first choice is your theme's own background, and a note says when a moving background is playing over it, with one tap to go back. **Effects** keeps the animations and card effects.
