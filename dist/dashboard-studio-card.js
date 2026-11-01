@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.12.1';
+const STUDIO_VERSION = '1.13.0';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -1966,6 +1966,7 @@ const CAR_STYLE = `
  *   drawing: true             # optional: the flat drawing in place of the rendered car picture
  *   tesla_view_look: transparent   # transparent shows just the car; dark fades the app's dark box; light is the app's light mode
  *   tesla_view_brightness: 1.25
+ *   tesla_view_paint: Quicksilver   # optional: a paint from your car pack; left out, the pack paint that matches color is used
  *   entities:                 # optional: set any of these by hand
  *     battery: sensor.my_model_y_battery_level
  */
@@ -2073,6 +2074,16 @@ const teslaViewReady = () => {
   }
   return tvPacks;
 };
+/* your paint in Tesla View: its exact paint name when you picked one, else the pack paint that matches the card's paint color */
+const TV_PAINT_WORDS = {pearl_white: ['pearlwhite', 'white'], solid_black: ['solidblack', 'diamondblack', 'obsidian', 'black'], midnight_silver: ['midnightsilver', 'silver'],
+  stealth_grey: ['stealthgrey', 'stealthgray', 'grey', 'gray'], quicksilver: ['quicksilver'], deep_blue: ['deepblue', 'marineblue', 'blue'], ultra_red: ['ultrared', 'red'], stainless: ['stainless', 'steel']};
+const tvPaints = () => [...new Set(Object.values(tvIndex?.packs || {}).flatMap(p => p.paints || []))];
+function tvPaintFor(c) {
+  if (c.tesla_view_paint) return c.tesla_view_paint;
+  const all = tvPaints(), n = t => String(t).toLowerCase().replace(/[^a-z]/g, '');
+  for (const w of TV_PAINT_WORDS[c.color] || []) { const hit = all.find(p => n(p).includes(w)); if (hit) return hit; }
+  return undefined;
+}
 /* Tesla View's card can load after this one, so wait for it for a little while */
 const teslaViewCard = () => Promise.race([customElements.whenDefined('tesla-view-card').then(() => true), new Promise(ok => setTimeout(() => ok(false), 20000))]);
 
@@ -2220,7 +2231,8 @@ class DashboardStudioVehicle extends HTMLElement {
       const own = typeof c.tesla_view === 'object' ? c.tesla_view : {}, cam = own.camera || (chg ? 'charging' : 'parked');
       const look = ['dark', 'light', 'transparent'].includes(c.tesla_view_look) ? c.tesla_view_look : 'transparent';
       if (this._tv && this._tvLook !== look) { this._tv.remove(); this._tv = null; this._tvClear = undefined; }  // the canvas can't change its alpha later
-      if (!this._tv || this._tvCam !== cam) {
+      const paint = tvPaintFor(c);
+      if (!this._tv || this._tvCam !== cam || this._tvPaint !== paint) {
         const e = this._e, dev = c.device || h.entities?.[e.battery]?.device_id || h.entities?.[e.lock]?.device_id;
         /* tell Tesla View which car: its own setting, else the car's device model, else the model picked here */
         const tvModel = own.model || tvModelFor(carKey(h.devices?.[dev]?.model)) || tvModelFor(carKey(c.model));
@@ -2231,8 +2243,8 @@ class DashboardStudioVehicle extends HTMLElement {
         }
         const states = Object.fromEntries([...flip].filter(k => ['frunk', 'trunk', 'charge_port'].includes(k)).map(k => [k, {on: ['closed', 'closing']}]));
         this._tv.setConfig({type: 'custom:tesla-view-card', ...(dev ? {device_id: dev} : {}), ...(tvModel ? {model: tvModel} : {}), entities: ents, ...(Object.keys(states).length ? {states} : {}), hotspots: true,
-          theme: look === 'light' ? 'light' : 'dark', aspect_ratio: '16:9', ...own, camera: cam});
-        this._tvCam = cam;
+          theme: look === 'light' ? 'light' : 'dark', aspect_ratio: '16:9', ...(paint ? {paint} : {}), ...own, camera: cam});
+        this._tvCam = cam; this._tvPaint = paint;
       }
       this._tv.hass = h;
       /* Tesla View draws on a solid box: lift the car a little, and fade the box's edges into this card */
@@ -2681,15 +2693,18 @@ class DashboardStudioVehicleEditor extends HTMLElement {
   _render() {
     if (!this._config || !this._hass) return;
     if (!customElements.get('ha-form')) { this.innerHTML = '<p>Use the code editor to set up this card.</p>'; return; }
+    /* the Tesla View paints come from your car pack: ask for them once, then add the picker */
+    if (!tvIndex && !this._tvAsk) { this._tvAsk = true; teslaViewReady().then(ok => { if (ok && tvPaints().length && this._form) { this._form = null; this._render(); } }); }
     if (!this._form) {
       this.innerHTML = '<p style="margin:0 0 12px;color:var(--secondary-text-color)">The card finds your car by itself. With more than one car, pick which one under Your car.</p>';
       const f = this._form = document.createElement('ha-form');
       const L = {reversed: 'These show open when they are closed', battery: 'Battery', range: 'Range', lock: 'Lock', climate: 'Climate', frunk: 'Frunk', trunk: 'Trunk', charge_port: 'Charge port',
-        charging: 'Charging', charge_switch: 'Charge on/off', sentry: 'Sentry mode', awake: 'Awake or asleep', wake: 'Wake button', inside: 'Inside temperature', outside: 'Outside temperature', location: 'Location', tesla_view_look: 'Tesla View look', tesla_view_brightness: 'Tesla View brightness', name: 'Name', device: 'Your car', charger: 'Charger to show while charging', model: 'Model', color: 'Paint', vehicle: "Or: the car's name in its entity IDs (like my_model_y)", image: 'Car picture (optional, a link like /local/my-car.png)', model_url: '3D car from Tesla Model Extractor (optional, like /local/tesla/model_y.glb)', calm: 'Turn off animations'};
+        charging: 'Charging', charge_switch: 'Charge on/off', sentry: 'Sentry mode', awake: 'Awake or asleep', wake: 'Wake button', inside: 'Inside temperature', outside: 'Outside temperature', location: 'Location', tesla_view_look: 'Tesla View look', tesla_view_paint: 'Tesla View paint (every paint in your car pack)', tesla_view_brightness: 'Tesla View brightness', name: 'Name', device: 'Your car', charger: 'Charger to show while charging', model: 'Model', color: 'Paint', vehicle: "Or: the car's name in its entity IDs (like my_model_y)", image: 'Car picture (optional, a link like /local/my-car.png)', model_url: '3D car from Tesla Model Extractor (optional, like /local/tesla/model_y.glb)', calm: 'Turn off animations'};
       f.computeLabel = s => L[s.name] || s.name;
       f.schema = [{name: 'device', selector: {device: {filter: ['tesla_fleet', 'teslemetry', 'tessie', 'tesla_custom'].map(integration => ({integration}))}}},
         {name: 'name', selector: {text: {}}}, {name: 'model', selector: opt(['car', 'Other car (rendered picture)'], ['model_3', 'Model 3'], ['model_y', 'Model Y'], ['model_s', 'Model S'], ['model_x', 'Model X'], ['cybertruck', 'Cybertruck'])},
         {name: 'color', selector: opt(...Object.keys(CAR_PAINT).map(k => [k, cap(k)]))}, {name: 'tesla_view_look', selector: opt(['transparent', 'See-through (just the car)'], ['dark', 'Blend into the card (app dark mode)'], ['light', 'Light (app light mode)'])},
+        ...(tvPaints().length ? [{name: 'tesla_view_paint', selector: opt(['', 'Match the paint above'], ...tvPaints().map(p => [p, p.replace(/([a-z])([A-Z])/g, '$1 $2')]))}] : []),
         {name: 'tesla_view_brightness', selector: {number: {min: .6, max: 2, step: .05, mode: 'slider'}}},
         {name: 'reversed', selector: {select: {multiple: true, mode: 'list', options: [{value: 'frunk', label: 'Frunk'}, {value: 'trunk', label: 'Trunk'}, {value: 'charge_port', label: 'Charge port'}]}}},
         {name: 'entities', type: 'expandable', title: 'Entities (found by itself: change any)', schema: [

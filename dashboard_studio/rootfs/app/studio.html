@@ -2837,6 +2837,7 @@ insp.addEventListener('input', e => {
   if (e.target.id === 'vLift') { commit('vlift'); const t = b.type === 'hub' ? b.car : b; t.tvLift = +e.target.value / 100; $('vLiftV').textContent = e.target.value + '%'; save(); return; }
   if (e.target.id === 'vGlb') { commit('vglb'); const t = b.type === 'hub' ? b.car : b; t.glb = e.target.value.trim(); cars3dBad.delete(t.glb); clearTimeout(window.__glbT); window.__glbT = setTimeout(renderDash, 600); save(); return; }
   if (e.target.id === 'vImgUrl') { commit('vimg'); (b.type === 'hub' ? b.car : b).image = e.target.value.trim(); renderDash(); save(); return; }
+  if (e.target.id === 'vTvPaint') { commit(); (b.type === 'hub' ? b.car : b).tvPaint = e.target.value; save(); return; }
   if (e.target.id === 'vPaint') { commit('vpaint'); (b.type === 'hub' ? b.car : b).paint = e.target.value; renderDash(); save(); return; }
   if (e.target.id === 'hRr') { commit('hrr'); b.roomRadius = +e.target.value; $('hRrV').textContent = rrLabel(b.roomRadius); renderDash(); save(); return; }
   if (e.target.id === 'hOp') { commit('hop'); b.opacity = +e.target.value; $('hOpV').textContent = b.opacity ? b.opacity + '%' : 'See-through'; renderDash(); save(); return; }
@@ -4143,7 +4144,7 @@ R.vehicle = (b, uid) => {
     <div class="v-info">Inside ${tC(b.inside, 0)}° · Outside ${tC(b.outside, 0)}°${b.asleep ? '. Asleep: this is what it said before it fell asleep. Tap Wake for fresh info' : ''}</div>`;
 };
 const vehImgName = b => `car-${slug(b.title || 'car')}.webp`;
-const vehImgOut = b => ({...(b.reversed?.length ? {reversed:b.reversed} : {}), ...(b.tvLook && b.tvLook !== 'transparent' ? {tesla_view_look:b.tvLook} : {}), ...(b.tvLift != null && b.tvLift !== 1.25 ? {tesla_view_brightness:b.tvLift} : {}), ...(b.device ? {device:b.device} : {}), ...(b.charger && b.charger !== 'auto' ? {charger:b.charger} : {}), ...(b.image ? {image:b.image.startsWith('data:') ? '/local/' + vehImgName(b) : b.image} : {}), ...(b.glb ? {model_url:b.glb} : {})});
+const vehImgOut = b => ({...(b.tvPaint ? {tesla_view_paint:b.tvPaint} : {}), ...(b.reversed?.length ? {reversed:b.reversed} : {}), ...(b.tvLook && b.tvLook !== 'transparent' ? {tesla_view_look:b.tvLook} : {}), ...(b.tvLift != null && b.tvLift !== 1.25 ? {tesla_view_brightness:b.tvLift} : {}), ...(b.device ? {device:b.device} : {}), ...(b.charger && b.charger !== 'auto' ? {charger:b.charger} : {}), ...(b.image ? {image:b.image.startsWith('data:') ? '/local/' + vehImgName(b) : b.image} : {}), ...(b.glb ? {model_url:b.glb} : {})});
 insp.addEventListener('change', e => {
   if (e.target.dataset.cb != null && e.target.tagName === 'SELECT') {
     const blk = find(selected), c = blk?.cars?.[+e.target.dataset.cb]; if (!c) return;
@@ -4308,7 +4309,8 @@ function vehEditorHTML(b){
       <p class="hint">${cars.length > 1 ? `Found ${cars.length} cars. Pick the one for this card.` : 'Found your car in Home Assistant.'}</p></div>` : ''}
     <div class="field"><span class="lbl2">Model</span><div class="seg" role="group" aria-label="Model">${VEH_MODELS.map(([k, l]) => `<button data-vmodel="${k}" aria-pressed="${b.model === k}">${l}</button>`).join('')}</div></div>
     <div class="field"><span class="lbl2">Paint</span><div class="v-paints">${VEH_PAINTS.map(([k, l]) => `<button data-vpaint="${k}" aria-pressed="${b.paint === k}" title="${l}"><i style="background:${carMix(k, '#fff', 0)}"></i>${l}</button>`).join('')}</div>
-    <div class="crow"><label for="vPaint">Custom paint</label><input type="color" class="colorpick" id="vPaint" value="${toHex(carMix(b.paint, '#fff', 0))}"></div></div>
+    <div class="crow"><label for="vPaint">Custom paint</label><input type="color" class="colorpick" id="vPaint" value="${toHex(carMix(b.paint, '#fff', 0))}"></div>
+    ${window.__tvPaints?.length ? `<div class="field" style="margin-top:10px"><label for="vTvPaint">Tesla View paint</label><select id="vTvPaint"><option value="">Match the paint above</option>${window.__tvPaints.map(p => `<option value="${esc(p)}" ${b.tvPaint === p ? 'selected' : ''}>${esc(p.replace(/([a-z])([A-Z])/g, '$1 $2'))}</option>`).join('')}</select><p class="hint">Every paint in your Tesla View car pack. Home Assistant shows your real car in it.</p></div>` : ''}</div>
     <div class="field"><span class="lbl2">Preview</span><div class="seg" role="group" aria-label="Preview the car awake or asleep">${[[false,'Awake'], [true,'Asleep']].map(([k, l]) => `<button data-vsleep="${k}" aria-pressed="${!!b.asleep === k}">${l}</button>`).join('')}</div>
       <p class="hint">In Home Assistant the card shows Asleep by itself, with a Wake button.</p></div>
     <div class="field"><span class="lbl2">Shows open when it's closed?</span><div class="seg" role="group" aria-label="Fix closures shown the wrong way round">${[['frunk','Frunk'], ['trunk','Trunk'], ['charge_port','Charge port']].map(([k, l]) => `<button data-vrev="${k}" aria-pressed="${(b.reversed || []).includes(k)}">${l}</button>`).join('')}</div>
@@ -4953,6 +4955,11 @@ $('tvGroupBtn').addEventListener('click', openTesla);
 if (window.STUDIO_ADDON) $('tvGroup').hidden = false;
 
 /* ---------- running inside Home Assistant as an add-on ---------- */
+/* the paints in your Tesla View car pack, for the Tesla View paint picker (the add-on runs next to Home Assistant, so the pack's list is right there) */
+async function loadTvPaints(){
+  try { const r = await fetch('/tesla_view_assets/index.json', {cache:'no-store'}); if (!r.ok) return; const i = await r.json();
+    window.__tvPaints = [...new Set(Object.values(i.packs || {}).flatMap(p => p.paints || []))]; if (selected) renderInsp(); } catch(e) {}
+}
 async function haLoad(announce){
   const chip = $('haChip'); chip.hidden = false;
   try {
@@ -5011,7 +5018,7 @@ if (window.STUDIO_ADDON) {
     if (d && Array.isArray(d.pages)) { state = migrate(d); selected = null; }
     state.useCards ??= true;
     syncAll();
-  }).catch(() => {}).finally(() => haLoad(false));
+  }).catch(() => {}).finally(() => { haLoad(false); loadTvPaints(); });
 }
 
 /* light up runtime features when the viewer offers them */

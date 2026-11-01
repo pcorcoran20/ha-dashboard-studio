@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.13.0
+
+- New: your paint color shows in Tesla View too. The card picks the paint from your Tesla View car pack that matches the paint you chose (Pearl White, Ultra Red, Quicksilver and the rest), on the vehicle card, the hub and the garage.
+- New: a **Tesla View paint** picker, in the vehicle card's editor and in the Studio, that lists every paint in your car pack, so newer Tesla colors work too (`tesla_view_paint`).
+
 ## 1.12.1
 
 - Fix: phones, tablets, watches and remotes no longer show up as cars. Devices from the Home Assistant phone app are never cars, and "charging" alone doesn't make something a car anymore. A car needs a car integration, or something only a car has (a frunk, a charge port, a range, an odometer, tire pressure or sentry mode).
