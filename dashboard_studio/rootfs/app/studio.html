@@ -548,6 +548,10 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .holrow small{color:var(--muted); font-size:12px}
 .holnow{margin:10px 0 8px; font-size:13px; color:var(--muted)}
 .holnow b{color:var(--fg)}
+.bgnote{margin:0 0 10px; font-size:13px; color:var(--muted); line-height:1.5}
+.bgnote.on{color:var(--fg); background:color-mix(in srgb, var(--accent) 10%, transparent); border:1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-radius:10px; padding:8px 10px}
+.linkbtn{border:0; background:none; padding:0; font:inherit; color:var(--accent); font-weight:600; text-decoration:underline; cursor:pointer}
+#wallFold{margin-top:10px}
 .flaggroup{display:block; margin:10px 0 6px; font-size:11.5px; color:var(--muted)}
 .flaggrid{display:grid; grid-template-columns:repeat(3,1fr); gap:6px}
 .flagbtn{border:1px solid var(--line); background:var(--bg); border-radius:9px; padding:6px; display:flex; flex-direction:column; gap:5px; font-size:11.5px; font-weight:500; text-align:left; min-width:0}
@@ -1023,6 +1027,26 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
           <div class="field" id="flags" hidden></div>
           <div class="score" id="score"></div>
         </div>
+        <div class="group" id="bgGroup">
+          <div class="eyebrow">Background</div>
+          <p class="bgnote" id="bgNote"></p>
+          <div class="fxgrid" id="fxBgs"></div>
+          <div id="fxBgTune">
+          <div class="field"><div class="row"><label for="fxInt">Strength</label><span class="val" id="fxIntV"></span></div><input type="range" id="fxInt" min="10" max="100" step="5"></div>
+          <div class="field"><div class="row"><label for="fxSpd">Speed</label><span class="val" id="fxSpdV"></span></div><input type="range" id="fxSpd" min="25" max="200" step="5"></div>
+          </div>
+          <details class="twg fold" id="wallFold"><summary>Use my own photo</summary><div class="twb">
+          <div class="field">
+            <div class="btnrow">
+              <label class="btn" for="wallFile"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/></svg>Upload photo</label>
+              <input type="file" id="wallFile" accept="image/*" hidden>
+              <button class="btn" id="wallMatch" hidden><svg class="i" viewBox="0 0 24 24"><path d="M4 20 15 9M14 4v2M19 9h2M17.5 5.5l1.5-1.5"/></svg>Match theme to photo</button>
+              <button class="btn" id="wallClear" hidden>Remove</button>
+            </div>
+            <p class="hint">In HA, save it as <code>/config/www/wallpaper.jpg</code>.</p>
+          </div>
+        </div></details>
+        </div>
         <details class="twg fold"><summary>Fine-tune colors and fonts</summary><div class="twb">
           <div class="btnrow"><button class="btn magic" id="surpriseBtn"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>Surprise me</button><button class="btn" id="twResetAll">Reset all tweaks</button></div>
           <p class="hint">Settings tagged <span class="pv">Preview only</span> show in the studio, but Home Assistant has no setting for them.</p>
@@ -1039,30 +1063,13 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
         <details class="twg fold"><summary>Calm mode</summary><div class="twb">
           <label class="switch"><span><b>Low-stimulation look</b><small>No motion, no blur, no glow. Same layout, quieter screen.</small></span><input type="checkbox" id="calmOn"></label>
         </div></details>
-        <details class="twg fold"><summary>Wallpaper</summary><div class="twb">
-          <div class="field">
-            <div class="btnrow">
-              <label class="btn" for="wallFile"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/></svg>Upload photo</label>
-              <input type="file" id="wallFile" accept="image/*" hidden>
-              <button class="btn" id="wallMatch" hidden><svg class="i" viewBox="0 0 24 24"><path d="M4 20 15 9M14 4v2M19 9h2M17.5 5.5l1.5-1.5"/></svg>Match theme to photo</button>
-              <button class="btn" id="wallClear" hidden>Remove</button>
-            </div>
-            <p class="hint">In HA, save it as <code>/config/www/wallpaper.jpg</code>.</p>
-          </div>
-        </div></details>
         <details class="twg fold"><summary>Start over</summary><div class="twb">
           <div class="btnrow"><button class="btn" id="resetBtn">Load sample layout</button><button class="btn danger" id="clearBtn">Clear this page</button></div>
         </div></details>
       </div>
 
       <div class="pane" id="paneFx" hidden>
-        <div class="pane-title"><h2>Effects</h2><p>All optional, and all of them can be turned off.</p></div>
-        <div class="group">
-          <div class="eyebrow">Moving background</div>
-          <div class="fxgrid" id="fxBgs"></div>
-          <div class="field"><div class="row"><label for="fxInt">Strength</label><span class="val" id="fxIntV"></span></div><input type="range" id="fxInt" min="10" max="100" step="5"></div>
-          <div class="field"><div class="row"><label for="fxSpd">Speed</label><span class="val" id="fxSpdV"></span></div><input type="range" id="fxSpd" min="25" max="200" step="5"></div>
-        </div>
+        <div class="pane-title"><h2>Effects</h2><p>Animations and card effects. All optional. Moving backgrounds are in <b>Style</b>, right under your theme.</p></div>
         <div class="group">
           <div class="eyebrow">Animations</div>
           <div id="fxAnims" class="fxanims"></div>
@@ -2203,7 +2210,7 @@ function renderThemes(){
   $('dayNight').hidden = !state.night.on;
   document.querySelectorAll('[data-dn]').forEach(b => b.setAttribute('aria-pressed', b.dataset.dn === dn));
   $('calmOn').checked = state.calm;
-  renderHol();
+  renderHol(); renderBgPick();
   updateScore();
 }
 function renderHol(){
@@ -2229,7 +2236,7 @@ $('themes').addEventListener('click', e => {
   const t = e.target.closest('[data-theme-key]'); if (!t) return;
   commit(); state.theme = t.dataset.themeKey; state.accent = null; state.radius = null; dn = 'day';
   Object.keys(state.tw).forEach(k => k.startsWith('c_') && delete state.tw[k]);
-  renderThemes(); renderDash(); save(); toast(getTheme(state.theme).label + ' applied');
+  renderThemes(); renderDash(); save(); toast(getTheme(state.theme).label + ' applied' + (state.fx.bg !== 'off' ? ` · ${BGFX[state.fx.bg]} still plays over its background` : ''));
 });
 $('flags').addEventListener('click', e => {
   const f = e.target.closest('[data-flag]'); if (!f) return;
@@ -4484,16 +4491,27 @@ const FXA = [
   ['tap', 'When you touch something', [['ripple','Ripple'], ['press','Press'], ['sparkle','Sparkle'], ['ring','Ring'], ['glow','Glow'], ['off','Off']]],
   ['pop', 'When a device turns on or off', [['pop','Pop'], ['glow','Glow'], ['bounce','Bounce'], ['flash','Flash'], ['burst','Burst'], ['off','Off']]]
 ];
+/* the background sits right under the theme, so it's clear when a moving one covers the theme's own */
+function renderBgPick(){
+  const t = getTheme(activeKey()), own = state.wall ? `center / cover url(${state.wall})` : t.vars.bg;
+  $('fxBgs').innerHTML = Object.entries(BGFX).map(([k, n]) => `<button class="fxb" data-fxbg="${k}" aria-pressed="${state.fx.bg === k}"><i style="background:${esc(k === 'off' ? own : BGFX_PREV[k])}"></i><span>${k === 'off' ? (state.wall ? 'My photo' : 'Theme’s own') : n}</span></button>`).join('');
+  $('fxBgTune').hidden = state.fx.bg === 'off';
+  $('fxInt').value = state.fx.intensity; $('fxIntV').textContent = state.fx.intensity + '%';
+  $('fxSpd').value = state.fx.speed; $('fxSpdV').textContent = (state.fx.speed/100).toFixed(2).replace(/\.?0+$/, '') + '×';
+  const base = state.wall ? 'your photo' : `the ${esc(t.label)} background`;
+  $('bgNote').innerHTML = state.fx.bg === 'off'
+    ? `Showing ${base}. Pick a moving background to play over it.`
+    : `<b>${esc(BGFX[state.fx.bg])}</b> is playing over ${base}, so you see it in place of the theme’s own. <button class="linkbtn" data-fxbg="off">Show ${state.wall ? 'my photo' : 'the theme’s background'}</button>`;
+  $('bgNote').classList.toggle('on', state.fx.bg !== 'off');
+}
 function renderFxPanel(){
   $('fxAnims').innerHTML = FXA.map(([k, l, opts]) => `<div class="field"><span class="lbl2">${l}</span><div class="seg" role="group" aria-label="${l}">${opts.map(([v, n]) => `<button data-fxa="${k}" data-v="${v}" aria-pressed="${(state.fx[k] || 'off') === v}">${n}</button>`).join('')}</div></div>`).join('')
     + `<div class="btnrow"><button class="btn" id="fxaTry">${ic('sparkle')}Try it</button></div>`;
-  $('fxBgs').innerHTML = Object.entries(BGFX).map(([k,n]) => `<button class="fxb" data-fxbg="${k}" aria-pressed="${state.fx.bg===k}"><i style="background:${BGFX_PREV[k]}"></i><span>${n}</span></button>`).join('');
-  $('fxInt').value = state.fx.intensity; $('fxIntV').textContent = state.fx.intensity + '%';
-  $('fxSpd').value = state.fx.speed; $('fxSpdV').textContent = (state.fx.speed/100).toFixed(2).replace(/\.?0+$/, '') + '×';
+  renderBgPick();
   $('fxToggles').innerHTML = FXT.map(([k,l,d]) => `<label class="switch"><span><b>${l}</b><small>${d}</small></span><input type="checkbox" data-fxt="${k}" ${state.fx[k]?'checked':''}></label>`).join('');
   $('fxNote').innerHTML = `These play in Home Assistant too, through the Dashboard Studio effects card. Turn on <b>Use the Dashboard Studio card</b> in Export. Pointer shine stays in the studio only.${state.calm ? ' <b>Calm mode is on, so motion is paused.</b>' : ''}`;
 }
-$('fxBgs').addEventListener('click', e => { const b = e.target.closest('[data-fxbg]'); if (!b) return; commit(); state.fx.bg = b.dataset.fxbg; renderFxPanel(); fxSync(true); save(); });
+$('bgGroup').addEventListener('click', e => { const b = e.target.closest('[data-fxbg]'); if (!b) return; commit(); state.fx.bg = b.dataset.fxbg; renderFxPanel(); fxSync(true); save(); });
 $('fxInt').addEventListener('input', e => { commit('fxint'); state.fx.intensity = +e.target.value; $('fxIntV').textContent = state.fx.intensity + '%'; $('bgfx').style.opacity = state.fx.intensity/100; save(); });
 $('fxSpd').addEventListener('input', e => { commit('fxspd'); state.fx.speed = +e.target.value; renderFxPanel(); save(); });
 $('fxAnims').addEventListener('click', e => {

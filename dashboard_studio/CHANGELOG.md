@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.2
+
+- The moving background now sits in **Style**, right under your theme, with your own photo next to it. The first choice is your theme's own background, and a note says when a moving background is playing over it, with one tap to go back. **Effects** keeps the animations and card effects.
+
 ## 1.10.1
 
 - Fix: leak, temperature, humidity, window and door sensors in the laundry room no longer show up as washers or dryers. A device counts as a laundry machine when its name says washer or dryer, or when it reports a cycle (a machine state, time left or finish time).
