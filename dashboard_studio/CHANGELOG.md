@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.12.1
+
+- Fix: phones, tablets, watches and remotes no longer show up as cars. Devices from the Home Assistant phone app are never cars, and "charging" alone doesn't make something a car anymore. A car needs a car integration, or something only a car has (a frunk, a charge port, a range, an odometer, tire pressure or sentry mode).
+- Tip: if Tesla View doesn't show after an update, do a hard refresh (Ctrl+Shift+R, or clear the app's cache on a tablet) so your browser loads the new card.
+
 ## 1.12.0
 
 - The Tesla drawings are more realistic. Model 3, Model Y, Model S, Model X and Cybertruck each have their own shape now, drawn to the real car's proportions. Each has sky and ground reflections in the paint, tinted glass with black trim, black pillars, door lines, flush handles, dark wheel wells and its own wheels (aero covers on the 3 and Y, turbine wheels on the S and X, the Cybertruck's flat covers and angular arches). Opening the frunk or trunk, charging, climate and sentry work like before.
