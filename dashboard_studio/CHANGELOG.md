@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.13.1
+
+- Fix: dark wheels and tires no longer vanish into a dark card when Tesla View is see-through. A soft floor of light now sits under the car, like the Tesla app's. Set `tesla_view_floor: false` to turn it off.
+
 ## 1.13.0
 
 - New: your paint color shows in Tesla View too. The card picks the paint from your Tesla View car pack that matches the paint you chose (Pearl White, Ultra Red, Quicksilver and the rest), on the vehicle card, the hub and the garage.

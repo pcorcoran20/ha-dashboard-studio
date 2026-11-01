@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.13.0';
+const STUDIO_VERSION = '1.13.1';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -1966,6 +1966,7 @@ const CAR_STYLE = `
  *   drawing: true             # optional: the flat drawing in place of the rendered car picture
  *   tesla_view_look: transparent   # transparent shows just the car; dark fades the app's dark box; light is the app's light mode
  *   tesla_view_brightness: 1.25
+ *   tesla_view_floor: false         # optional: no soft floor of light under the see-through car
  *   tesla_view_paint: Quicksilver   # optional: a paint from your car pack; left out, the pack paint that matches color is used
  *   entities:                 # optional: set any of these by hand
  *     battery: sensor.my_model_y_battery_level
@@ -2250,6 +2251,8 @@ class DashboardStudioVehicle extends HTMLElement {
       /* Tesla View draws on a solid box: lift the car a little, and fade the box's edges into this card */
       const lift = Math.max(.6, Math.min(2, Number(c.tesla_view_brightness ?? 1.25) || 1.25));
       tvSlot.classList.toggle('blend', look === 'dark' || (look === 'transparent' && this._tvClear === false));
+      /* see-through on a dark card: a soft floor of light under the car, like the app's, so dark wheels and tires don't vanish */
+      tvSlot.classList.toggle('floor', look === 'transparent' && c.tesla_view_floor !== false);
       if (look === 'transparent' && this._tvClear === null) {
         this._tvClear = undefined;
         clearTeslaView(this._tv).then(ok => { this._tvClear = ok; if (!ok) console.warn('Dashboard Studio: Tesla View can’t be made see-through here, so it fades into the card instead'); this._render(); });
@@ -2324,6 +2327,7 @@ ha-card.bare{background:none;box-shadow:none;border:none;padding:4px 0 0}
 ha-card.mini{padding:0;gap:0;pointer-events:none;height:100%;justify-content:center}
 .mini .v-car,.mini .v-tv{margin:0}
 .mini .v-tvnote,.mini .v-3derr{display:none}
+.v-tv.floor{background:radial-gradient(46% 20% at 50% 80%,color-mix(in srgb,var(--v-text) 20%,transparent),transparent 72%),radial-gradient(70% 34% at 50% 82%,color-mix(in srgb,var(--v-text) 7%,transparent),transparent 75%)}
 .v-tv tesla-view-card{display:block;--ha-card-background:transparent;--card-background-color:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0}
 `;
 
