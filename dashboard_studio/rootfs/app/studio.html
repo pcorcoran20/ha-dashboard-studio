@@ -3003,13 +3003,13 @@ function cardYaml(b){
       return ents.length ? {type:'entities', title:b.title, entities:ents} : {type:'markdown', content:`### ${b.title}\nNo washer or dryer found yet. Turn on **Use the Dashboard Studio card** for the full laundry card.`};
     }
     case 'carbay': {
-      const cars = (b.cars || []).map(c => ({...(c.device ? {device:c.device} : {}), name:c.title, model:c.model, color:c.paint}));
+      const cars = (b.cars || []).map(c => ({...(c.device ? {device:c.device} : {}), name:c.title, ...(TESLA_MODELS.includes(c.model) ? {model:c.model} : {}), color:c.paint}));
       if (state.useCards) return {type:'custom:dashboard-studio-garage', name:b.title, ...(b.door ? {door:b.door} : {}), ...(cars.some(c => c.device) ? {cars} : {}), ...(state.calm ? {calm:true} : {})};
       return {type:'vertical-stack', title:b.title, cards:[...(b.door ? [{type:'tile', entity:b.door, name:'Garage door', features_position:'bottom', features:[{type:'cover-open-close'}]}] : []),
         {type:'grid', columns:Math.min(3, cars.length || 1), square:false, cards:cars.map(c => ({type:'tile', entity:`sensor.${slug(c.name)}_battery_level`, name:c.name, icon:'mdi:car-electric'}))}]};
     }
     case 'vehicle': {
-      if (state.useCards) return {type:'custom:dashboard-studio-vehicle', name:b.title, model:b.model, color:b.paint, ...vehImgOut(b), ...(b.vehicle ? {vehicle:b.vehicle} : {}), ...(state.calm ? {calm:true} : {})};
+      if (state.useCards) return {type:'custom:dashboard-studio-vehicle', name:b.title, ...(TESLA_MODELS.includes(b.model) ? {model:b.model} : {}), color:b.paint, ...vehImgOut(b), ...(b.vehicle ? {vehicle:b.vehicle} : {}), ...(state.calm ? {calm:true} : {})};
       const v = b.vehicle || slug(b.title), tile = (entity, name, icon) => ({type:'tile', entity, name, icon});
       const tog = (entity, name, icon) => ({type:'button', entity, name, icon, show_state:true, tap_action:{action:'toggle'}});
       return {type:'vertical-stack', title:b.title, cards:[
@@ -3030,7 +3030,7 @@ function cardYaml(b){
         rooms:(b.rooms || []).map(r => ({name:r.name, devices:r.devices.map(d => ({entity:hubEnt(d), ...(d.entity2 ? {entity2:d.entity2, labels:d.labels} : {}), name:d.name, type:d.t}))})),
         scenes:(b.scenes || []).map(s => ({name:s.name, entity:'scene.' + slug(s.name)})),
         good_night:'script.' + gnScriptId(b), icon_color:b.iconColor || 'soft', animations:animYaml(), ...(b.lmach && !b.lmach.length ? {laundry:false} : {}), ...(b.carPics ? {car_pictures:true} : {}),
-        vehicle:b.car?.show ? {name:b.car.title, model:b.car.model, color:b.car.paint, ...vehImgOut(b.car), ...(b.car.vehicle ? {vehicle:b.car.vehicle} : {})} : false, ...(state.calm ? {calm:true} : {}),
+        vehicle:b.car?.show ? {name:b.car.title, ...(TESLA_MODELS.includes(b.car.model) ? {model:b.car.model} : {}), color:b.car.paint, ...vehImgOut(b.car), ...(b.car.vehicle ? {vehicle:b.car.vehicle} : {})} : false, ...(state.calm ? {calm:true} : {}),
         ...(b.layout === 'touchscreen' ? {layout:'touchscreen', touch_style:b.touchStyle || 'dark', opacity:b.opacity ?? 0, room_radius:b.roomRadius ?? 30, ...(b.iconBg === false ? {icon_background:false} : {}), ...(state.nav === 'touch' ? {full_height:true} : {}), ...(allBlocks().find(x => x.type === 'weather') ? {weather_entity:allBlocks().find(x => x.type === 'weather').entity} : {})} : {})};
       const url = dashUrl(), rooms = b.rooms || [];
       const cats = Object.keys(HUB_CATS).filter(c => rooms.some(r => r.devices.some(d => catOf(d.t) === c)));
@@ -3954,8 +3954,10 @@ function carSVG(o, uid) {
 }
 
 /* the car: your own picture if you set one, otherwise the drawing. Charging, sentry and climate show on both */
+const TESLA_MODELS = ['model_3', 'model_y', 'model_s', 'model_x', 'cybertruck'];
+/* a Tesla model shows that Tesla; any other car (or none picked) shows the rendered car picture */
 function carVisual(o, uid) {
-  if (!o.image) return o.drawing ? carSVG(o, uid) : clayCar(o);
+  if (!o.image) return o.drawing || TESLA_MODELS.includes(o.model) ? carSVG(o, uid) : clayCar(o);
   const cls = ['car-photo', o.charging && 'charging', o.sentry && 'sentry', o.climate && 'climate ' + o.climate].filter(Boolean).join(' ');
   return `<div class="${cls}"><img src="${String(o.image).replace(/"/g, '&quot;')}" alt="${o.label || 'Car'}"><i class="cp-glow"></i><i class="cp-eye"></i><i class="cp-air"></i></div>`;
 }
@@ -4064,7 +4066,7 @@ function mountCars(){
     c.set(JSON.parse(slot.dataset.st || '{}'), !!c.renderer);
   });
 }
-const VEH_MODELS = [['model_3','Model 3'], ['model_y','Model Y'], ['model_s','Model S'], ['model_x','Model X'], ['cybertruck','Cybertruck']];
+const VEH_MODELS = [['car','Other car'], ['model_3','Model 3'], ['model_y','Model Y'], ['model_s','Model S'], ['model_x','Model X'], ['cybertruck','Cybertruck']];
 const VEH_PAINTS = [['pearl_white','Pearl White'], ['solid_black','Solid Black'], ['midnight_silver','Midnight Silver'], ['stealth_grey','Stealth Grey'], ['quicksilver','Quicksilver'], ['deep_blue','Deep Blue'], ['ultra_red','Ultra Red'], ['stainless','Stainless']];
 R.vehicle = (b, uid) => {
   const heat = b.climate && b.inside < 20, rng = isF() ? Math.round(b.range) + ' mi' : Math.round(b.range * 1.609) + ' km';

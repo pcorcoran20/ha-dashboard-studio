@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.11.1
+
+- Fix: picking a Tesla model now shows that Tesla, not the Challenger. The rendered Challenger is for cars that aren't Teslas or have no model picked. A Tesla found from your car's details shows as that Tesla by itself, and Tesla View's car still takes over once it's set up.
+- New: "Other car" in the model list, for the rendered car picture.
+
 ## 1.11.0
 
 - New: until Tesla View or a 3D Tesla is set up, cars show a rendered 3D car in your paint color, in place of the flat drawing. That's on the vehicle card, the garage, the hub's car tiles and in the Studio. Set `drawing: true` to keep the drawing. The car picture is rendered from a Dodge Challenger model on Thingiverse (CC BY-NC-SA 4.0), see CREDITS.md.

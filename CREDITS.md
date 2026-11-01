@@ -33,7 +33,7 @@ How Dashboard Studio uses it:
 
 ## The default car picture
 
-Until Tesla View or a 3D Tesla is set up, cars show a picture rendered from the [Dodge Challenger 3D model on Thingiverse (thing:3163692)](https://www.thingiverse.com/thing:3163692), licensed [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+Cars that aren't Teslas, or have no model picked, show a picture rendered from the [Dodge Challenger 3D model on Thingiverse (thing:3163692)](https://www.thingiverse.com/thing:3163692), licensed [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
 
 What we changed: we rendered the model as a picture with dark wheels and windows, and made a mask so the body takes your paint color.
 

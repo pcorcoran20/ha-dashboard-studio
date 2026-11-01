@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.11.0';
+const STUDIO_VERSION = '1.11.1';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -218,7 +218,7 @@ class DashboardStudioHub extends HTMLElement {
     return cars.filter(x => x.e.battery).map((x, i) => {
       const dev = x.cfg.device || devOf(x.e), d = hass.devices?.[dev] || {};
       const name = x.cfg.name || d.name_by_user || d.name || hass.states[x.e.battery]?.attributes.friendly_name?.replace(/ battery( level)?$/i, '') || `Car ${i + 1}`;
-      return {cfg: {...x.cfg, ...(dev ? {device: dev} : {}), name, model: x.cfg.model || carKey(d.model) || 'model_y'}, e: x.e, name, i};
+      return {cfg: {...x.cfg, ...(dev ? {device: dev} : {}), name, model: x.cfg.model || carKey(d.model) || 'car'}, e: x.e, name, i};
     });
   }
 
@@ -1742,8 +1742,10 @@ function carSVG(o, uid) {
 }
 
 /* the car: your own picture if you set one, otherwise the drawing. Charging, sentry and climate show on both */
+const TESLA_MODELS = ['model_3', 'model_y', 'model_s', 'model_x', 'cybertruck'];
+/* a Tesla model shows that Tesla; any other car (or none picked) shows the rendered car picture */
 function carVisual(o, uid) {
-  if (!o.image) return o.drawing ? carSVG(o, uid) : clayCar(o);
+  if (!o.image) return o.drawing || TESLA_MODELS.includes(o.model) ? carSVG(o, uid) : clayCar(o);
   const cls = ['car-photo', o.charging && 'charging', o.sentry && 'sentry', o.climate && 'climate ' + o.climate].filter(Boolean).join(' ');
   return `<div class="${cls}"><img src="${String(o.image).replace(/"/g, '&quot;')}" alt="${o.label || 'Car'}"><i class="cp-glow"></i><i class="cp-eye"></i><i class="cp-air"></i></div>`;
 }
@@ -1893,7 +1895,7 @@ const CAR_STYLE = `
  *
  *   type: custom:dashboard-studio-vehicle
  *   name: Model Y
- *   model: model_y            # model_3, model_s, model_x, model_y or cybertruck
+ *   model: model_y            # model_3, model_s, model_x, model_y or cybertruck; car (or left out on a car that is not a Tesla) shows the rendered car picture
  *   color: pearl_white        # a paint name, or any color like '#a5121d'
  *   device: <device id>       # optional: which car, when you have more than one (the visual editor lists them)
  *   charger: auto             # auto, supercharger, wall_connector or none: drawn next to the car while it charges
@@ -2021,10 +2023,10 @@ class DashboardStudioVehicle extends HTMLElement {
     this.shadowRoot.addEventListener('click', e => this._onClick(e));
   }
 
-  static getStubConfig() { return {model: 'model_y', color: 'pearl_white'}; }
+  static getStubConfig() { return {color: 'pearl_white'}; }
   static getConfigElement() { return document.createElement('dashboard-studio-vehicle-editor'); }
 
-  setConfig(config) { this._modelSet = !!config?.model; this._config = {model: 'model_y', color: 'pearl_white', ...config}; this._e = this._hass ? findVehicle(this._hass, this._config) : null; this._render(); }
+  setConfig(config) { this._modelSet = !!config?.model; this._config = {model: 'car', color: 'pearl_white', ...config}; this._e = this._hass ? findVehicle(this._hass, this._config) : null; this._render(); }
 
   connectedCallback() { clearTimeout(this._drop); }
   /* free the 3D view when the card goes away for good */
@@ -2305,7 +2307,7 @@ class DashboardStudioGarage extends HTMLElement {
       const cfg = typeof c === 'string' ? {device: c} : c, e = findVehicle(h, cfg);
       const dev = cfg.device || h.entities?.[e.battery]?.device_id, d = h.devices?.[dev] || {};
       const name = cfg.name || d.name_by_user || d.name || h.states[e.battery]?.attributes.friendly_name?.replace(/ battery( level)?$/i, '') || `Car ${i + 1}`;
-      return {cfg: {...cfg, ...(dev ? {device: dev} : {}), name, model: cfg.model || carKey(d.model) || 'model_y'}, e, name, i};
+      return {cfg: {...cfg, ...(dev ? {device: dev} : {}), name, model: cfg.model || carKey(d.model) || 'car'}, e, name, i};
     });
   }
 
@@ -2625,7 +2627,7 @@ class DashboardStudioVehicleEditor extends HTMLElement {
         charging: 'Charging', charge_switch: 'Charge on/off', sentry: 'Sentry mode', awake: 'Awake or asleep', wake: 'Wake button', inside: 'Inside temperature', outside: 'Outside temperature', location: 'Location', tesla_view_look: 'Tesla View look', tesla_view_brightness: 'Tesla View brightness', name: 'Name', device: 'Your car', charger: 'Charger to show while charging', model: 'Model', color: 'Paint', vehicle: "Or: the car's name in its entity IDs (like my_model_y)", image: 'Car picture (optional, a link like /local/my-car.png)', model_url: '3D car from Tesla Model Extractor (optional, like /local/tesla/model_y.glb)', calm: 'Turn off animations'};
       f.computeLabel = s => L[s.name] || s.name;
       f.schema = [{name: 'device', selector: {device: {filter: ['tesla_fleet', 'teslemetry', 'tessie', 'tesla_custom'].map(integration => ({integration}))}}},
-        {name: 'name', selector: {text: {}}}, {name: 'model', selector: opt(['model_3', 'Model 3'], ['model_y', 'Model Y'], ['model_s', 'Model S'], ['model_x', 'Model X'], ['cybertruck', 'Cybertruck'])},
+        {name: 'name', selector: {text: {}}}, {name: 'model', selector: opt(['car', 'Other car (rendered picture)'], ['model_3', 'Model 3'], ['model_y', 'Model Y'], ['model_s', 'Model S'], ['model_x', 'Model X'], ['cybertruck', 'Cybertruck'])},
         {name: 'color', selector: opt(...Object.keys(CAR_PAINT).map(k => [k, cap(k)]))}, {name: 'tesla_view_look', selector: opt(['transparent', 'See-through (just the car)'], ['dark', 'Blend into the card (app dark mode)'], ['light', 'Light (app light mode)'])},
         {name: 'tesla_view_brightness', selector: {number: {min: .6, max: 2, step: .05, mode: 'slider'}}},
         {name: 'reversed', selector: {select: {multiple: true, mode: 'list', options: [{value: 'frunk', label: 'Frunk'}, {value: 'trunk', label: 'Trunk'}, {value: 'charge_port', label: 'Charge port'}]}}},
@@ -2643,7 +2645,7 @@ class DashboardStudioVehicleEditor extends HTMLElement {
     }
     /* show what the card found, so you can see it and change any one */
     const found = findVehicle(this._hass, this._config);
-    this._form.hass = this._hass; this._form.data = {model: 'model_y', color: 'pearl_white', ...this._config, entities: {...found, ...(this._config.entities || {})}};
+    this._form.hass = this._hass; this._form.data = {model: 'car', color: 'pearl_white', ...this._config, entities: {...found, ...(this._config.entities || {})}};
   }
 }
 
