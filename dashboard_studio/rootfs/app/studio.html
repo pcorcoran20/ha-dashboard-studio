@@ -4130,7 +4130,11 @@ function laundryDevices(){
   const by = {};
   Object.entries(dev).forEach(([id, d]) => { if (d) (by[d] ||= []).push(id); });
   return Object.entries(by).filter(([d, ids]) => { const x = window.__haDevices?.[d] || {};
-      return /wash|dryer|laundry/i.test(`${x.name || ''} ${x.model || ''} ${ids.join(' ')}`) && !/dish/i.test(`${x.name || ''} ${ids.join(' ')}`) && ids.some(i => /^(sensor|binary_sensor)\./.test(i)); })
+      const t = `${x.name || ''} ${x.model || ''}`, word = /washer|washing|dryer|wash_?combo|washtower|wash_?tower|lavadora|secadora/i;
+      const sensorish = /battery|signal|rssi|linkquality|temperature|humidity|leak|water|moisture|flood|window|door|motion|occupancy|presence|contact|illuminance|lux|tamper|vibration|update|firmware/;
+      /* a leak, temperature or window sensor in the laundry room is not a machine */
+      if (/dish/i.test(t + ids.join(' ')) || !ids.some(i => /^(sensor|binary_sensor)\./.test(i)) || ids.every(i => sensorish.test(i.split('.')[1]))) return false;
+      return word.test(t) || ids.some(i => word.test(i.split('.')[1])) || (/laundry/i.test(t) && ids.some(i => /machine_state|operation_state|current_status|job_state|run_state|remaining|time_left|completion|finish_time|progress/.test(i))); })
     .flatMap(([d, ids]) => { const n = (window.__haDevices?.[d]?.name || 'Washer').replace(/\s*\b(smart\s*)?(plug|outlet|power|energy)\b\s*/ig, ' ').trim();
       const combo = /combo|washer[\s_-]?dryer|wash[\s_-]?(and[\s_-]?)?dry|all[\s_-]?in[\s_-]?one/i;
       const w = ids.filter(i => /(^|_)washer(_|$)/.test(i.split('.')[1]) && !/dryer/.test(i)), y = ids.filter(i => /(^|_)dryer(_|$)/.test(i.split('.')[1]));

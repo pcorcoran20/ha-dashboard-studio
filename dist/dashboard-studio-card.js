@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.10.0';
+const STUDIO_VERSION = '1.10.1';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -2697,6 +2697,17 @@ class DashboardStudioHubEditor extends HTMLElement {
  */
 const LAUNDRY_ROLES = ['status', 'stage', 'remaining', 'finish', 'progress', 'power', 'door', 'running'];
 const isLaundry = t => /wash|dryer|laundry|lavadora|secadora/i.test(t) && !/dish/i.test(t);
+const L_WORD = /washer|washing|dryer|wash_?combo|washtower|wash_?tower|lavadora|secadora/i;
+const L_SENSORISH = /battery|signal|rssi|linkquality|temperature|humidity|leak|water|moisture|flood|window|door|motion|occupancy|presence|contact|illuminance|lux|tamper|vibration|update|firmware/;
+/* a washer or dryer: its name says so, or it's in the laundry room and reports a cycle.
+   A leak, temperature or window sensor in the laundry room is not a machine */
+function isLaundryDevice(hass, text, ids) {
+  if (/dish/i.test(text + ids.join(' ')) || !ids.some(id => /^(sensor|binary_sensor)\./.test(id))) return false;
+  if (ids.every(id => L_SENSORISH.test(id.split('.')[1]) || ['temperature', 'humidity', 'moisture', 'battery', 'signal_strength', 'illuminance', 'door', 'window', 'motion', 'occupancy', 'opening', 'problem', 'safety', 'tamper'].includes(hass.states[id]?.attributes.device_class))) return false;
+  if (L_WORD.test(text) || ids.some(id => L_WORD.test(id.split('.')[1]))) return true;
+  const r = laundryRoles(hass, ids.filter(id => !L_SENSORISH.test(id.split('.')[1])));
+  return /laundry/i.test(text) && !!(r.stage || r.remaining || r.finish || r.progress || (r.status && /machine_state|operation_state|current_status|appliance_state/.test(r.status)));
+}
 /* one machine that washes and then dries: its name says so, or it has both spin and dry settings */
 const L_COMBO = /combo|washer[\s_-]?dryer|wash[\s_-]?(and[\s_-]?)?dry|all[\s_-]?in[\s_-]?one/i;
 const laundryKind = (name, ids) => L_COMBO.test(name) || L_COMBO.test(ids.join(' ')) || (ids.some(i => /spin/.test(i)) && ids.some(i => /dry_?level|drying|dry_?time/.test(i))) ? 'combo'
@@ -2722,11 +2733,11 @@ function findLaundry(hass) {
   const by = {}, loose = {};
   Object.values(hass.entities || {}).forEach(e => { if (!hass.states[e.entity_id] || e.hidden || e.entity_category) return;
     if (e.device_id) (by[e.device_id] ||= []).push(e.entity_id);
-    else { const m = e.entity_id.split('.')[1].match(/^(.*?(washer|washing_machine|dryer))/); if (m) (loose[m[1]] ||= []).push(e.entity_id); } });
+    else { const m = e.entity_id.split('.')[1].match(/^(.*?(washer|washing_machine|dryer))/); if (m && !/dish/.test(m[1])) (loose[m[1]] ||= []).push(e.entity_id); } });
   const out = [];
   Object.entries(by).forEach(([dev, ids]) => {
     const d = hass.devices?.[dev] || {}, name = d.name_by_user || d.name || '';
-    if (!isLaundry(`${name} ${d.model || ''} ${ids.join(' ')}`) || !ids.some(id => /^(sensor|binary_sensor)\./.test(id))) return;
+    if (!isLaundryDevice(hass, `${name} ${d.model || ''}`, ids)) return;
     const nice = name.replace(/\s*\b(smart\s*)?(plug|outlet|power|energy)\b\s*/ig, ' ').trim() || name;
     /* a stacked washer and dryer that is one device (like an LG WashTower) is two machines */
     const wIds = ids.filter(i => /(^|_)washer(_|$)/.test(i.split('.')[1]) && !/dryer/.test(i)), dIds = ids.filter(i => /(^|_)dryer(_|$)/.test(i.split('.')[1]));

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.1
+
+- Fix: leak, temperature, humidity, window and door sensors in the laundry room no longer show up as washers or dryers. A device counts as a laundry machine when its name says washer or dryer, or when it reports a cycle (a machine state, time left or finish time).
+
 ## 1.10.0
 
 - New: a Laundry tile on the Control hub, on the touchscreen and the regular layout. It says what your machines are doing ("Washer · 32 min left", "Dryer is done 🧺") and opens them right in the hub. Each room shows the machines in that room.
