@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.0
+
+- New: laundry cards. Your washer and dryer, with a drum that spins while they run, a progress ring, what they're doing, the time left and when they'll be done. A finished load says **Done** until you open the door. Works with SmartThings, LG ThinQ, Home Connect, Miele, GE, Whirlpool and smart plugs.
+- New: a Laundry block in the Studio, and Auto-build adds it to the room your machines are in and to the Home page.
+
 ## 1.8.0
 
 - New: every car shows on the Control hub's home page at the same time, each on its own little card with its picture (Tesla View's render when it's installed), battery, and whether it's charging, asleep, locked or away. Tap a card to open that car.

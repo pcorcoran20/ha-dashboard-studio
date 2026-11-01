@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.8.0';
+const STUDIO_VERSION = '1.9.0';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -2636,7 +2636,257 @@ class DashboardStudioHubEditor extends HTMLElement {
   }
 }
 
+/*
+ * Dashboard Studio laundry card
+ * Your washer and dryer: what they're doing, the time left, and a happy "Done" when a load is ready.
+ * It finds your machines by itself: Samsung SmartThings, LG ThinQ, Home Connect (Bosch, Siemens), Miele,
+ * GE, Whirlpool, or a smart plug's power reading.
+ *
+ *   type: custom:dashboard-studio-laundry
+ *   name: Laundry
+ *   machines:                 # optional: leave out to use every washer and dryer it finds
+ *     - device: <device id>   # pick it in the visual editor
+ *       name: Washer
+ *       kind: washer          # washer or dryer
+ *       # optional, when the card guesses wrong:
+ *       status: sensor.washer_machine_state
+ *       stage: sensor.washer_job_state
+ *       remaining: sensor.washer_remaining_time
+ *       finish: sensor.washer_completion_time
+ *       progress: sensor.washer_progress
+ *       power: sensor.washer_power
+ *       door: binary_sensor.washer_door
+ */
+const LAUNDRY_ROLES = ['status', 'stage', 'remaining', 'finish', 'progress', 'power', 'door', 'running'];
+const isLaundry = t => /wash|dryer|laundry|lavadora|secadora/i.test(t) && !/dish/i.test(t);
+/* the entities that say what a machine is doing, picked from one device's entities */
+function laundryRoles(hass, ids) {
+  const st = id => hass.states[id], dc = id => st(id)?.attributes.device_class, unit = id => st(id)?.attributes.unit_of_measurement || '';
+  const obj = id => id.split('.')[1], sensors = ids.filter(id => id.startsWith('sensor.'));
+  const pick = (list, ...tests) => { for (const t of tests) { const f = list.find(t); if (f) return f; } return undefined; };
+  return {
+    finish: pick(sensors, id => dc(id) === 'timestamp' && /complet|finish|end|done|ready/.test(obj(id)), id => dc(id) === 'timestamp' && !/start|last|updated/.test(obj(id))),
+    remaining: pick(sensors, id => /remain|time_left|left/.test(obj(id)) && dc(id) !== 'timestamp', id => dc(id) === 'duration' && !/total|initial|running|elapsed|run_time/.test(obj(id))),
+    progress: pick(sensors, id => unit(id) === '%' && /progress|percent/.test(obj(id))),
+    stage: pick(sensors, id => /job_state|stage|phase|cycle_state|process_state|run_state|step/.test(obj(id))),
+    status: pick(sensors, id => /machine_state|operation_state|current_status|appliance_state/.test(obj(id)), id => /(^|_)(status|state)$/.test(obj(id)) && !/door|lid|job|wifi|signal|battery/.test(obj(id))),
+    power: pick(sensors, id => dc(id) === 'power' || /^k?W$/.test(unit(id))),
+    door: pick(ids.filter(id => id.startsWith('binary_sensor.')), id => dc(id) === 'door' || /door|lid/.test(obj(id))),
+    running: pick(ids.filter(id => id.startsWith('binary_sensor.')), id => dc(id) === 'running' || /running|(^|_)active$/.test(obj(id)))
+  };
+}
+/* every washer and dryer: a device whose name or entities say laundry */
+function findLaundry(hass) {
+  const by = {}, loose = {};
+  Object.values(hass.entities || {}).forEach(e => { if (!hass.states[e.entity_id] || e.hidden || e.entity_category) return;
+    if (e.device_id) (by[e.device_id] ||= []).push(e.entity_id);
+    else { const m = e.entity_id.split('.')[1].match(/^(.*?(washer|washing_machine|dryer))/); if (m) (loose[m[1]] ||= []).push(e.entity_id); } });
+  const out = [];
+  Object.entries(by).forEach(([dev, ids]) => {
+    const d = hass.devices?.[dev] || {}, name = d.name_by_user || d.name || '';
+    if (!isLaundry(`${name} ${d.model || ''} ${ids.join(' ')}`) || !ids.some(id => /^(sensor|binary_sensor)\./.test(id))) return;
+    out.push({device: dev, name: name.replace(/\s*\b(smart\s*)?(plug|outlet|power|energy)\b\s*/ig, ' ').trim() || name, kind: /dry/i.test(name || ids.join(' ')) && !/wash/i.test(name) ? 'dryer' : 'washer', ids});
+  });
+  Object.entries(loose).forEach(([k, ids]) => out.push({name: cap(k), kind: /dry/.test(k) ? 'dryer' : 'washer', ids}));
+  return out.sort((a, b) => (a.kind === 'dryer') - (b.kind === 'dryer'));
+}
+const L_NORM = s => String(s ?? '').split('.').pop().toLowerCase().replace(/[\s-]+/g, '_');
+const L_DONE = /^(end|finish|finished|complete|completed|done|cycle_?complete|program_?finished)$/;
+const L_PAUSE = /^(pause|paused|pausing)$/;
+const L_RUN = /^(run|running|on|wash|washing|rinse|rinsing|spin|spinning|dry|drying|cool|cooling|cool_?down|wrinkle_?prevent|wrinkle_?care|steam|steaming|soak|soaking|pre_?wash|detecting|weight_?sensing|heating|in_?progress|active|operating|busy|delayed_?start|delay|delay_?wash|reservation|refresh)$/;
+const L_STAGE = {wash: 'Washing', washing: 'Washing', main_wash: 'Washing', rinse: 'Rinsing', rinsing: 'Rinsing', spin: 'Spinning', spinning: 'Spinning', dry: 'Drying', drying: 'Drying',
+  cool: 'Cooling down', cooling: 'Cooling down', cool_down: 'Cooling down', cooldown: 'Cooling down', wrinkle_prevent: 'Wrinkle care', wrinkleprevent: 'Wrinkle care', wrinkle_care: 'Wrinkle care',
+  steam: 'Steaming', steaming: 'Steaming', soak: 'Soaking', soaking: 'Soaking', prewash: 'Pre-wash', pre_wash: 'Pre-wash', detecting: 'Weighing the load', weight_sensing: 'Weighing the load',
+  heating: 'Heating', delay: 'Waiting to start', delay_wash: 'Waiting to start', delayed_start: 'Waiting to start', delayedstart: 'Waiting to start', reservation: 'Waiting to start', refresh: 'Refreshing'};
+function lMinutes(st) {
+  if (!st || ['unknown', 'unavailable', ''].includes(st.state)) return null;
+  const s = String(st.state), u = (st.attributes.unit_of_measurement || 'min').toLowerCase();
+  const hms = s.match(/^(\d+):(\d{2})(?::(\d{2}))?$/); if (hms) return +hms[1] * 60 + +hms[2] + (hms[3] ? +hms[3] / 60 : 0);
+  const n = parseFloat(s); if (isNaN(n)) return null;
+  return u.startsWith('h') ? n * 60 : u === 's' || u.startsWith('sec') ? n / 60 : u === 'd' ? n * 1440 : n;
+}
+/* the machine drawing: a front loader whose drum tumbles while it runs, with the progress as a ring round the door */
+function laundryArt(kind, mode, prog, uid) {
+  const C = 2 * Math.PI * 27, run = mode === 'running', dry = kind === 'dryer';
+  const inside = dry
+    ? `<g class="lw-drum"><circle cx="14" cy="-6" r="5" fill="#ff9fbf"/><circle cx="-12" cy="8" r="6" fill="#8fd3ff"/><rect x="-6" y="-16" width="10" height="7" rx="3" fill="#ffd36e"/><circle cx="2" cy="12" r="4" fill="#b9a6ff"/></g>`
+    : `<g class="lw-drum"><path d="M-22 6c8-5 14 5 22 0s14-5 22 0v20h-44z" fill="#5fc0ff" opacity=".55"/><circle cx="12" cy="-8" r="5" fill="#ff9fbf"/><rect x="-14" y="-10" width="10" height="7" rx="3" fill="#ffd36e"/><circle cx="-2" cy="10" r="4" fill="#fff" opacity=".8"/></g>`;
+  return `<svg class="lw-art ${mode}${dry ? ' dry' : ''}" viewBox="0 0 100 112" aria-hidden="true">
+    <defs><clipPath id="lw${uid}"><circle cx="50" cy="66" r="22"/></clipPath><radialGradient id="lg${uid}" cx=".35" cy=".3" r=".9"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".5" stop-color="#cfe6ff" stop-opacity=".18"/><stop offset="1" stop-color="#8aa7c4" stop-opacity=".1"/></radialGradient></defs>
+    <rect x="8" y="4" width="84" height="104" rx="12" class="lw-body"/>
+    <rect x="8" y="4" width="84" height="22" rx="12" class="lw-panel"/><rect x="8" y="18" width="84" height="8" class="lw-panel"/>
+    <circle cx="74" cy="15" r="5.5" class="lw-knob"/><rect x="20" y="12" width="26" height="6" rx="3" class="lw-screen"/><circle cx="56" cy="15" r="2" class="lw-led"/>
+    <circle cx="50" cy="66" r="31" class="lw-rim"/>
+    <circle cx="50" cy="66" r="27" class="lw-track"/>
+    <circle cx="50" cy="66" r="27" class="lw-prog${(prog ?? 0) > 0 ? '' : ' zero'}" stroke-dasharray="${(C * Math.max(0, Math.min(1, prog ?? 0))).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 50 66)"/>
+    <circle cx="50" cy="66" r="22" class="lw-glass"/>
+    <g clip-path="url(#lw${uid})"><g transform="translate(50 66)">${inside}</g><circle cx="50" cy="66" r="22" fill="url(#lg${uid})"/></g>
+    ${mode === 'done' ? '<g class="lw-done"><circle cx="78" cy="94" r="11"/><path d="M73 94l3.5 3.5 7-7.5" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></g>' : ''}
+  </svg>`;
+}
+const LAUNDRY_STYLE = `
+:host{--l-text:var(--primary-text-color,#1c1c1c);--l-muted:var(--secondary-text-color,#6b6b6b);--l-accent:var(--primary-color,#03a9f4);--l-soft:color-mix(in srgb,var(--l-text) 7%,transparent)}
+ha-card{padding:18px;display:flex;flex-direction:column;gap:14px;color:var(--l-text)}
+ha-card.bare{background:none;box-shadow:none;border:none;padding:4px 0 0}
+button{font:inherit;color:inherit;cursor:pointer}
+.l-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.l-head b{font-size:20px;font-weight:600}
+.l-head span{font-size:13px;color:var(--l-muted)}
+.l-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.lm{border:0;background:var(--l-soft);border-radius:18px;padding:14px 12px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;min-width:0;transition:transform .15s}
+.lm:active{transform:scale(.98)}
+.lm.done{background:color-mix(in srgb,#22c55e 13%,transparent)}
+.lm b{font-size:15px;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lm .l-st{font-size:13px;font-weight:600}
+.lm .l-sub{font-size:12px;color:var(--l-muted);min-height:1.3em}
+.lm.done .l-st{color:#16a34a}
+.lw-art{width:min(120px,100%);height:auto;overflow:visible}
+.lw-body{fill:color-mix(in srgb,var(--l-text) 4%,#f4f6f9);stroke:color-mix(in srgb,var(--l-text) 14%,transparent);stroke-width:1.2}
+.lw-panel{fill:color-mix(in srgb,var(--l-text) 8%,#e9edf2)}
+.lw-knob{fill:#fff;stroke:color-mix(in srgb,var(--l-text) 22%,transparent);stroke-width:1.4}
+.lw-screen{fill:#1d2733}
+.running .lw-screen{fill:#123b52}
+.lw-led{fill:#9aa3ad}
+.running .lw-led{fill:#4ade80}
+.done .lw-led{fill:#22c55e}
+.lw-rim{fill:#dfe5ec;stroke:#c3ccd6;stroke-width:1.5}
+.lw-track{fill:none;stroke:color-mix(in srgb,var(--l-text) 10%,transparent);stroke-width:4}
+.lw-prog{fill:none;stroke:var(--l-accent);stroke-width:4;stroke-linecap:round;transition:stroke-dasharray .8s ease}
+.dry .lw-prog{stroke:#f59e0b}
+.lw-art.done .lw-prog{stroke:#22c55e}
+.lw-prog.zero{opacity:0}
+.lw-glass{fill:#2b3a4a}
+.dry.running .lw-glass{fill:#4a3424}
+.lw-drum{transform-box:view-box}
+.running .lw-drum{animation:lwSpin 2.4s linear infinite}
+.running.dry .lw-drum{animation:lwTumble 3s ease-in-out infinite}
+.lw-done circle{fill:#22c55e}
+.lw-done{animation:lwPop .5s cubic-bezier(.3,1.6,.5,1)}
+@keyframes lwSpin{to{transform:rotate(360deg)}}
+@keyframes lwTumble{0%{transform:rotate(0)}40%{transform:rotate(200deg)}60%{transform:rotate(170deg)}100%{transform:rotate(360deg)}}
+@keyframes lwPop{from{transform:scale(0);transform-origin:78px 94px}to{transform:scale(1)}}
+.hint{margin:0;color:var(--l-muted);line-height:1.5}
+ha-card.calm *{animation:none!important;transition:none!important}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+`;
+const LDONE_KEY = 'dashboard-studio-laundry-done';
+class DashboardStudioLaundry extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({mode: 'open'});
+    this._uid = Math.random().toString(36).slice(2, 7);
+    this._was = {}; this._total = {};
+    try { this._doneAt = JSON.parse(localStorage.getItem(LDONE_KEY)) || {}; } catch (e) { this._doneAt = {}; }
+    this.shadowRoot.addEventListener('click', e => { const b = e.target.closest('[data-e]'); if (b) this.dispatchEvent(new CustomEvent('hass-more-info', {detail: {entityId: b.dataset.e}, bubbles: true, composed: true})); });
+  }
+
+  static getStubConfig() { return {name: 'Laundry'}; }
+  static getConfigElement() { return document.createElement('dashboard-studio-laundry-editor'); }
+
+  setConfig(config) { this._config = {name: 'Laundry', ...config}; this._machines = null; this._render(); }
+
+  set hass(hass) {
+    const old = this._hass; this._hass = hass;
+    if (!this._machines || old?.entities !== hass.entities) this._find();
+    const watch = this._machines.flatMap(m => Object.values(m.r).filter(Boolean));
+    if (!old || watch.some(id => old.states[id] !== hass.states[id])) this._render();
+  }
+
+  connectedCallback() { this._tick = setInterval(() => this._render(), 30000); }
+  disconnectedCallback() { clearInterval(this._tick); }
+  getCardSize() { return 4; }
+  getGridOptions() { return {columns: 6, min_columns: 4}; }
+
+  _find() {
+    const h = this._hass, found = findLaundry(h), list = this._config.machines?.length ? this._config.machines : found;
+    this._machines = list.map((m, i) => {
+      const f = m.device ? found.find(x => x.device === m.device) : m.ids ? m : null;
+      const ids = f?.ids || (m.device ? Object.values(h.entities || {}).filter(e => e.device_id === m.device).map(e => e.entity_id) : []);
+      const auto = laundryRoles(h, ids), r = {};
+      LAUNDRY_ROLES.forEach(k => { r[k] = m[k] || auto[k]; });
+      const kind = m.kind || f?.kind || 'washer';
+      return {key: m.device || f?.device || (r.status || r.remaining || r.power || `m${i}`), name: m.name || f?.name || (kind === 'dryer' ? 'Dryer' : 'Washer'), kind, r};
+    });
+  }
+
+  /* what one machine is doing right now */
+  _state(m) {
+    const s = id => id && this._hass.states[id], r = m.r;
+    const status = L_NORM(s(r.status)?.state), stage = L_NORM(s(r.stage)?.state);
+    const watts = parseFloat(s(r.power)?.state), runBin = s(r.running)?.state === 'on';
+    let mode = 'idle';
+    if (L_DONE.test(status) || L_DONE.test(stage)) mode = 'done';
+    else if (L_PAUSE.test(status) || L_PAUSE.test(stage)) mode = 'paused';
+    else if (L_RUN.test(status) || (stage && L_RUN.test(stage) && !/^(none|off|idle|stop|ready)$/.test(status)) || runBin || (!r.status && !r.stage && watts > 5)) mode = 'running';
+    if (['unavailable', 'unknown'].includes(s(r.status)?.state) && mode === 'idle' && !r.power) mode = 'off';
+    /* time left: the finish time when the machine gives one, else its countdown */
+    let left = null;
+    const fin = s(r.finish)?.state, ft = fin && Date.parse(fin);
+    if (ft && !isNaN(ft) && ft > Date.now() - 60000) left = Math.max(0, (ft - Date.now()) / 60000);
+    if (left == null) left = lMinutes(s(r.remaining));
+    if (mode !== 'running' && mode !== 'paused') left = null;
+    /* a finished load stays "done" until the door opens, the next load starts, or three hours pass */
+    const k = m.key, now = Date.now();
+    if (mode === 'running') { delete this._doneAt[k]; if (left != null) this._total[k] = Math.max(this._total[k] || 0, left); }
+    if (mode === 'done' && !this._doneAt[k]) this._doneAt[k] = now;
+    if (mode === 'idle' && this._was[k] === 'running') this._doneAt[k] = now;
+    if (s(r.door)?.state === 'on' || (this._doneAt[k] && now - this._doneAt[k] > 3 * 3600e3)) delete this._doneAt[k];
+    if (mode !== 'running' && mode !== 'paused' && this._doneAt[k]) mode = 'done';
+    if (mode !== 'running') delete this._total[k];
+    this._was[k] = mode === 'done' ? 'idle' : mode;
+    try { localStorage.setItem(LDONE_KEY, JSON.stringify(this._doneAt)); } catch (e) { /* fine */ }
+    const pct = parseFloat(s(r.progress)?.state);
+    const prog = mode === 'done' ? 1 : mode === 'running' || mode === 'paused' ? (!isNaN(pct) ? pct / 100 : left != null && this._total[k] ? 1 - left / this._total[k] : null) : 0;
+    const word = L_STAGE[stage] || L_STAGE[status] || (m.kind === 'dryer' ? 'Drying' : 'Washing');
+    return {mode, left, prog, word};
+  }
+
+  _render() {
+    if (!this._config) return;
+    const c = this._config, h = this._hass;
+    const card = (inner, cls = '') => `<style>${LAUNDRY_STYLE}</style><ha-card class="${[cls, c.calm ? 'calm' : '', c.bare ? 'bare' : ''].filter(Boolean).join(' ')}">${inner}</ha-card>`;
+    if (!h || !this._machines) { this.shadowRoot.innerHTML = card('<p class="hint">Connecting to Home Assistant…</p>'); return; }
+    if (!this._machines.length) { this.shadowRoot.innerHTML = card(`<div class="l-head"><b>${esc(c.name)}</b></div><p class="hint">No washer or dryer found yet. Add its integration (like SmartThings, LG ThinQ or Home Connect), or list it under <code>machines</code>.</p>`); return; }
+    const sts = this._machines.map(m => this._state(m));
+    const clock = mins => new Date(Date.now() + mins * 60000).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
+    const dur = mins => mins >= 60 ? `${Math.floor(mins / 60)} h ${Math.round(mins % 60)} min` : `${Math.max(1, Math.round(mins))} min`;
+    const tiles = this._machines.map((m, i) => {
+      const st = sts[i], dry = m.kind === 'dryer';
+      const line = st.mode === 'running' ? `${st.word}${st.left != null ? ` · ${dur(st.left)} left` : ''}` : st.mode === 'paused' ? 'Paused' : st.mode === 'done' ? (dry ? 'Done! Time to fold 🧺' : 'Done! Ready to move 🧺') : st.mode === 'off' ? 'Offline' : 'Ready';
+      const sub = st.mode === 'running' && st.left != null ? `Done at ${clock(st.left)}` : st.mode === 'done' && this._doneAt[m.key] ? `Finished at ${new Date(this._doneAt[m.key]).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'})}` : '';
+      return `<button class="lm ${st.mode}" data-e="${esc(m.r.status || m.r.stage || m.r.remaining || m.r.power || '')}" aria-label="${esc(m.name)}: ${esc(line)}">
+        ${laundryArt(m.kind, st.mode, st.prog, this._uid + i)}<b>${esc(m.name)}</b><span class="l-st">${esc(line)}</span><span class="l-sub">${esc(sub)}</span></button>`;
+    }).join('');
+    const running = sts.filter(x => x.mode === 'running'), done = sts.filter(x => x.mode === 'done').length;
+    const soon = running.filter(x => x.left != null).sort((a, b) => a.left - b.left)[0];
+    const summary = soon ? `Next one done at ${clock(soon.left)}` : running.length ? `${running.length} running` : done ? `${done} load${done === 1 ? '' : 's'} ready` : 'All quiet';
+    this.shadowRoot.innerHTML = card(`<div class="l-head"><b>${esc(c.name)}</b><span>${esc(summary)}</span></div><div class="l-grid">${tiles}</div>`);
+  }
+}
+
+class DashboardStudioLaundryEditor extends HTMLElement {
+  setConfig(config) { this._config = config; this._render(); }
+  set hass(hass) { const first = !this._hass; this._hass = hass; if (first) this._render(); else if (this._form) this._form.hass = hass; }
+  _render() {
+    if (!this._hass || !this._config) return;
+    if (!this._form) {
+      this._form = document.createElement('ha-form');
+      this._form.computeLabel = s => ({name: 'Name', machines: 'Machines'})[s.name] || s.name;
+      this._form.addEventListener('value-changed', e => this.dispatchEvent(new CustomEvent('config-changed', {detail: {config: {...this._config, ...e.detail.value}}, bubbles: true, composed: true})));
+      const note = document.createElement('p');
+      note.style.cssText = 'margin:12px 0 0;color:var(--secondary-text-color);font-size:13px;line-height:1.5';
+      note.textContent = 'Your washer and dryer are found by themselves. To pick them yourself, or fix a guess, add them under machines in the code editor.';
+      this.append(this._form, note);
+    }
+    this._form.hass = this._hass;
+    this._form.schema = [{name: 'name', selector: {text: {}}}];
+    this._form.data = {name: this._config.name || 'Laundry'};
+  }
+}
+
 if (!customElements.get('dashboard-studio-hub')) customElements.define('dashboard-studio-hub', DashboardStudioHub);
+if (!customElements.get('dashboard-studio-laundry')) customElements.define('dashboard-studio-laundry', DashboardStudioLaundry);
+if (!customElements.get('dashboard-studio-laundry-editor')) customElements.define('dashboard-studio-laundry-editor', DashboardStudioLaundryEditor);
 if (!customElements.get('dashboard-studio-dual-shade')) customElements.define('dashboard-studio-dual-shade', DashboardStudioDualShade);
 if (!customElements.get('dashboard-studio-fx')) customElements.define('dashboard-studio-fx', DashboardStudioFx);
 if (!customElements.get('dashboard-studio-vehicle')) customElements.define('dashboard-studio-vehicle', DashboardStudioVehicle);
@@ -2663,6 +2913,9 @@ if (!window.customCards.some(c => c.type === 'dashboard-studio-garage')) {
 }
 if (!window.customCards.some(c => c.type === 'dashboard-studio-vehicle')) {
   window.customCards.push({type: 'dashboard-studio-vehicle', name: 'Dashboard Studio vehicle', description: 'Tesla app style car card: your car in its paint color, battery and range, charging, and lock, climate, frunk, trunk, charge port and sentry controls.', preview: true});
+}
+if (!window.customCards.some(c => c.type === 'dashboard-studio-laundry')) {
+  window.customCards.push({type: 'dashboard-studio-laundry', name: 'Dashboard Studio laundry', description: 'Your washer and dryer: what they are doing, the time left, and a happy Done when a load is ready.', preview: true});
 }
 if (!window.customCards.some(c => c.type === 'dashboard-studio-fx')) {
   window.customCards.push({type: 'dashboard-studio-fx', name: 'Dashboard Studio effects', description: 'Moving backgrounds (including live weather) and card effects for the whole view. Invisible outside edit mode.', preview: false});

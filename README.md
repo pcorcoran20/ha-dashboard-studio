@@ -287,6 +287,31 @@ With `critters: auto`, the critters change when your theme does, so holiday them
 
 If you set `layer: behind` and don't see the background, your theme or another custom card may be painting over it. Try `layer: front`.
 
+## The laundry card
+
+`custom:dashboard-studio-laundry` shows your washer and dryer. The drum spins while a machine runs, a ring round the door fills up as the load goes, and you see what it's doing (washing, rinsing, spinning, drying), the time left and when it'll be done. A finished load says **Done** until you open the door, start the next load, or three hours pass.
+
+It finds your machines by itself: Samsung SmartThings, LG ThinQ, Home Connect (Bosch, Siemens), Miele, GE, Whirlpool, or a smart plug's power reading.
+
+```yaml
+type: custom:dashboard-studio-laundry
+name: Laundry
+machines:                 # optional: leave out to use every washer and dryer it finds
+  - device: <device id>
+    name: Washer
+    kind: washer          # washer or dryer
+    # optional, when the card guesses wrong:
+    status: sensor.washer_machine_state
+    stage: sensor.washer_job_state
+    remaining: sensor.washer_remaining_time
+    finish: sensor.washer_completion_time
+    progress: sensor.washer_progress
+    power: sensor.washer_power
+    door: binary_sensor.washer_door
+```
+
+Tap a machine to open its details in Home Assistant.
+
 ## Credits
 
 Real 3D Teslas are made possible by two projects by **Koen Hendriks**. Thank you! 💜
