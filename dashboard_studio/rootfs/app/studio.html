@@ -59,6 +59,14 @@ code{font-family:var(--f-mono); font-size:calc(12px * var(--d-fs,1)); background
 .mark svg{width:16px; height:16px}
 .name-in{border:1px solid transparent; background:transparent; border-radius:8px; padding:6px 8px; min-width:0; width:160px; font-weight:500}
 .name-in:hover{border-color:var(--line)}
+.dash-pick{position:relative}
+.dash-n{position:absolute; top:-4px; right:-4px; min-width:16px; height:16px; border-radius:8px; background:var(--accent); color:#fff; font-size:10px; font-weight:700; display:grid; place-items:center; padding:0 4px}
+.dash-n:empty{display:none}
+.dl-row{display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius:12px; margin-bottom:8px}
+.dl-row.on{border-color:var(--accent); background:color-mix(in srgb, var(--accent) 8%, transparent)}
+.dl-row .dl-t{flex:1; min-width:0}
+.dl-row b{display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.dl-row small{color:var(--muted); font-family:var(--f-mono); font-size:11.5px}
 .name-in:focus{border-color:var(--accent); outline:none}
 .spacer{flex:1}
 .seg{display:flex; background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:3px; gap:2px; flex-wrap:wrap}
@@ -998,6 +1006,7 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
   <header class="top">
     <div class="brand"><span class="mark"><svg class="i" viewBox="0 0 24 24"><path d="M3 11 12 4l9 7M5 10v10h14V10"/></svg></span><span class="txt">Dashboard Studio</span></div>
     <input class="name-in" id="dashName" type="text" aria-label="Dashboard name" spellcheck="false">
+    <button class="btn icon dash-pick" id="dashPick" title="Your dashboards" aria-label="Your dashboards"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><path d="M17 13v8M13 17h8"/></svg><span class="dash-n" id="dashCount"></span></button>
     <div class="spacer"></div>
     <button class="btn icon" id="undoBtn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled><svg class="i" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></button>
     <button class="btn icon" id="redoBtn" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled><svg class="i" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg></button>
@@ -1565,6 +1574,16 @@ function migrate(s){
   return s;
 }
 state = migrate(state);
+/* more than one dashboard: each is its own design and installs as its own Home Assistant dashboard */
+const LKEY = 'hearth-dashboard-studio-dashboards';
+let dashLib = null; try { dashLib = JSON.parse(localStorage.getItem(LKEY)); } catch(e) {}
+function libAdopt(lib){
+  if (lib?.dashboards && Object.keys(lib.dashboards).length) {
+    const id = lib.dashboards[lib.active] ? lib.active : Object.keys(lib.dashboards)[0];
+    dashLib = lib; state = migrate(lib.dashboards[id]); state.dashId = id; dashLib.active = id; dashLib.dashboards[id] = state;
+  } else { state.dashId ||= uid(); dashLib = {active:state.dashId, dashboards:{[state.dashId]:state}}; }
+}
+libAdopt(dashLib);
 let selected = null, device = window.innerWidth < 600 ? 'phone' : 'desktop', dn = 'day';
 const page = () => state.pages.find(p => p.id === state.page) || state.pages[0];
 const B = () => page().blocks;
@@ -1572,8 +1591,10 @@ const find = id => B().find(b => b.id === id);
 const idx = id => B().findIndex(b => b.id === id);
 
 let saveTimer;
-function save(){ clearTimeout(saveTimer); saveTimer = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {}
-  if (window.STUDIO_ADDON) fetch('api/design', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(state)}).catch(() => {}); }, 400); }
+function save(){ clearTimeout(saveTimer); saveTimer = setTimeout(() => {
+  dashLib.dashboards[state.dashId] = state; dashLib.active = state.dashId;
+  try { localStorage.setItem(KEY, JSON.stringify(state)); localStorage.setItem(LKEY, JSON.stringify(dashLib)); } catch(e) {}
+  if (window.STUDIO_ADDON) fetch('api/design', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({studio_dashboards:1, ...dashLib})}).catch(() => {}); }, 400); }
 const undoStack = [], redoStack = [];
 let lastKey = '', lastAt = 0;
 const snap = () => JSON.stringify({...state, wall:undefined});
@@ -3773,12 +3794,15 @@ function hubRoomsOut(b){
   const scenes = (b.scenes || []).filter(s => !live || Object.keys(s.snap || {}).some(e => real.has(e))).map(s => ({name:s.name, entity:'scene.' + slug(s.name)}));
   return {...(rooms.length || !live ? {rooms} : {}), ...(scenes.length || !live ? {scenes} : {})};
 }
+/* a switch is an outlet when it says so: keypad buttons, relays, pool pumps and alarm modes stay out of Outlets */
+const isOutlet = e => window.__haDC?.[e] === 'outlet' || /plug|outlet|socket|receptacle|power_?strip/i.test(`${e} ${window.__haNames?.[e] || ''}`);
 function hubFill(b){
   carDevCache = new Set(carDevices().map(c => c.id));
   const groups = {};
   state.entities.forEach(e => {
     const [dom, obj] = e.split('.'), t = DOMAIN_TYPE[dom]; if (!t || !obj) return;
     if (dom === 'cover' && coverKind(e) !== 'shade') return;
+    if (dom === 'switch' && !isOutlet(e)) return;
     if (carDevCache.has(window.__haDev?.[e])) return;
     const w = ROOM_WORDS.find(x => obj.includes(x)), room = roomOf(e);
     let name = window.__haNames?.[e];
@@ -4825,7 +4849,52 @@ function openWelcome(){
 }
 $('welcomeBtn').addEventListener('click', openWelcome);
 
-function syncAll(){ nameIn.value = state.name || ''; renderThemes(); renderDash(); renderInsp(); syncSmart(); renderEggs(); renderUnits(); renderFxPanel(); }
+function urlOf(d){ let u = slug(d.dashUrl || 'home-studio').replace(/_/g, '-'); if (!u.includes('-')) u += '-dash'; return u; }
+/* a web address no other dashboard here uses */
+function freeUrl(name){
+  const used = new Set(Object.values(dashLib.dashboards).map(urlOf));
+  const base = slug(name || 'home').replace(/_/g, '-') + '-studio'; let u = base, n = 2;
+  while (used.has(u)) u = `${base}-${n++}`;
+  return u;
+}
+function switchDash(id){
+  if (!dashLib.dashboards[id]) return;
+  dashLib.dashboards[state.dashId] = state;
+  state = migrate(dashLib.dashboards[id]); state.dashId = id; dashLib.active = id; dashLib.dashboards[id] = state;
+  selected = null; undoStack.length = 0; redoStack.length = 0; syncHistory(); syncAll(); save();
+}
+function newDash(copy){
+  dashLib.dashboards[state.dashId] = state;
+  const s = copy ? structuredClone(state) : {...sample(), theme:state.theme, entities:state.entities, useCards:state.useCards ?? true, units:state.units};
+  if (!copy) { s.pages = [{id:uid(), name:'Home', blocks:[]}]; s.page = s.pages[0].id; }
+  s.name = copy ? `${state.name || 'Home'} copy` : `Dashboard ${Object.keys(dashLib.dashboards).length + 1}`;
+  s.dashId = uid(); s.dashUrl = freeUrl(s.name);
+  dashLib.dashboards[s.dashId] = s;
+  switchDash(s.dashId);
+  toast(copy ? 'Copied. Rename it at the top' : 'New dashboard. Add blocks, or use Magic › Auto-build my home');
+}
+function openDashes(){
+  const ids = Object.keys(dashLib.dashboards);
+  openModal({title:'Your dashboards',
+    body:`<p class="hint">Each one installs as its own dashboard in Home Assistant, with its own web address. Rename the open one at the top of the Studio.</p>
+      ${ids.map(id => { const d = dashLib.dashboards[id], on = id === state.dashId;
+        return `<div class="dl-row${on ? ' on' : ''}"><div class="dl-t"><b>${esc(d.name || 'Home')}</b><small>/${esc(urlOf(d))} · ${(d.pages || []).length} page${(d.pages || []).length === 1 ? '' : 's'}</small></div>
+          ${on ? '<span class="pill ok">Open</span>' : `<button class="btn" data-dlopen="${id}">Open</button>`}${ids.length > 1 ? `<button class="btn danger" data-dldel="${id}">Delete</button>` : ''}</div>`; }).join('')}`,
+    foot:`<button class="btn" id="dlCopy">Copy this one</button><button class="btn primary" id="dlNew">${ic('plus')}New dashboard</button>`,
+    mount(){
+      $('dlNew').onclick = () => { closeModal(); newDash(false); };
+      $('dlCopy').onclick = () => { closeModal(); newDash(true); };
+      $('mBody').querySelectorAll('[data-dlopen]').forEach(b => b.onclick = () => { closeModal(); switchDash(b.dataset.dlopen); toast(`Opened ${state.name || 'your dashboard'}`); });
+      $('mBody').querySelectorAll('[data-dldel]').forEach(b => twoStep(b, () => {
+        const id = b.dataset.dldel, name = dashLib.dashboards[id]?.name || 'Dashboard';
+        delete dashLib.dashboards[id];
+        if (id === state.dashId) { state = migrate(Object.values(dashLib.dashboards)[0]); state.dashId = Object.keys(dashLib.dashboards)[0]; dashLib.active = state.dashId; selected = null; syncAll(); }
+        save(); closeModal(); toast(`Deleted ${name} from the Studio. In Home Assistant, remove it under Settings › Dashboards if you installed it`);
+      }));
+    }});
+}
+$('dashPick').addEventListener('click', openDashes);
+function syncAll(){ const n = Object.keys(dashLib.dashboards).length; $('dashCount').textContent = n > 1 ? n : ''; nameIn.value = state.name || ''; renderThemes(); renderDash(); renderInsp(); syncSmart(); renderEggs(); renderUnits(); renderFxPanel(); }
 renderLib(); setPane('preview'); setDevice(device); syncAll(); syncHistory(); playEnter();
 { let seen = false; try { seen = !!localStorage.getItem(WKEY); } catch(e) {} if (!seen) setTimeout(openWelcome, 400); }
 
@@ -5037,7 +5106,8 @@ async function installToHA(){
 }
 if (window.STUDIO_ADDON) {
   fetch('api/design').then(r => r.ok ? r.json() : null).then(d => {
-    if (d && Array.isArray(d.pages)) { state = migrate(d); selected = null; }
+    if (d?.dashboards) { libAdopt(d); selected = null; }
+    else if (d && Array.isArray(d.pages)) { state = migrate(d); dashLib = null; libAdopt(null); selected = null; }
     state.useCards ??= true;
     syncAll();
   }).catch(() => {}).finally(() => { haLoad(false); loadTvPaints(); });

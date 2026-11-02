@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.14.0
+
+- New: more than one dashboard. Tap the dashboards button next to the name at the top of the Studio to switch between them, start a new one, copy the one you're on, or delete one. Each installs as its own Home Assistant dashboard with its own web address, like a touchscreen one for the wall and a full one for your phone.
+- Fix: Outlets only lists real plugs and outlets (a switch whose device class is outlet, or whose name says plug, outlet or socket). Keypad buttons, relays, pool pumps and alarm modes stay out, in the hub and in the Studio.
+
 ## 1.13.2
 
 - Fix: a new touchscreen home (or any new Control hub) built while the Studio is connected to Home Assistant starts with your real rooms, devices and car, not the example home.

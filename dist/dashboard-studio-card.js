@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.13.2';
+const STUDIO_VERSION = '1.14.0';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -305,6 +305,8 @@ class DashboardStudioHub extends HTMLElement {
         if (!DOMAIN_TYPE[dom] || dom === 'input_boolean' || !shown(id)) return;
         /* cars have their own tile: their locks, climate and covers aren't the house's */
         if (cars.has(ents[id]?.device_id)) return;
+        /* only real plugs are Outlets: keypad buttons, relays, pool pumps and alarm modes stay out */
+        if (dom === 'switch' && hass.states[id].attributes.device_class !== 'outlet' && !/plug|outlet|socket|receptacle|power_?strip/i.test(`${id} ${hass.states[id].attributes.friendly_name || ''}`)) return;
         /* only shades are shades: not garage doors, gates, doors or windows, and not a car's frunk or trunk */
         if (dom === 'cover') { const dc = hass.states[id].attributes.device_class;
           if (/frunk|trunk|tonneau|charge_?port|sunroof/.test(id) || (dc ? !['shade', 'blind', 'curtain', 'shutter', 'awning', 'window'].includes(dc) : /garage|gate|ratgdo|(^|[._])doors?($|_)/.test(id))) return; }
