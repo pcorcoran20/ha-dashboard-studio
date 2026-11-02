@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.13.2
+
+- Fix: a new touchscreen home (or any new Control hub) built while the Studio is connected to Home Assistant starts with your real rooms, devices and car, not the example home.
+- Fix: exporting never sends example devices to Home Assistant. A hub whose devices aren't in your home leaves its rooms out, so the card fills itself from your areas, and example scenes and Good night steps are skipped.
+- Fix: a Tesla Powerwall or solar site no longer shows up as a car. A device from a car integration needs a lock, climate, location or covers to count as a car.
+
 ## 1.13.1
 
 - Fix: dark wheels and tires no longer vanish into a dark card when Tesla View is see-through. A soft floor of light now sits under the car, like the Tesla app's. Set `tesla_view_floor: false` to turn it off.

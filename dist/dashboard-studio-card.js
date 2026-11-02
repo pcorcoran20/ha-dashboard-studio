@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.13.1';
+const STUDIO_VERSION = '1.13.2';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -2015,7 +2015,7 @@ function findVehicle(hass, cfg) {
   else if (cfg.vehicle) pool = ids.filter(id => id.split('.')[1].startsWith(cfg.vehicle + '_') || id.split('.')[1] === cfg.vehicle);
   else {
     /* the first car-like device: from a Tesla integration, or one with a battery level and a lock */
-    const dev = Object.values(ents).find(e => VEH_PLATFORMS.includes(e.platform) && /_battery_level$/.test(e.entity_id))?.device_id;
+    const dev = findCars(hass)[0]?.device;
     if (dev) pool = ids.filter(id => ents[id]?.device_id === dev);
     else {
       const bat = ids.find(id => { if (!/^sensor\..*_battery_level$/.test(id)) return false; const pre = id.split('.')[1].replace(/_battery_level$/, '');
@@ -2350,7 +2350,8 @@ function findCars(hass) {
   const ents = Object.values(hass.entities || {}), by = {};
   ents.forEach(e => { if (e.device_id && hass.states[e.entity_id]) (by[e.device_id] = by[e.device_id] || []).push(e); });
   return Object.entries(by).filter(([, es]) => es.some(e => /_battery_level$/.test(e.entity_id) && e.entity_id.startsWith('sensor.')) &&
-      !es.some(e => NOT_CAR_PLATFORMS.includes(e.platform)) && (es.some(e => VEH_PLATFORMS.includes(e.platform)) || es.some(e => CAR_HINT.test(e.entity_id.split('.')[1]))))
+      !es.some(e => NOT_CAR_PLATFORMS.includes(e.platform)) && es.some(e => CAR_HINT.test(e.entity_id.split('.')[1]) ||
+        (VEH_PLATFORMS.includes(e.platform) && es.some(x => /^(lock|climate|device_tracker|cover)\./.test(x.entity_id)))))
     .map(([id]) => ({device: id}));
 }
 

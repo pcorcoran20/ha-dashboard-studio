@@ -1513,7 +1513,19 @@ const FIELDS = {
   laundry:[['title','Name']]
 };
 
-function mk(type, over={}){ const c = CATALOG[type]; return {id:uid(), type, size:c.size, ...structuredClone(c.d), ...over}; }
+function mk(type, over={}){
+  const c = CATALOG[type], b = {id:uid(), type, size:c.size, ...structuredClone(c.d), ...over};
+  /* connected to Home Assistant: a new Control hub starts with your real rooms and car, not the example home */
+  if (type === 'hub' && !over.rooms && window.__haDev && state?.entities?.length) realHub(b);
+  return b;
+}
+function realHub(b){
+  b.title = state.name || 'Home'; b.scenes = [];
+  hubFill(b);
+  const cd = carDevices()[0];
+  if (cd) b.car = {...b.car, show:true, title:cd.name, device:cd.id, model:(TV_MODEL.find(([re]) => re.test(cd.model + ' ' + cd.name)) || [])[1] || 'car'};
+  else b.car = {...b.car, show:false};
+}
 const HOL_DEFAULT = {halloween:true, xmas:true, valentine:true, easter:true, pride:true};
 function samplePages(){
   return [
@@ -3028,10 +3040,9 @@ function cardYaml(b){
     }
     case 'hub': {
       if (state.useCards) return {type:'custom:dashboard-studio-hub', title:b.title,
-        rooms:(b.rooms || []).map(r => ({name:r.name, devices:r.devices.map(d => ({entity:hubEnt(d), ...(d.entity2 ? {entity2:d.entity2, labels:d.labels} : {}), name:d.name, type:d.t}))})),
-        scenes:(b.scenes || []).map(s => ({name:s.name, entity:'scene.' + slug(s.name)})),
+        ...hubRoomsOut(b),
         good_night:'script.' + gnScriptId(b), icon_color:b.iconColor || 'soft', animations:animYaml(), ...(b.lmach && !b.lmach.length ? {laundry:false} : {}), ...(b.carPics ? {car_pictures:true} : {}),
-        vehicle:b.car?.show ? {name:b.car.title, ...(TESLA_MODELS.includes(b.car.model) ? {model:b.car.model} : {}), color:b.car.paint, ...vehImgOut(b.car), ...(b.car.vehicle ? {vehicle:b.car.vehicle} : {})} : false, ...(state.calm ? {calm:true} : {}),
+        vehicle:b.car?.show ? (window.__haDev && state.entities.length && !b.car.device ? {} : {name:b.car.title, ...(TESLA_MODELS.includes(b.car.model) ? {model:b.car.model} : {}), color:b.car.paint, ...vehImgOut(b.car), ...(b.car.vehicle ? {vehicle:b.car.vehicle} : {})}) : false, ...(state.calm ? {calm:true} : {}),
         ...(b.layout === 'touchscreen' ? {layout:'touchscreen', touch_style:b.touchStyle || 'dark', opacity:b.opacity ?? 0, room_radius:b.roomRadius ?? 30, ...(b.iconBg === false ? {icon_background:false} : {}), ...(state.nav === 'touch' ? {full_height:true} : {}), ...(allBlocks().find(x => x.type === 'weather') ? {weather_entity:allBlocks().find(x => x.type === 'weather').entity} : {})} : {})};
       const url = dashUrl(), rooms = b.rooms || [];
       const cats = Object.keys(HUB_CATS).filter(c => rooms.some(r => r.devices.some(d => catOf(d.t) === c)));
@@ -3754,6 +3765,14 @@ function roomOf(e){
   if (hasAreas()) return 'Other';
   const w = ROOM_WORDS.find(x => (e.split('.')[1] || '').includes(x)); return w ? roomTitle(w) : 'Other';
 }
+/* the hub's rooms for Home Assistant: devices it really has. When none are real (the example home), leave rooms out
+   so the card fills itself from your areas */
+function hubRoomsOut(b){
+  const real = new Set(state.entities), live = window.__haDev && real.size, ok = d => !live || real.has(hubEnt(d));
+  const rooms = (b.rooms || []).map(r => ({name:r.name, devices:r.devices.filter(ok).map(d => ({entity:hubEnt(d), ...(d.entity2 ? {entity2:d.entity2, labels:d.labels} : {}), name:d.name, type:d.t}))})).filter(r => r.devices.length);
+  const scenes = (b.scenes || []).filter(s => !live || Object.keys(s.snap || {}).some(e => real.has(e))).map(s => ({name:s.name, entity:'scene.' + slug(s.name)}));
+  return {...(rooms.length || !live ? {rooms} : {}), ...(scenes.length || !live ? {scenes} : {})};
+}
 function hubFill(b){
   carDevCache = new Set(carDevices().map(c => c.id));
   const groups = {};
@@ -3814,6 +3833,7 @@ function scenesOut(){
     const entities = {};
     (b.rooms || []).forEach((r, ri) => r.devices.forEach((d, i) => {
       const v = s.snap?.[devKey(d, ri, i)]; if (!v) return; const e = hubEnt(d);
+      if (window.__haDev && state.entities.length && !state.entities.includes(e)) return;  // an example device Home Assistant doesn't have
       switch (d.t) {
         case 'light': entities[e] = v.on ? {state:'on', brightness:Math.round((v.bri ?? 80) * 2.55)} : {state:'off'}; break;
         case 'switch': entities[e] = {state:v.on ? 'on' : 'off'}; break;
@@ -3824,7 +3844,7 @@ function scenesOut(){
         case 'lock': entities[e] = {state:v.locked ? 'locked' : 'unlocked'}; break;
       }
     }));
-    out.push({id:'studio_' + slug(s.name), name:s.name, icon:'mdi:palette', entities});
+    if (Object.keys(entities).length) out.push({id:'studio_' + slug(s.name), name:s.name, icon:'mdi:palette', entities});
   }));
   return out;
 }
@@ -3835,7 +3855,8 @@ function scriptsOut(){
   const out = {};
   allBlocks().filter(b => b.type === 'dualshade' && !state.useCards).forEach(b => Object.assign(out, dsScripts(b)));
   allBlocks().filter(b => b.type === 'hub').forEach(b => {
-    const g = b.gn || {}, all = (b.rooms || []).flatMap(r => r.devices), ids = t => all.filter(d => d.t === t).flatMap(d => [hubEnt(d), ...(d.entity2 ? [d.entity2] : [])]), seq = [];
+    const real = new Set(state.entities), live = window.__haDev && real.size;
+    const g = b.gn || {}, all = (b.rooms || []).flatMap(r => r.devices).filter(d => !live || real.has(hubEnt(d))), ids = t => all.filter(d => d.t === t).flatMap(d => [hubEnt(d), ...(d.entity2 ? [d.entity2] : [])]), seq = [];
     const step = (on, t, action, data) => { if (on && ids(t).length) seq.push({action, target:{entity_id:ids(t)}, ...(data ? {data} : {})}); };
     step(g.lights, 'light', 'light.turn_off'); step(g.outlets, 'switch', 'switch.turn_off'); step(g.fans, 'fan', 'fan.turn_off');
     step(g.shades, 'shade', 'cover.close_cover'); step(g.media, 'media', 'media_player.media_pause'); step(g.locks, 'lock', 'lock.lock');
@@ -4181,7 +4202,8 @@ function carDevices(){
   const dev = window.__haDev; if (!dev) return [];
   const by = {};
   Object.entries(dev).forEach(([id, d]) => { if (d) (by[d] = by[d] || []).push(id); });
-  return Object.entries(by).filter(([d, ids]) => ids.some(i => CAR_PLATFORMS.includes(window.__haPlat?.[i])) ||
+  /* a car from a car integration has a lock, climate, location or covers: a Powerwall or solar site from the same integration doesn't */
+  return Object.entries(by).filter(([d, ids]) => (ids.some(i => CAR_PLATFORMS.includes(window.__haPlat?.[i])) && ids.some(i => /^(lock|climate|device_tracker|cover)\./.test(i))) ||
       (ids.some(i => /^sensor\..*_battery_level$/.test(i)) && ids.some(i => CAR_HINT.test(i.split('.')[1])) && !ids.some(i => NOT_CAR_PLATFORMS.includes(window.__haPlat?.[i]))))
     .map(([d]) => ({id:d, name:window.__haDevices?.[d]?.name || d, model:window.__haDevices?.[d]?.model || ''}));
 }
@@ -4518,7 +4540,7 @@ function openAutoHome(){
         const picked = rooms.filter((_, i) => $('mBody').querySelector(`[data-abroom="${i}"]`).checked);
         const pages = [];
         if ($('abHome').checked) {
-          const hub = mk('hub', {title:state.name || 'Home', scenes:[]});
+          const hub = mk('hub', {title:state.name || 'Home', scenes:[], rooms:[]});
           hubFill(hub);
           const w = state.entities.find(e => e.startsWith('weather.'));
           const lm = laundryDevices();
