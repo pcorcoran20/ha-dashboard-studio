@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.15.1
+
+- Fix: Disarm and arm work on the Security card again. The card used to insist on a code whenever your alarm had one, even when Alarmo is set to disarm without a code. Now it tries right away, and only shows the keypad and asks when the alarm says it needs a code.
+- Fix: alarm codes with letters get a text box to type in, in place of the number pad.
+
 ## 1.15.0
 
 - New: a **Security** card for Alarmo and any alarm panel. It has a big status shield, a button for each arm mode, a keypad when a code is needed, a countdown ring while it arms, the doors and windows that are open, "Arm anyway" with Alarmo, and a red alert when it's triggered.

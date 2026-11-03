@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.15.0';
+const STUDIO_VERSION = '1.15.1';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -3135,6 +3135,7 @@ const SEC_STYLE = STUDIO_CARD_BASE + `
 .pad button{border:0;height:52px;border-radius:14px;background:var(--c-soft);font-size:20px;font-weight:600}
 .pad button.sm{font-size:13px}
 .s-msg{text-align:center;font-size:13px;color:var(--c-muted);min-height:1.3em}
+.s-code{height:46px;border-radius:12px;border:1px solid var(--c-soft);background:var(--c-soft);color:inherit;font:inherit;font-size:18px;padding:0 14px;text-align:center;letter-spacing:.2em}
 .s-msg.err{color:#ef4444}
 `;
 function findAlarm(hass, want) {
@@ -3143,7 +3144,8 @@ function findAlarm(hass, want) {
   return ids.find(id => hass.entities?.[id]?.platform === 'alarmo') || ids.find(id => /alarmo/.test(id)) || ids[0];
 }
 class DashboardStudioSecurity extends HTMLElement {
-  constructor() { super(); this.attachShadow({mode: 'open'}); this._code = ''; this.shadowRoot.addEventListener('click', e => this._click(e)); }
+  constructor() { super(); this.attachShadow({mode: 'open'}); this._code = ''; this.shadowRoot.addEventListener('click', e => this._click(e));
+    this.shadowRoot.addEventListener('input', e => { if (e.target.classList.contains('s-code')) this._code = e.target.value; }); }
   static getStubConfig() { return {name: 'Security'}; }
   static getConfigElement() { return document.createElement('dashboard-studio-security-editor'); }
   setConfig(c) { this._config = {name: 'Security', ...c}; this._render(); }
@@ -3155,23 +3157,28 @@ class DashboardStudioSecurity extends HTMLElement {
   getCardSize() { return 5; }
   getGridOptions() { return {columns: 6, min_columns: 4}; }
   _call(service, data) {
+    const tried = !!data.code;
     return this._hass.callService(service.split('.')[0], service.split('.')[1], data)
-      .then(() => { this._msg = ''; this._err = false; this._render(); })
-      .catch(e => { this._msg = /code/i.test(e?.message || '') ? 'That code didn’t work. Try again' : (e?.message || 'That didn’t work'); this._err = true; this._render(); });
+      .then(() => { this._msg = ''; this._err = false; this._askCode = false; this._render(); })
+      .catch(e => { const m = e?.message || '';
+        /* no code was typed and the alarm wants one: show the keypad and ask */
+        if (!tried && /code|invalid|not.*valid|denied|unauthori/i.test(m)) { this._askCode = true; this._msg = 'Enter your code, then tap again'; }
+        else this._msg = /code/i.test(m) ? 'That code didn’t work. Try again' : (m || 'That didn’t work');
+        this._err = true; this._render(); });
   }
   _click(e) {
     const b = e.target.closest('[data-a]'); if (!b || !this._hass) return;
-    const st = this._hass.states[this._id], a = st?.attributes || {}, code = this._code ? {code: this._code} : {};
-    const needs = arm => !!a.code_format && (!arm || a.code_arm_required !== false);
+    const st = this._hass.states[this._id], a = st?.attributes || {};
+    /* the code goes along when one was typed; without one, the alarm decides (Alarmo can disarm without a code) */
+    const typed = this.shadowRoot.querySelector('.s-code'); if (typed) this._code = typed.value;
+    const code = this._code ? {code: this._code} : {};
     switch (b.dataset.a) {
       case 'digit': if (this._code.length < 10) this._code += b.dataset.v; this._msg = ''; break;
       case 'clear': this._code = ''; break;
       case 'back': this._code = this._code.slice(0, -1); break;
-      case 'arm': if (needs(true) && !this._code) { this._msg = 'Enter your code first'; this._err = true; break; }
-        this._call(`alarm_control_panel.alarm_arm_${b.dataset.v}`, {entity_id: this._id, ...code}); this._code = ''; return;
+      case 'arm': this._call(`alarm_control_panel.alarm_arm_${b.dataset.v}`, {entity_id: this._id, ...code}); this._code = ''; return;
       case 'force': this._call('alarmo.arm', {entity_id: this._id, mode: b.dataset.v, force: true, ...code}); this._code = ''; return;
-      case 'disarm': if (needs(false) && !this._code) { this._msg = 'Enter your code to disarm'; this._err = true; break; }
-        this._call('alarm_control_panel.alarm_disarm', {entity_id: this._id, ...code}); this._code = ''; return;
+      case 'disarm': this._call('alarm_control_panel.alarm_disarm', {entity_id: this._id, ...code}); this._code = ''; return;
       case 'more': cMore(this, b.dataset.e || this._id); return;
     }
     this._render();
@@ -3189,10 +3196,12 @@ class DashboardStudioSecurity extends HTMLElement {
     const R = 36, C = 2 * Math.PI * R, ring = left != null && a.delay ? `<svg viewBox="0 0 76 76"><circle cx="38" cy="38" r="${R}" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="${(C * left / a.delay).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 38 38)"/></svg>` : '';
     const icon = alert ? 'mdi:bell-ring' : armed ? 'mdi:shield-lock' : busy ? 'mdi:shield-sync' : 'mdi:shield-home-outline';
     const feats = a.supported_features ?? 63, modes = SEC_MODES.filter(m => feats & m[3]);
-    const needCode = !!a.code_format && (armed || busy || alert || a.code_arm_required !== false), numeric = a.code_format === 'number';
+    const needCode = (!!a.code_format && (armed || busy || alert || a.code_arm_required !== false)) || this._askCode, numeric = a.code_format !== 'text';
     const k = (act, inner, extra = '', cls = '') => `<button class="${cls}" data-a="${act}" ${extra}>${inner}</button>`;
-    const pad = needCode ? `<div class="dots">${Array.from({length: Math.max(4, this._code.length)}, (_, i) => `<i class="${i < this._code.length ? '' : 'e'}"></i>`).join('')}</div>
-      ${numeric ? `<div class="pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => k('digit', n, `data-v="${n}"`)).join('')}${k('clear', 'Clear', '', 'sm')}${k('digit', 0, 'data-v="0"')}${k('back', '<ha-icon icon="mdi:backspace-outline"></ha-icon>', 'aria-label="Delete"', 'sm')}</div>` : ''}` : '';
+    /* a number pad, or a text box for codes with letters */
+    const pad = !needCode ? '' : numeric ? `<div class="dots">${Array.from({length: Math.max(4, this._code.length)}, (_, i) => `<i class="${i < this._code.length ? '' : 'e'}"></i>`).join('')}</div>
+      <div class="pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => k('digit', n, `data-v="${n}"`)).join('')}${k('clear', 'Clear', '', 'sm')}${k('digit', 0, 'data-v="0"')}${k('back', '<ha-icon icon="mdi:backspace-outline"></ha-icon>', 'aria-label="Delete"', 'sm')}</div>`
+      : `<input class="s-code" type="password" autocomplete="off" placeholder="Your code" aria-label="Alarm code" value="${esc(this._code)}">`;
     const acts = armed || busy || alert
       ? `<div class="row">${k('disarm', '<ha-icon icon="mdi:shield-off-outline"></ha-icon>Disarm', '', 'pbtn on')}</div>`
       : `<div class="row">${modes.map(([m, l, ic]) => k('arm', `<ha-icon icon="${ic}"></ha-icon>${l}`, `data-v="${m}"`, 'pbtn')).join('')}</div>`;
