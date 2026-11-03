@@ -765,6 +765,12 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .kp-pad button{height:50px; border:0; border-radius:calc(var(--d-radius) * .45 + 4px); background:color-mix(in srgb, var(--d-text) 9%, transparent); color:var(--d-text); font-family:var(--d-display); font-size:calc(20px * var(--d-fs,1)); font-weight:600; display:grid; place-items:center}
 .kp-pad button:active{background:color-mix(in srgb, var(--d-text) 18%, transparent)}
 .kp-pad button.small{font-family:var(--d-font); font-size:calc(12.5px * var(--d-fs,1))}
+.gn-step{border:1px solid var(--line); border-radius:12px; padding:10px; display:flex; flex-direction:column; gap:8px; margin-bottom:8px}
+.gn-step select,.gn-step input[type=number]{width:100%}
+.gn-say{margin:0; font-weight:600; font-size:13px}
+.gn-step .row{display:flex; align-items:center; justify-content:space-between; gap:8px}
+.gn-chk{display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--muted)}
+.gn-acts{display:flex; gap:4px}
 .hub-ed-sc{display:grid; grid-template-columns:minmax(0,1fr) auto auto auto; gap:6px; align-items:center}
 .hub-ed-sc input{border:1px solid var(--line); border-radius:8px; padding:6px 8px; background:var(--bg); min-width:0; width:100%; font-size:12.5px}
 
@@ -3744,7 +3750,78 @@ function hubEditorHTML(b){
     <div class="field"><span class="lbl2">Good night button does this</span>
       ${GN_ITEMS.map(([k, l]) => `<label class="switch"><span><b>${l}</b></span><input type="checkbox" data-gn="${k}" ${b.gn?.[k] ? 'checked' : ''}></label>`).join('')}
       <label class="switch"><span><b>Set thermostats</b></span><input type="checkbox" data-gn="tempOn" ${b.gn?.temp != null ? 'checked' : ''}></label>
-      ${b.gn?.temp != null ? `<div class="field"><div class="row"><label for="gnTemp">Night temperature</label><span class="val" id="gnTempV">${tC(b.gn.temp)}°</span></div><input type="range" id="gnTemp" min="14" max="25" step="0.5" value="${b.gn.temp}"></div>` : ''}</div>`;
+      ${b.gn?.temp != null ? `<div class="field"><div class="row"><label for="gnTemp">Night temperature</label><span class="val" id="gnTempV">${tC(b.gn.temp)}°</span></div><input type="range" id="gnTemp" min="14" max="25" step="0.5" value="${b.gn.temp}"></div>` : ''}</div>
+    ${gnStepsHTML(b)}`;
+}
+/* Good night, your way: steps like "if the front door isn't locked, lock it" */
+const GN_DO = {
+  lock:[['lock', 'Lock it', 'locked', 'lock.lock']],
+  light:[['turn_off', 'Turn it off', 'off', 'light.turn_off'], ['turn_on', 'Turn it on', 'on', 'light.turn_on']],
+  switch:[['turn_off', 'Turn it off', 'off', 'switch.turn_off'], ['turn_on', 'Turn it on', 'on', 'switch.turn_on']],
+  fan:[['turn_off', 'Turn it off', 'off', 'fan.turn_off'], ['turn_on', 'Turn it on', 'on', 'fan.turn_on']],
+  input_boolean:[['turn_off', 'Turn it off', 'off', 'input_boolean.turn_off'], ['turn_on', 'Turn it on', 'on', 'input_boolean.turn_on']],
+  cover:[['close', 'Close it', 'closed', 'cover.close_cover'], ['open', 'Open it', 'open', 'cover.open_cover']],
+  media_player:[['pause', 'Pause it', 'paused', 'media_player.media_pause'], ['turn_off', 'Turn it off', 'off', 'media_player.turn_off']],
+  climate:[['set_temp', 'Set the temperature', null, 'climate.set_temperature'], ['turn_off', 'Turn it off', 'off', 'climate.turn_off']],
+  alarm_control_panel:[['arm_night', 'Arm it (night)', 'armed_night', 'alarm_control_panel.alarm_arm_night'], ['arm_home', 'Arm it (home)', 'armed_home', 'alarm_control_panel.alarm_arm_home'], ['arm_away', 'Arm it (away)', 'armed_away', 'alarm_control_panel.alarm_arm_away']],
+  scene:[['activate', 'Turn it on', null, 'scene.turn_on']],
+  script:[['run', 'Run it', null, 'script.turn_on']],
+  binary_sensor:[['warn', 'Remind me if it’s open', null, null]]
+};
+const gnDom = e => String(e || '').split('.')[0];
+const gnName = e => window.__haNames?.[e] || human(e);
+/* the entities a step can use: your home's, or the hub's devices when the Studio isn't connected */
+function gnChoices(b){
+  const all = state.entities.length ? state.entities : (b.rooms || []).flatMap(r => r.devices.map(hubEnt));
+  return [...new Set(all)].filter(e => GN_DO[gnDom(e)] && (gnDom(e) !== 'binary_sensor' || /door|window|garage|gate|opening/.test(e + ' ' + (window.__haDC?.[e] || '')))).sort((x, y) => gnName(x).localeCompare(gnName(y)));
+}
+function gnSentence(st){
+  if (!st.entity) return 'Pick a device';
+  const n = gnName(st.entity), d = (GN_DO[gnDom(st.entity)] || []).find(x => x[0] === st.do) || (GN_DO[gnDom(st.entity)] || [])[0];
+  if (!d) return n;
+  if (d[0] === 'warn') return `If ${n} is open, remind me`;
+  if (d[0] === 'set_temp') return `Set ${n} to ${tC(st.value ?? 18)}°`;
+  const done = {locked:'locked', off:'off', on:'on', closed:'closed', open:'open', paused:'paused', armed_night:'armed', armed_home:'armed', armed_away:'armed'}[d[2]];
+  return st.check !== false && d[2] ? `If ${n} isn’t ${done}, ${d[1].toLowerCase().replace(/ \(.*\)/, '')}` : `${d[1].replace(' it', ' ' + n)}`;
+}
+function gnStepsHTML(b){
+  const ch = gnChoices(b), steps = b.gnSteps || [];
+  return `<div class="field"><span class="lbl2">Your own Good night steps</span>
+    ${steps.map((st, i) => { const opts = GN_DO[gnDom(st.entity)] || [], d = opts.find(x => x[0] === st.do) || opts[0];
+      return `<div class="gn-step"><p class="gn-say">${esc(gnSentence(st))}</p>
+        <select data-gns="${i}" data-gnk="entity" aria-label="Device"><option value="">Pick a device</option>${ch.map(e => `<option value="${esc(e)}" ${st.entity === e ? 'selected' : ''}>${esc(gnName(e))}</option>`).join('')}${st.entity && !ch.includes(st.entity) ? `<option value="${esc(st.entity)}" selected>${esc(gnName(st.entity))}</option>` : ''}</select>
+        ${opts.length > 1 ? `<select data-gns="${i}" data-gnk="do" aria-label="What to do">${opts.map(([k, l]) => `<option value="${k}" ${d?.[0] === k ? 'selected' : ''}>${l}</option>`).join('')}</select>` : ''}
+        ${d?.[0] === 'set_temp' ? `<div class="row"><label>Temperature</label><input type="number" step="0.5" data-gns="${i}" data-gnk="value" value="${tC(st.value ?? 18)}" style="width:80px"></div>` : ''}
+        <div class="row">${d?.[2] ? `<label class="gn-chk"><input type="checkbox" data-gns="${i}" data-gnk="check" ${st.check !== false ? 'checked' : ''}> Only if it isn’t already</label>` : '<span></span>'}
+          <span class="gn-acts"><button class="mini" data-gnmv="${i}" data-v="-1" ${i ? '' : 'disabled'} aria-label="Move up">↑</button><button class="mini" data-gnmv="${i}" data-v="1" ${i < steps.length - 1 ? '' : 'disabled'} aria-label="Move down">↓</button><button class="mini" data-gndel="${i}" aria-label="Remove step">${ic('trash')}</button></span></div></div>`; }).join('')}
+    <div class="btnrow"><button class="btn" data-gnadd>${ic('plus')}Add a step</button></div>
+    <p class="hint">These run after the switches above, in this order. Pick a lock, light, shade, garage door, TV, thermostat, alarm, scene, script, or a door or window sensor to get a reminder.</p></div>`;
+}
+insp.addEventListener('change', e => {
+  const t = e.target; if (t.dataset.gns == null) return;
+  const b = find(selected), st = b?.gnSteps?.[+t.dataset.gns]; if (!st) return;
+  commit('gns' + t.dataset.gns + t.dataset.gnk);
+  if (t.dataset.gnk === 'check') st.check = t.checked;
+  else if (t.dataset.gnk === 'value') st.value = isF() ? (parseFloat(t.value) - 32) * 5 / 9 : parseFloat(t.value);
+  else { st[t.dataset.gnk] = t.value; if (t.dataset.gnk === 'entity') st.do = (GN_DO[gnDom(t.value)] || [[]])[0][0]; }
+  renderDash(); renderInsp(); save();
+});
+insp.addEventListener('click', e => {
+  const add = e.target.closest('[data-gnadd]'), del = e.target.closest('[data-gndel]'), mv = e.target.closest('[data-gnmv]');
+  if (!add && !del && !mv) return;
+  const b = find(selected); if (!b) return;
+  commit(); b.gnSteps ||= [];
+  if (add) b.gnSteps.push({entity:'', do:'', check:true});
+  if (del) b.gnSteps.splice(+del.dataset.gndel, 1);
+  if (mv) { const i = +mv.dataset.gnmv, j = i + +mv.dataset.v; [b.gnSteps[i], b.gnSteps[j]] = [b.gnSteps[j], b.gnSteps[i]]; }
+  renderDash(); renderInsp(); save();
+});
+/* one step as Home Assistant script actions */
+function gnStepYaml(st){
+  const opts = GN_DO[gnDom(st.entity)] || [], d = opts.find(x => x[0] === st.do) || opts[0]; if (!st.entity || !d) return null;
+  if (d[0] === 'warn') return {if:[{condition:'state', entity_id:st.entity, state:'on'}], then:[{action:'persistent_notification.create', data:{title:'Good night', message:`${gnName(st.entity)} is still open`}}]};
+  const call = {action:d[3], target:{entity_id:st.entity}, ...(d[0] === 'set_temp' ? {data:{temperature:unitTemp(st.value ?? 18)}} : {})};
+  return st.check !== false && d[2] ? {if:[{condition:'not', conditions:[{condition:'state', entity_id:st.entity, state:d[2]}]}], then:[call]} : call;
 }
 /* scenes, good night, keypad */
 const catOf = t => t === 'alarm' ? 'lock' : t;
@@ -3761,6 +3838,8 @@ const GN_SHORT = {lights:'lights off', outlets:'outlets off', fans:'fans off', s
 function gnSummary(b){
   const on = GN_ITEMS.map(([k]) => k).filter(k => b.gn?.[k]).map(k => GN_SHORT[k]);
   if (b.gn?.temp != null) on.push(`heat to ${tC(b.gn.temp)}°`);
+  const own = (b.gnSteps || []).filter(x => x.entity).length;
+  if (own) on.push(`${own} step${own === 1 ? '' : 's'} of your own`);
   if (!on.length) return 'Set it up in the right panel';
   const s = on.slice(0, 2).join(', ') + (on.length > 2 ? ` +${on.length - 2} more` : '');
   return s[0].toUpperCase() + s.slice(1);
@@ -3778,6 +3857,17 @@ function goodNight(b){
     if (g.alarm && d.t === 'alarm' && d.mode === 'disarmed') { d.mode = 'home'; n++; }
     if (g.temp != null && d.t === 'climate' && d.target !== g.temp) { d.target = g.temp; n++; }
   }));
+  /* your own steps, on the hub's devices in the preview */
+  (b.gnSteps || []).forEach(st => (b.rooms || []).forEach(r => r.devices.forEach(d => {
+    if (!st.entity || hubEnt(d) !== st.entity) return;
+    const k = st.do || (GN_DO[gnDom(st.entity)] || [[]])[0][0];
+    if (k === 'lock' && !d.locked) { d.locked = true; n++; }
+    if (k === 'turn_off' && (d.on || d.speed || d.playing)) { d.on = false; d.speed = 0; d.playing = false; n++; }
+    if (k === 'turn_on' && !d.on) { d.on = true; n++; }
+    if (k === 'close' && (d.pos || d.pos2)) { d.pos = 0; if (d.entity2) d.pos2 = 0; n++; }
+    if (k === 'pause' && d.playing) { d.playing = false; n++; }
+    if (k === 'set_temp' && d.target !== st.value) { d.target = st.value ?? 18; n++; }
+  })));
   b.activeScene = null;
   if (!quiet()) gnFlash.add(b.id);
   toast(n ? `Good night 🌙 ${n} thing${n === 1 ? '' : 's'} taken care of` : 'Good night 🌙 Everything was already set');
@@ -3934,6 +4024,7 @@ function scriptsOut(){
     step(g.shades, 'shade', 'cover.close_cover'); step(g.media, 'media', 'media_player.media_pause'); step(g.locks, 'lock', 'lock.lock');
     step(g.alarm, 'alarm', 'alarm_control_panel.alarm_arm_home');
     step(g.temp != null, 'climate', 'climate.set_temperature', {temperature:unitTemp(g.temp ?? 18)});
+    (b.gnSteps || []).map(gnStepYaml).filter(Boolean).forEach(x => seq.push(x));
     out[gnScriptId(b)] = {alias:'Good night', icon:'mdi:weather-night', mode:'single', sequence:seq.length ? seq : [{action:'persistent_notification.create', data:{message:'Good night has nothing to do yet'}}]};
   });
   return out;

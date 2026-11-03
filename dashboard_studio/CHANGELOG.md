@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.16.0
+
+- New: build your own Good night. In the Control hub's settings, under **Your own Good night steps**, add steps one by one: pick a device, then what it does. Each step reads back in plain words, like "If Front Door isn't locked, lock it" or "If Back Door is open, remind me". "Only if it isn't already" leaves things alone when they're already done. Steps work with locks, lights, switches, fans, shades and garage doors, TVs and speakers, thermostats (set a temperature), alarms, scenes and scripts, and door and window sensors (a reminder). Move steps up and down to set the order. They run after the quick switches, in the Good night script the hub's 🌙 button runs.
+
 ## 1.15.1
 
 - Fix: Disarm and arm work on the Security card again. The card used to insist on a code whenever your alarm had one, even when Alarmo is set to disarm without a code. Now it tries right away, and only shows the keypad and asks when the alarm says it needs a code.
