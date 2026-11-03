@@ -39,7 +39,7 @@
  *       entity: scene.movie_night
  *   good_night: script.good_night
  */
-const STUDIO_VERSION = '1.14.0';
+const STUDIO_VERSION = '1.15.0';
 
 const DOMAIN_TYPE = {
   light: 'light', switch: 'switch', input_boolean: 'switch', fan: 'fan', cover: 'shade', climate: 'climate',
@@ -3062,7 +3062,378 @@ class DashboardStudioLaundryEditor extends HTMLElement {
   }
 }
 
+/* a visual editor from a list of fields, shared by the security, energy and pool cards */
+function studioEditor(fields, labels, note) {
+  return class extends HTMLElement {
+    setConfig(config) { this._config = config; this._render(); }
+    set hass(hass) { const first = !this._hass; this._hass = hass; if (first) this._render(); else if (this._form) this._form.hass = hass; }
+    _render() {
+      if (!this._hass || !this._config) return;
+      if (!customElements.get('ha-form')) { this.innerHTML = '<p>Use the code editor to set up this card.</p>'; return; }
+      if (!this._form) {
+        this._form = document.createElement('ha-form');
+        this._form.computeLabel = s => labels[s.name] || s.name;
+        this._form.addEventListener('value-changed', e => this.dispatchEvent(new CustomEvent('config-changed', {detail: {config: {...this._config, ...e.detail.value}}, bubbles: true, composed: true})));
+        const p = document.createElement('p'); p.style.cssText = 'margin:0 0 12px;color:var(--secondary-text-color);font-size:13px;line-height:1.5'; p.textContent = note;
+        this.append(p, this._form);
+      }
+      this._form.hass = this._hass; this._form.schema = fields; this._form.data = this._config;
+    }
+  };
+}
+const entField = (name, domain, extra = {}) => ({name, selector: {entity: {...(domain ? {domain} : {}), ...extra}}});
+const STUDIO_CARD_BASE = `
+:host{--c-text:var(--primary-text-color,#1c1c1c);--c-muted:var(--secondary-text-color,#6b6b6b);--c-accent:var(--primary-color,#03a9f4);--c-soft:color-mix(in srgb,var(--c-text) 7%,transparent)}
+ha-card{padding:18px;display:flex;flex-direction:column;gap:14px;color:var(--c-text);position:relative;overflow:hidden}
+ha-card.bare{background:none;box-shadow:none;border:none;padding:4px 0 0}
+button{font:inherit;color:inherit;cursor:pointer}
+.hint{margin:0;color:var(--c-muted);line-height:1.5;font-size:13px}
+.c-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.c-head b{font-size:20px;font-weight:600}
+.c-head span{font-size:13px;color:var(--c-muted)}
+.pbtn{border:0;height:40px;padding:0 14px;border-radius:12px;background:var(--c-soft);font-weight:600;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px;flex:1;min-width:0;white-space:nowrap}
+.pbtn.on{background:var(--c-accent);color:var(--text-primary-color,#fff)}
+.pbtn ha-icon{--mdc-icon-size:18px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+ha-card.calm *{animation:none!important;transition:none!important}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+`;
+const cMore = (el, id) => el.dispatchEvent(new CustomEvent('hass-more-info', {detail: {entityId: id}, bubbles: true, composed: true}));
+const cNum = st => { const n = parseFloat(st?.state); return isNaN(n) ? null : n; };
+
+/*
+ * Dashboard Studio security card (works with Alarmo, and any alarm panel)
+ * Arm and disarm with one tap, a keypad when a code is needed, a countdown while it arms,
+ * and which doors and windows are open before you leave.
+ *
+ *   type: custom:dashboard-studio-security
+ *   entity: alarm_control_panel.alarmo   # optional: found by itself
+ *   name: Security
+ */
+const SEC_MODES = [['home', 'Home', 'mdi:home-lock', 1], ['away', 'Away', 'mdi:lock', 2], ['night', 'Night', 'mdi:weather-night', 4], ['vacation', 'Vacation', 'mdi:airplane', 32], ['custom_bypass', 'Custom', 'mdi:shield-edit', 16]];
+const SEC_LABEL = {disarmed: 'Disarmed', armed_home: 'Armed home', armed_away: 'Armed away', armed_night: 'Armed night', armed_vacation: 'Armed vacation', armed_custom_bypass: 'Armed custom',
+  arming: 'Arming', pending: 'Someone came in', triggered: 'Alarm!', disarming: 'Disarming', unavailable: 'Unavailable'};
+const SEC_STYLE = STUDIO_CARD_BASE + `
+.s-top{display:flex;align-items:center;gap:16px}
+.s-shield{width:76px;height:76px;border-radius:50%;display:grid;place-items:center;flex:none;background:var(--c-soft);position:relative}
+.s-shield ha-icon{--mdc-icon-size:38px}
+.s-shield svg{position:absolute;inset:0}
+.armed .s-shield{background:color-mix(in srgb,#22c55e 18%,transparent);color:#16a34a}
+.busy .s-shield{background:color-mix(in srgb,#f59e0b 20%,transparent);color:#d97706}
+.alert .s-shield{background:#ef4444;color:#fff;animation:sPulse 1s ease-in-out infinite}
+@keyframes sPulse{50%{box-shadow:0 0 0 14px color-mix(in srgb,#ef4444 25%,transparent)}}
+.s-txt b{display:block;font-size:22px;font-weight:600}
+.s-txt span{font-size:13px;color:var(--c-muted)}
+.alert{background:color-mix(in srgb,#ef4444 14%,var(--ha-card-background,var(--card-background-color,#fff)))}
+.s-open{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,#f59e0b 12%,transparent)}
+.s-open b{font-size:13px}
+.s-open span{font-size:13px;color:var(--c-muted)}
+.dots{display:flex;justify-content:center;gap:10px;min-height:14px}
+.dots i{width:12px;height:12px;border-radius:50%;background:var(--c-text)}
+.dots i.e{background:none;box-shadow:inset 0 0 0 2px var(--c-muted)}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pad button{border:0;height:52px;border-radius:14px;background:var(--c-soft);font-size:20px;font-weight:600}
+.pad button.sm{font-size:13px}
+.s-msg{text-align:center;font-size:13px;color:var(--c-muted);min-height:1.3em}
+.s-msg.err{color:#ef4444}
+`;
+function findAlarm(hass, want) {
+  if (want && hass.states[want]) return want;
+  const ids = Object.keys(hass.states).filter(id => id.startsWith('alarm_control_panel.'));
+  return ids.find(id => hass.entities?.[id]?.platform === 'alarmo') || ids.find(id => /alarmo/.test(id)) || ids[0];
+}
+class DashboardStudioSecurity extends HTMLElement {
+  constructor() { super(); this.attachShadow({mode: 'open'}); this._code = ''; this.shadowRoot.addEventListener('click', e => this._click(e)); }
+  static getStubConfig() { return {name: 'Security'}; }
+  static getConfigElement() { return document.createElement('dashboard-studio-security-editor'); }
+  setConfig(c) { this._config = {name: 'Security', ...c}; this._render(); }
+  set hass(h) { const old = this._hass; this._hass = h; this._id = findAlarm(h, this._config.entity);
+    const watch = [this._id, ...Object.keys(h.states[this._id]?.attributes.open_sensors || {})];
+    if (!old || watch.some(id => old.states[id] !== h.states[id])) this._render(); }
+  connectedCallback() { this._tick = setInterval(() => { const s = this._hass?.states[this._id]?.state; if (s === 'arming' || s === 'pending') this._render(); }, 1000); }
+  disconnectedCallback() { clearInterval(this._tick); }
+  getCardSize() { return 5; }
+  getGridOptions() { return {columns: 6, min_columns: 4}; }
+  _call(service, data) {
+    return this._hass.callService(service.split('.')[0], service.split('.')[1], data)
+      .then(() => { this._msg = ''; this._err = false; this._render(); })
+      .catch(e => { this._msg = /code/i.test(e?.message || '') ? 'That code didn’t work. Try again' : (e?.message || 'That didn’t work'); this._err = true; this._render(); });
+  }
+  _click(e) {
+    const b = e.target.closest('[data-a]'); if (!b || !this._hass) return;
+    const st = this._hass.states[this._id], a = st?.attributes || {}, code = this._code ? {code: this._code} : {};
+    const needs = arm => !!a.code_format && (!arm || a.code_arm_required !== false);
+    switch (b.dataset.a) {
+      case 'digit': if (this._code.length < 10) this._code += b.dataset.v; this._msg = ''; break;
+      case 'clear': this._code = ''; break;
+      case 'back': this._code = this._code.slice(0, -1); break;
+      case 'arm': if (needs(true) && !this._code) { this._msg = 'Enter your code first'; this._err = true; break; }
+        this._call(`alarm_control_panel.alarm_arm_${b.dataset.v}`, {entity_id: this._id, ...code}); this._code = ''; return;
+      case 'force': this._call('alarmo.arm', {entity_id: this._id, mode: b.dataset.v, force: true, ...code}); this._code = ''; return;
+      case 'disarm': if (needs(false) && !this._code) { this._msg = 'Enter your code to disarm'; this._err = true; break; }
+        this._call('alarm_control_panel.alarm_disarm', {entity_id: this._id, ...code}); this._code = ''; return;
+      case 'more': cMore(this, b.dataset.e || this._id); return;
+    }
+    this._render();
+  }
+  _render() {
+    if (!this._config) return;
+    const c = this._config, h = this._hass, st = h?.states[this._id];
+    const card = (inner, cls = '') => { this.shadowRoot.innerHTML = `<style>${SEC_STYLE}</style><ha-card class="${[cls, c.calm && 'calm', c.bare && 'bare'].filter(Boolean).join(' ')}">${inner}</ha-card>`; };
+    if (!h) return card('<p class="hint">Connecting to Home Assistant…</p>');
+    if (!st) return card(`<div class="c-head"><b>${esc(c.name)}</b></div><p class="hint">No alarm panel found yet. Add Alarmo from HACS, or set <code>entity</code>.</p>`);
+    const a = st.attributes, s = st.state, armed = s.startsWith('armed'), busy = s === 'arming' || s === 'pending', alert = s === 'triggered';
+    const since = (Date.now() - Date.parse(st.last_changed)) / 1000, left = busy && a.delay ? Math.max(0, Math.ceil(a.delay - since)) : null;
+    const open = Object.keys(a.open_sensors || {}).map(id => h.states[id]?.attributes.friendly_name || id), byp = Object.keys(a.bypassed_sensors || {}).length;
+    const sub = alert ? 'Triggered. Disarm to stop it' : busy ? (left != null ? `${s === 'arming' ? 'Leave now: armed in' : 'Disarm within'} ${left}s` : SEC_LABEL[s]) : armed ? `${a.changed_by ? `By ${a.changed_by}` : 'Everything is protected'}${byp ? ` · ${byp} bypassed` : ''}` : open.length ? `${open.length} open` : 'Everything is closed';
+    const R = 36, C = 2 * Math.PI * R, ring = left != null && a.delay ? `<svg viewBox="0 0 76 76"><circle cx="38" cy="38" r="${R}" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="${(C * left / a.delay).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 38 38)"/></svg>` : '';
+    const icon = alert ? 'mdi:bell-ring' : armed ? 'mdi:shield-lock' : busy ? 'mdi:shield-sync' : 'mdi:shield-home-outline';
+    const feats = a.supported_features ?? 63, modes = SEC_MODES.filter(m => feats & m[3]);
+    const needCode = !!a.code_format && (armed || busy || alert || a.code_arm_required !== false), numeric = a.code_format === 'number';
+    const k = (act, inner, extra = '', cls = '') => `<button class="${cls}" data-a="${act}" ${extra}>${inner}</button>`;
+    const pad = needCode ? `<div class="dots">${Array.from({length: Math.max(4, this._code.length)}, (_, i) => `<i class="${i < this._code.length ? '' : 'e'}"></i>`).join('')}</div>
+      ${numeric ? `<div class="pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => k('digit', n, `data-v="${n}"`)).join('')}${k('clear', 'Clear', '', 'sm')}${k('digit', 0, 'data-v="0"')}${k('back', '<ha-icon icon="mdi:backspace-outline"></ha-icon>', 'aria-label="Delete"', 'sm')}</div>` : ''}` : '';
+    const acts = armed || busy || alert
+      ? `<div class="row">${k('disarm', '<ha-icon icon="mdi:shield-off-outline"></ha-icon>Disarm', '', 'pbtn on')}</div>`
+      : `<div class="row">${modes.map(([m, l, ic]) => k('arm', `<ha-icon icon="${ic}"></ha-icon>${l}`, `data-v="${m}"`, 'pbtn')).join('')}</div>`;
+    const openBox = !armed && !busy && open.length ? `<div class="s-open"><b>Open right now</b><span>${open.map(esc).join(', ')}</span>
+      ${h.services?.alarmo?.arm ? `<div class="row">${modes.slice(0, 2).map(([m, l]) => k('force', `Arm ${l.toLowerCase()} anyway`, `data-v="${m}"`, 'pbtn')).join('')}</div>` : ''}</div>` : '';
+    card(`<div class="s-top"><button class="s-shield" data-a="more" aria-label="Alarm details">${ring}<ha-icon icon="${icon}"></ha-icon></button>
+      <div class="s-txt"><b>${esc(SEC_LABEL[s] || cap(s))}</b><span>${esc(sub)}</span></div></div>
+      ${openBox}${pad}<div class="s-msg${this._err ? ' err' : ''}" role="status">${esc(this._msg || '')}</div>${acts}`, alert ? 'alert' : armed ? 'armed' : busy ? 'busy' : '');
+  }
+}
+const DashboardStudioSecurityEditor = studioEditor([{name: 'name', selector: {text: {}}}, entField('entity', 'alarm_control_panel')], {name: 'Name', entity: 'Alarm panel (found by itself)'},
+  'Works with Alarmo and any alarm panel. It finds your alarm by itself.');
+
+/*
+ * Dashboard Studio energy flow card (Tesla Powerwall, solar and the grid)
+ * Power moves between solar, the grid, your home and your Powerwall, with how much right now
+ * and your battery level. It finds Tesla Powerwall, Tesla Fleet, Teslemetry and other power sensors by itself.
+ *
+ *   type: custom:dashboard-studio-energy
+ *   name: Energy
+ *   solar: sensor.my_home_solar_power        # optional, all found by themselves
+ *   battery: sensor.my_home_battery_power    # positive: the battery is powering the house
+ *   grid: sensor.my_home_grid_power          # positive: buying from the grid
+ *   home: sensor.my_home_load_power
+ *   battery_level: sensor.my_home_percentage_charged
+ *   grid_status: binary_sensor.my_home_grid_status
+ *   invert_battery: false                    # true when your battery reports the other way round
+ *   invert_grid: false
+ */
+const ENERGY_STYLE = STUDIO_CARD_BASE + `
+.e-svg{width:100%;height:auto;display:block;max-height:300px}
+.e-svg text{font-family:inherit}
+.e-line{fill:none;stroke:var(--c-soft);stroke-width:4;stroke-linecap:round}
+.e-flow{fill:none;stroke-width:4;stroke-linecap:round;stroke-dasharray:2 14;animation:eFlow linear infinite}
+.e-flow.rev{animation-direction:reverse}
+@keyframes eFlow{to{stroke-dashoffset:-32}}
+.e-node{cursor:pointer}
+.e-sum{font-size:13px;color:var(--c-muted);text-align:center}
+`;
+function findEnergy(hass, c) {
+  const ids = Object.keys(hass.states).filter(id => id.startsWith('sensor.'));
+  const at = id => hass.states[id].attributes, isP = id => at(id).device_class === 'power' || /^k?W$/.test(at(id).unit_of_measurement || '');
+  const pw = ids.filter(isP), o = id => id.split('.')[1];
+  const pick = (re, not) => pw.find(id => re.test(o(id)) && !(not && not.test(o(id))));
+  const out = {
+    solar: c.solar || pick(/solar_(power|now)|pv_power|solar_production|solar$/, /forecast|today|energy/),
+    battery: c.battery || pick(/battery_(power|now)|powerwall_battery/, /charge_?rate|limit/),
+    grid: c.grid || pick(/grid_(power|now)|site_(power|now)|_site_now|grid$/, /status|export_limit/),
+    home: c.home || pick(/load_(power|now)|home_(power|load)|house_(power|load)|consumption/, /forecast|today/)
+  };
+  const dev = out.battery && hass.entities?.[out.battery]?.device_id;
+  out.battery_level = c.battery_level || ids.find(id => /percentage_charged|powerwall_charge|battery_(level|charge)$/.test(o(id)) && (!dev || hass.entities?.[id]?.device_id === dev) && at(id).unit_of_measurement === '%');
+  out.grid_status = c.grid_status || Object.keys(hass.states).find(id => id.startsWith('binary_sensor.') && /grid_(status|services)|grid_connected/.test(o(id)) && (!dev || hass.entities?.[id]?.device_id === dev));
+  return out;
+}
+class DashboardStudioEnergy extends HTMLElement {
+  constructor() { super(); this.attachShadow({mode: 'open'}); this.shadowRoot.addEventListener('click', e => { const n = e.target.closest('[data-e]'); if (n) cMore(this, n.dataset.e); }); }
+  static getStubConfig() { return {name: 'Energy'}; }
+  static getConfigElement() { return document.createElement('dashboard-studio-energy-editor'); }
+  setConfig(c) { this._config = {name: 'Energy', ...c}; this._e = null; this._render(); }
+  set hass(h) { const old = this._hass; this._hass = h; if (!this._e || old?.entities !== h.entities) this._e = findEnergy(h, this._config);
+    if (!old || Object.values(this._e).some(id => id && old.states[id] !== h.states[id])) this._render(); }
+  getCardSize() { return 6; }
+  getGridOptions() { return {columns: 6, min_columns: 4}; }
+  _kw(id, flip) { const st = this._hass.states[id]; let v = cNum(st); if (v == null) return null; if (!/^kW$/.test(st.attributes.unit_of_measurement || '')) v /= 1000; return flip ? -v : v; }
+  _render() {
+    if (!this._config) return;
+    const c = this._config, h = this._hass;
+    const card = inner => { this.shadowRoot.innerHTML = `<style>${ENERGY_STYLE}</style><ha-card class="${[c.calm && 'calm', c.bare && 'bare'].filter(Boolean).join(' ')}">${inner}</ha-card>`; };
+    if (!h || !this._e) return card('<p class="hint">Connecting to Home Assistant…</p>');
+    const e = this._e;
+    if (!e.solar && !e.battery && !e.grid) return card(`<div class="c-head"><b>${esc(c.name)}</b></div><p class="hint">No solar, battery or grid power found yet. Add your Powerwall's integration (like Tesla Fleet, Teslemetry or Tesla Powerwall), or set <code>solar</code>, <code>battery</code>, <code>grid</code> and <code>home</code>.</p>`);
+    const solar = Math.max(0, this._kw(e.solar) ?? 0), batt = this._kw(e.battery, c.invert_battery) ?? 0, grid = this._kw(e.grid, c.invert_grid) ?? 0;
+    const home = e.home ? Math.max(0, this._kw(e.home) ?? 0) : Math.max(0, solar + batt + grid);
+    const lvl = cNum(h.states[e.battery_level]), off = e.grid_status && h.states[e.grid_status]?.state === 'off';
+    const f = v => `${Math.abs(v) < 10 ? Math.abs(v).toFixed(1) : Math.round(Math.abs(v))} kW`;
+    /* nodes: solar on top, the grid left, the home right, the Powerwall below; power flows along the lines through the middle */
+    const N = {solar: [160, 42], grid: [48, 140], home: [272, 140], battery: [160, 238]}, mid = [160, 140];
+    const flow = (k, kw, toMid, color) => {
+      const [x, y] = N[k], d = `M${x} ${y} L${mid[0]} ${mid[1]}`, on = Math.abs(kw) > .05;
+      const dur = Math.max(.5, 3 - Math.min(2.5, Math.abs(kw) * .35)).toFixed(2);
+      return `<path class="e-line" d="${d}"/>${on ? `<path class="e-flow${toMid ? '' : ' rev'}" d="${d}" stroke="${color}" style="animation-duration:${dur}s"/>` : ''}`;
+    };
+    const node = (k, icon, color, label, value, id, extra = '') => { const [x, y] = N[k];
+      return `<g class="e-node" data-e="${esc(id || '')}"><circle cx="${x}" cy="${y}" r="28" fill="color-mix(in srgb, ${color} 16%, transparent)" stroke="${color}" stroke-width="2"/>${extra}
+        <foreignObject x="${x - 14}" y="${y - 14}" width="28" height="28"><ha-icon icon="${icon}" style="--mdc-icon-size:28px;color:${color};display:block"></ha-icon></foreignObject>
+        <text x="${x}" y="${y + (k === 'solar' ? -36 : 46)}" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">${esc(value)}</text>
+        <text x="${x}" y="${y + (k === 'solar' ? -51 : 61)}" text-anchor="middle" font-size="11" fill="var(--c-muted)">${esc(label)}</text></g>`; };
+    const C = 2 * Math.PI * 33, ring = lvl != null ? `<circle cx="${N.battery[0]}" cy="${N.battery[1]}" r="33" fill="none" stroke="#22c55e" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="${(C * lvl / 100).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 ${N.battery[0]} ${N.battery[1]})"/>` : '';
+    const svg = `<svg class="e-svg" viewBox="0 -18 320 328" role="img" aria-label="Energy flow">
+      ${e.solar ? flow('solar', solar, true, '#f59e0b') : ''}${e.grid ? flow('grid', grid, grid > 0, off ? '#9ca3af' : '#60a5fa') : ''}${flow('home', home, false, 'var(--c-accent)')}${e.battery ? flow('battery', batt, batt > 0, '#22c55e') : ''}
+      <circle cx="${mid[0]}" cy="${mid[1]}" r="5" fill="currentColor" opacity=".35"/>
+      ${e.solar ? node('solar', 'mdi:solar-power-variant', '#f59e0b', 'Solar', f(solar), e.solar) : ''}
+      ${e.grid ? node('grid', off ? 'mdi:transmission-tower-off' : 'mdi:transmission-tower', off ? '#9ca3af' : '#60a5fa', off ? 'Off grid' : grid > .05 ? 'Buying' : grid < -.05 ? 'Selling' : 'Grid', off ? 'Backup' : f(grid), e.grid) : ''}
+      ${node('home', 'mdi:home-lightning-bolt', 'var(--c-accent)', 'Home', f(home), e.home)}
+      ${e.battery ? node('battery', 'mdi:home-battery', '#22c55e', batt > .05 ? 'Powering home' : batt < -.05 ? 'Charging' : 'Powerwall', `${lvl != null ? Math.round(lvl) + '% · ' : ''}${f(batt)}`, e.battery_level || e.battery, ring) : ''}</svg>`;
+    const self = home > 0 ? Math.round(Math.min(1, (solar + Math.max(0, batt)) / home) * 100) : null;
+    const sum = off ? 'The grid is down: your Powerwall is keeping the lights on'
+      : solar > home && solar > .05 ? `Solar covers your whole home${batt < -.05 ? ', charging your Powerwall' : ''}${grid < -.05 ? `${batt < -.05 ? ' and' : ','} selling ${f(grid)}` : ''}`
+      : self != null && (solar > .05 || batt > .05) ? `Solar and your Powerwall cover ${self}% of your home right now` : grid < -.05 ? `Selling ${f(grid)} to the grid` : 'Running on the grid';
+    card(`<div class="c-head"><b>${esc(c.name)}</b><span>${lvl != null ? `Powerwall ${Math.round(lvl)}%` : ''}</span></div>${svg}<div class="e-sum">${esc(sum)}</div>`);
+  }
+}
+const DashboardStudioEnergyEditor = studioEditor([{name: 'name', selector: {text: {}}}, entField('solar', 'sensor'), entField('battery', 'sensor'), entField('grid', 'sensor'), entField('home', 'sensor'),
+  entField('battery_level', 'sensor'), entField('grid_status', 'binary_sensor'), {name: 'invert_battery', selector: {boolean: {}}}, {name: 'invert_grid', selector: {boolean: {}}}],
+  {name: 'Name', solar: 'Solar power', battery: 'Battery power (positive: powering the home)', grid: 'Grid power (positive: buying)', home: 'Home power', battery_level: 'Battery level', grid_status: 'Grid status', invert_battery: 'Battery reports the other way round', invert_grid: 'Grid reports the other way round'},
+  'Finds Tesla Powerwall, Tesla Fleet, Teslemetry and other power sensors by itself. Pick any you want to change.');
+
+/*
+ * Dashboard Studio pool card (Pentair, Hayward, Jandy iAqualink, or your own switches and sensors)
+ * The water temperature over a rippling pool, the heater, the pump, lights, spa and cleaner,
+ * and your water chemistry with what's in range.
+ *
+ *   type: custom:dashboard-studio-pool
+ *   name: Pool
+ *   water_temp: sensor.pool_temperature   # all optional: found by themselves
+ *   air_temp: sensor.air_temperature
+ *   heater: climate.pool_heater            # climate or water_heater
+ *   pump: switch.pool_pump
+ *   pump_speed: sensor.pool_pump_rpm
+ *   light: light.pool_light
+ *   spa: switch.spa
+ *   cleaner: switch.pool_cleaner
+ *   ph: sensor.pool_ph
+ *   orp: sensor.pool_orp
+ *   salt: sensor.pool_salt
+ *   chlorine: sensor.pool_chlorine
+ *   switches: [switch.waterfall]           # more buttons
+ */
+const POOL_RANGE = {ph: [7.2, 7.8, 'pH', ''], orp: [650, 800, 'ORP', ' mV'], salt: [2700, 3400, 'Salt', ' ppm'], chlorine: [1, 3, 'Chlorine', ' ppm']};
+const POOL_STYLE = STUDIO_CARD_BASE + `
+.p-water{position:relative;height:130px;border-radius:18px;overflow:hidden;background:linear-gradient(180deg,#5cc8f0,#1e88c8 70%,#156fa8);color:#fff;display:flex;align-items:flex-end;justify-content:space-between;padding:14px 16px;cursor:pointer;border:0;text-align:left}
+.p-water::before,.p-water::after{content:"";position:absolute;left:-50%;width:200%;height:60px;top:-30px;background:radial-gradient(40px 16px at 50% 100%,rgba(255,255,255,.35) 98%,transparent) 0 0/80px 30px repeat-x;animation:pWave 6s linear infinite;opacity:.5}
+.p-water::after{top:-22px;animation-duration:9s;animation-direction:reverse;opacity:.3}
+.p-water i{position:absolute;inset:0;background:repeating-radial-gradient(circle at 30% 120%,rgba(255,255,255,.08) 0 6px,transparent 6px 22px);animation:pShim 5s ease-in-out infinite alternate}
+@keyframes pWave{to{transform:translateX(80px)}}
+@keyframes pShim{to{transform:translateX(18px)}}
+.p-temp{position:relative;z-index:1}
+.p-temp b{font-size:44px;font-weight:700;line-height:1;text-shadow:0 2px 8px rgba(0,0,0,.25)}
+.p-temp span{display:block;font-size:13px;opacity:.9}
+.p-air{position:relative;z-index:1;font-size:13px;opacity:.9;text-align:right}
+.p-heat{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:var(--c-soft)}
+.p-heat .t{flex:1;min-width:0}
+.p-heat b{display:block;font-size:14px}
+.p-heat span{font-size:12.5px;color:var(--c-muted)}
+.p-heat.on{background:color-mix(in srgb,#f97316 14%,transparent)}
+.ibtn{width:38px;height:38px;border-radius:50%;border:0;background:var(--c-soft);display:grid;place-items:center}
+.val{font-weight:700;min-width:3ch;text-align:center}
+.p-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:8px}
+.p-tile{border:0;border-radius:14px;background:var(--c-soft);padding:12px 6px;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:12.5px;font-weight:600;min-width:0}
+.p-tile span{font-size:11.5px;font-weight:500;color:var(--c-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.p-tile.on{background:color-mix(in srgb,var(--c-accent) 16%,transparent);color:var(--c-accent)}
+.p-tile.on ha-icon.spin{animation:pSpin 1.6s linear infinite}
+@keyframes pSpin{to{transform:rotate(360deg)}}
+.p-chem{display:flex;gap:8px;flex-wrap:wrap}
+.p-chip{border:0;border-radius:99px;padding:6px 12px;font-size:12.5px;background:color-mix(in srgb,#22c55e 14%,transparent)}
+.p-chip.warn{background:color-mix(in srgb,#f59e0b 18%,transparent)}
+.p-chip b{font-weight:700}
+`;
+function findPool(hass, c) {
+  const ids = Object.keys(hass.states), plat = id => hass.entities?.[id]?.platform || '', o = id => id.split('.')[1];
+  const poolish = id => /pool|spa|hot_?tub|pentair|intellicenter|screenlogic|omnilogic|aqualink|jandy/.test(o(id)) || ['screenlogic', 'intellicenter', 'omnilogic', 'iaqualink', 'pentair', 'hayward_omnilogic'].includes(plat(id));
+  const P = ids.filter(id => poolish(id) && !hass.entities?.[id]?.entity_category && !hass.entities?.[id]?.hidden);
+  const at = id => hass.states[id].attributes, pick = (...tests) => { for (const t of tests) { const f = P.find(t); if (f) return f; } return undefined; };
+  const temp = id => id.startsWith('sensor.') && (at(id).device_class === 'temperature' || /°/.test(at(id).unit_of_measurement || ''));
+  const r = {
+    water_temp: c.water_temp || pick(id => temp(id) && /water|pool_temp|pool$/.test(o(id)) && !/air|spa/.test(o(id)), id => temp(id) && !/air/.test(o(id))),
+    air_temp: c.air_temp || pick(id => temp(id) && /air/.test(o(id))),
+    heater: c.heater || pick(id => /^(climate|water_heater)\./.test(id) && !/spa/.test(o(id)), id => /^(climate|water_heater)\./.test(id)),
+    pump: c.pump || pick(id => /^(switch|fan)\./.test(id) && /pump|filter/.test(o(id))),
+    pump_speed: c.pump_speed || pick(id => id.startsWith('sensor.') && /rpm|pump_speed|pump_(power|watts)/.test(o(id))),
+    light: c.light || pick(id => id.startsWith('light.'), id => id.startsWith('switch.') && /light/.test(o(id))),
+    spa: c.spa || pick(id => /^switch\./.test(id) && /(^|_)(spa|hot_?tub)(_|$)/.test(o(id)) && !/light|heat/.test(o(id))),
+    cleaner: c.cleaner || pick(id => /^(switch|vacuum)\./.test(id) && /clean|sweep|polaris|robot/.test(o(id))),
+    ph: c.ph || pick(id => id.startsWith('sensor.') && /(^|_)ph($|_)/.test(o(id))),
+    orp: c.orp || pick(id => id.startsWith('sensor.') && /orp/.test(o(id))),
+    salt: c.salt || pick(id => id.startsWith('sensor.') && /salt/.test(o(id))),
+    chlorine: c.chlorine || pick(id => id.startsWith('sensor.') && /chlorine|(^|_)fc($|_)/.test(o(id)) && !/setpoint|output/.test(o(id)))
+  };
+  const used = new Set(Object.values(r).filter(Boolean));
+  r.switches = c.switches || P.filter(id => /^switch\./.test(id) && !used.has(id) && !/config|schedule|freeze|lock|delay/.test(o(id))).slice(0, 4);
+  return r;
+}
+class DashboardStudioPool extends HTMLElement {
+  constructor() { super(); this.attachShadow({mode: 'open'}); this.shadowRoot.addEventListener('click', e => this._click(e)); }
+  static getStubConfig() { return {name: 'Pool'}; }
+  static getConfigElement() { return document.createElement('dashboard-studio-pool-editor'); }
+  setConfig(c) { this._config = {name: 'Pool', ...c}; this._p = null; this._render(); }
+  set hass(h) { const old = this._hass; this._hass = h; if (!this._p || old?.entities !== h.entities) this._p = findPool(h, this._config);
+    const ids = Object.values(this._p).flat().filter(Boolean);
+    if (!old || ids.some(id => old.states[id] !== h.states[id])) this._render(); }
+  getCardSize() { return 6; }
+  getGridOptions() { return {columns: 6, min_columns: 4}; }
+  _click(e) {
+    const b = e.target.closest('[data-a]'); if (!b || !this._hass) return;
+    const id = b.dataset.e, h = this._hass;
+    if (b.dataset.a === 'toggle') return h.callService(id.startsWith('vacuum.') ? 'vacuum' : 'homeassistant', id.startsWith('vacuum.') ? (h.states[id]?.state === 'cleaning' ? 'return_to_base' : 'start') : 'toggle', {entity_id: id}).catch(() => {});
+    if (b.dataset.a === 'temp') { const st = h.states[id], a = st.attributes, cur = a.temperature ?? a.target_temp_high ?? 80, step = a.target_temp_step || 1;
+      return h.callService(id.split('.')[0], 'set_temperature', {entity_id: id, temperature: +(cur + step * +b.dataset.v).toFixed(1)}).catch(() => {}); }
+    if (b.dataset.a === 'heat') { const st = h.states[id]; return id.startsWith('climate.') ? h.callService('climate', 'set_hvac_mode', {entity_id: id, hvac_mode: st.state === 'off' ? 'heat' : 'off'}).catch(() => {})
+      : h.callService('water_heater', st.state === 'off' ? 'turn_on' : 'turn_off', {entity_id: id}).catch(() => {}); }
+    if (b.dataset.a === 'more') cMore(this, id);
+  }
+  _render() {
+    if (!this._config) return;
+    const c = this._config, h = this._hass;
+    const card = inner => { this.shadowRoot.innerHTML = `<style>${POOL_STYLE}</style><ha-card class="${[c.calm && 'calm', c.bare && 'bare'].filter(Boolean).join(' ')}">${inner}</ha-card>`; };
+    if (!h || !this._p) return card('<p class="hint">Connecting to Home Assistant…</p>');
+    const p = this._p, s = id => id && h.states[id];
+    if (!p.water_temp && !p.pump && !p.heater) return card(`<div class="c-head"><b>${esc(c.name)}</b></div><p class="hint">No pool found yet. Add your pool's integration (like Pentair ScreenLogic or IntelliCenter, Hayward OmniLogic or Jandy iAqualink), or set <code>water_temp</code>, <code>pump</code> and <code>heater</code>.</p>`);
+    const u = s(p.water_temp)?.attributes.unit_of_measurement || h.config?.unit_system?.temperature || '°';
+    const wt = cNum(s(p.water_temp)), air = cNum(s(p.air_temp)), heat = s(p.heater);
+    const on = id => ['on', 'cleaning', 'heat', 'heating'].includes(s(id)?.state);
+    const ha = heat?.attributes || {}, heating = heat && heat.state !== 'off' && (ha.hvac_action === 'heating' || ha.current_operation === 'heating' || heat.state === 'heat' || heat.state === 'on');
+    const set = ha.temperature ?? ha.target_temp_high;
+    const water = `<button class="p-water" data-a="more" data-e="${esc(p.water_temp || p.pump || '')}"><i></i><div class="p-temp"><b>${wt != null ? Math.round(wt) + '°' : '–'}</b><span>${esc(c.name)} water${on(p.pump) ? ' · pump running' : ''}</span></div>${air != null ? `<div class="p-air">Air ${Math.round(air)}°</div>` : ''}</button>`;
+    const heater = heat ? `<div class="p-heat${heating ? ' on' : ''}"><button class="ibtn" data-a="heat" data-e="${esc(p.heater)}" aria-label="Heater on or off"><ha-icon icon="${heat.state === 'off' ? 'mdi:fire-off' : 'mdi:fire'}"></ha-icon></button>
+      <div class="t"><b>${heat.state === 'off' ? 'Heater off' : heating ? 'Heating' : 'Heater on'}</b><span>${set != null ? `Set to ${set}${u.replace(/[CF]$/, '')}` : esc(cap(heat.state))}</span></div>
+      ${set != null ? `<button class="ibtn" data-a="temp" data-v="-1" data-e="${esc(p.heater)}" aria-label="Lower"><ha-icon icon="mdi:minus"></ha-icon></button><span class="val">${set}°</span><button class="ibtn" data-a="temp" data-v="1" data-e="${esc(p.heater)}" aria-label="Raise"><ha-icon icon="mdi:plus"></ha-icon></button>` : ''}</div>` : '';
+    const speed = s(p.pump_speed), tile = (id, label, icon, sub, spin) => id && s(id) ? `<button class="p-tile${on(id) ? ' on' : ''}" data-a="toggle" data-e="${esc(id)}"><ha-icon class="${spin ? 'spin' : ''}" icon="${icon}"></ha-icon>${esc(label)}<span>${esc(sub || (on(id) ? 'On' : 'Off'))}</span></button>` : '';
+    const nm = id => (s(id).attributes.friendly_name || id).replace(new RegExp('^' + (c.name || 'Pool') + '\\s*', 'i'), '').trim() || id;
+    const tiles = [tile(p.pump, 'Pump', 'mdi:pump', on(p.pump) && speed ? `${speed.state} ${speed.attributes.unit_of_measurement || ''}`.trim() : '', true), tile(p.light, 'Lights', 'mdi:lightbulb'),
+      tile(p.spa, 'Spa', 'mdi:hot-tub'), tile(p.cleaner, 'Cleaner', 'mdi:robot-vacuum', '', true), ...(p.switches || []).map(id => tile(id, nm(id), 'mdi:toggle-switch-outline'))].join('');
+    const chem = Object.entries(POOL_RANGE).filter(([k]) => p[k] && cNum(s(p[k])) != null).map(([k, [lo, hi, label, unit]]) => { const v = cNum(s(p[k])), ok = v >= lo && v <= hi;
+      return `<button class="p-chip${ok ? '' : ' warn'}" data-a="more" data-e="${esc(p[k])}">${label} <b>${k === 'ph' ? v.toFixed(1) : Math.round(v)}${unit}</b>${ok ? '' : v < lo ? ' · low' : ' · high'}</button>`; }).join('');
+    card(`${water}${heater}${tiles ? `<div class="p-tiles">${tiles}</div>` : ''}${chem ? `<div class="p-chem">${chem}</div>` : ''}`);
+  }
+}
+const DashboardStudioPoolEditor = studioEditor([{name: 'name', selector: {text: {}}}, entField('water_temp', 'sensor'), entField('air_temp', 'sensor'), {name: 'heater', selector: {entity: {domain: ['climate', 'water_heater']}}},
+  {name: 'pump', selector: {entity: {domain: ['switch', 'fan']}}}, entField('pump_speed', 'sensor'), {name: 'light', selector: {entity: {domain: ['light', 'switch']}}}, entField('spa', 'switch'),
+  {name: 'cleaner', selector: {entity: {domain: ['switch', 'vacuum']}}}, entField('ph', 'sensor'), entField('orp', 'sensor'), entField('salt', 'sensor'), entField('chlorine', 'sensor')],
+  {name: 'Name', water_temp: 'Water temperature', air_temp: 'Air temperature', heater: 'Heater', pump: 'Pump', pump_speed: 'Pump speed', light: 'Lights', spa: 'Spa', cleaner: 'Cleaner', ph: 'pH', orp: 'ORP', salt: 'Salt', chlorine: 'Chlorine'},
+  'Finds Pentair, Hayward, Jandy and other pool entities by itself (anything with pool or spa in its name). Pick any you want to change.');
+
 if (!customElements.get('dashboard-studio-hub')) customElements.define('dashboard-studio-hub', DashboardStudioHub);
+if (!customElements.get('dashboard-studio-security')) customElements.define('dashboard-studio-security', DashboardStudioSecurity);
+if (!customElements.get('dashboard-studio-security-editor')) customElements.define('dashboard-studio-security-editor', DashboardStudioSecurityEditor);
+if (!customElements.get('dashboard-studio-energy')) customElements.define('dashboard-studio-energy', DashboardStudioEnergy);
+if (!customElements.get('dashboard-studio-energy-editor')) customElements.define('dashboard-studio-energy-editor', DashboardStudioEnergyEditor);
+if (!customElements.get('dashboard-studio-pool')) customElements.define('dashboard-studio-pool', DashboardStudioPool);
+if (!customElements.get('dashboard-studio-pool-editor')) customElements.define('dashboard-studio-pool-editor', DashboardStudioPoolEditor);
 if (!customElements.get('dashboard-studio-laundry')) customElements.define('dashboard-studio-laundry', DashboardStudioLaundry);
 if (!customElements.get('dashboard-studio-laundry-editor')) customElements.define('dashboard-studio-laundry-editor', DashboardStudioLaundryEditor);
 if (!customElements.get('dashboard-studio-dual-shade')) customElements.define('dashboard-studio-dual-shade', DashboardStudioDualShade);
@@ -3094,6 +3465,11 @@ if (!window.customCards.some(c => c.type === 'dashboard-studio-vehicle')) {
 }
 if (!window.customCards.some(c => c.type === 'dashboard-studio-laundry')) {
   window.customCards.push({type: 'dashboard-studio-laundry', name: 'Dashboard Studio laundry', description: 'Your washer and dryer: what they are doing, the time left, and a happy Done when a load is ready.', preview: true});
+}
+if (!window.customCards.some(c => c.type === 'dashboard-studio-security')) {
+  window.customCards.push({type: 'dashboard-studio-security', name: 'Dashboard Studio security', description: 'Arm and disarm Alarmo or any alarm panel, with a keypad, a countdown and open doors and windows.', preview: true});
+  window.customCards.push({type: 'dashboard-studio-energy', name: 'Dashboard Studio energy flow', description: 'Power flowing between solar, the grid, your home and your Tesla Powerwall.', preview: true});
+  window.customCards.push({type: 'dashboard-studio-pool', name: 'Dashboard Studio pool', description: 'Water temperature, heater, pump, lights, spa and water chemistry.', preview: true});
 }
 if (!window.customCards.some(c => c.type === 'dashboard-studio-fx')) {
   window.customCards.push({type: 'dashboard-studio-fx', name: 'Dashboard Studio effects', description: 'Moving backgrounds (including live weather) and card effects for the whole view. Invisible outside edit mode.', preview: false});

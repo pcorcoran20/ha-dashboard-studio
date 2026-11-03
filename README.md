@@ -318,6 +318,34 @@ Tap a machine to open its details in Home Assistant.
 
 A washer-dryer combo shows as one machine that turns from washing to drying as the cycle goes. A stacked pair that Home Assistant sees as one device, like an LG WashTower, shows as a washer and a dryer.
 
+## Security, energy flow and pool cards
+
+All three find what they need by themselves, and each has a visual editor to change anything.
+
+```yaml
+type: custom:dashboard-studio-security   # Alarmo or any alarm panel: arm modes, a keypad when a code is needed,
+entity: alarm_control_panel.alarmo       # a countdown while it arms, open doors and windows, and "Arm anyway" with Alarmo
+```
+
+```yaml
+type: custom:dashboard-studio-energy     # power flowing between solar, the grid, your home and your Tesla Powerwall
+solar: sensor.my_home_solar_power        # all optional: found from Tesla Fleet, Teslemetry, Tesla Powerwall and other power sensors
+battery: sensor.my_home_battery_power    # positive: the battery is powering the house (invert_battery: true flips it)
+grid: sensor.my_home_grid_power          # positive: buying from the grid (invert_grid: true flips it)
+home: sensor.my_home_load_power
+battery_level: sensor.my_home_percentage_charged
+grid_status: binary_sensor.my_home_grid_status
+```
+
+```yaml
+type: custom:dashboard-studio-pool       # water temperature, heater, pump, lights, spa, cleaner and water chemistry
+water_temp: sensor.pool_temperature      # all optional: found from Pentair, Hayward, Jandy and anything named pool or spa
+heater: climate.pool_heater
+pump: switch.pool_pump
+ph: sensor.pool_ph
+switches: [switch.pool_waterfall]        # more buttons
+```
+
 ## Credits
 
 Real 3D Teslas are made possible by two projects by **Koen Hendriks**. Thank you! 💜

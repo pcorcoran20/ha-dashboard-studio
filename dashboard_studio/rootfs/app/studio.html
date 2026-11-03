@@ -821,6 +821,32 @@ body.kiosk .tb, body.kiosk .rz, body.kiosk .vis-badge, body.kiosk .card.hidden-h
 .w-vehicle{gap:12px}
 .w-carbay{gap:12px}
 .w-laundry{gap:12px}
+.sec-top{display:flex; align-items:center; gap:14px}
+.sec-shield{width:62px; height:62px; border-radius:50%; display:grid; place-items:center; background:color-mix(in srgb, var(--d-text) 8%, transparent); flex:none}
+.sec-shield .i{width:30px; height:30px}
+.sec-shield.armed{background:color-mix(in srgb, #22c55e 20%, transparent); color:#16a34a}
+.sec-open{display:flex; flex-direction:column; gap:3px; padding:9px 11px; border-radius:12px; background:color-mix(in srgb, #f59e0b 14%, transparent); font-size:calc(12.5px * var(--d-fs,1))}
+.sec-open span{color:var(--d-muted)}
+.en-svg{width:100%; height:auto; max-height:280px}
+.en-flow{fill:none; stroke-width:4; stroke-linecap:round; stroke-dasharray:2 14; animation:enFlow 1.4s linear infinite}
+.en-flow.rev{animation-direction:reverse}
+@keyframes enFlow{to{stroke-dashoffset:-32}}
+.pl-water{position:relative; height:110px; border-radius:16px; overflow:hidden; background:linear-gradient(180deg,#5cc8f0,#1e88c8 70%,#156fa8); color:#fff; display:flex; align-items:flex-end; padding:12px 14px}
+.pl-water i{position:absolute; inset:0; background:repeating-radial-gradient(circle at 30% 120%, rgba(255,255,255,.1) 0 6px, transparent 6px 22px); animation:plShim 5s ease-in-out infinite alternate}
+@keyframes plShim{to{transform:translateX(18px)}}
+.pl-water div{position:relative}
+.pl-water b{font-size:calc(38px * var(--d-fs,1)); font-weight:700; line-height:1; display:block}
+.pl-water span{font-size:calc(12.5px * var(--d-fs,1)); opacity:.9}
+.pl-heat{display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:12px; background:color-mix(in srgb, var(--d-text) 6%, transparent)}
+.pl-heat.on{background:color-mix(in srgb, #f97316 14%, transparent); color:#ea580c}
+.pl-heat b{display:block; font-size:calc(13.5px * var(--d-fs,1)); color:var(--d-text)}
+.pl-heat span{font-size:calc(12px * var(--d-fs,1)); color:var(--d-muted)}
+.pl-tiles{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+.pl-tile{border:0; border-radius:12px; background:color-mix(in srgb, var(--d-text) 6%, transparent); padding:10px 4px; display:flex; flex-direction:column; align-items:center; gap:4px; font:inherit; font-size:calc(12px * var(--d-fs,1)); font-weight:600; color:var(--d-text); cursor:pointer}
+.pl-tile span{font-weight:500; color:var(--d-muted); font-size:calc(11px * var(--d-fs,1))}
+.pl-tile.on{background:color-mix(in srgb, var(--d-accent) 18%, transparent); color:var(--d-accent)}
+.pl-chem{display:flex; gap:6px; flex-wrap:wrap}
+.pl-chem span{border-radius:99px; padding:5px 10px; font-size:calc(12px * var(--d-fs,1)); background:color-mix(in srgb, #22c55e 15%, transparent)}
 .hub-laundry{display:flex; flex-direction:column; gap:12px}
 .l-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px}
 .lm{border:0; background:color-mix(in srgb, var(--d-text) 6%, transparent); border-radius:calc(var(--d-r, 18px) * .75); padding:12px 10px; display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; min-width:0; color:var(--d-text); font:inherit; cursor:pointer}
@@ -1233,6 +1259,9 @@ const P = {
   storm:'<path d="M7 15h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 6.5 4.3 4.3 0 0 0 7 15z"/><path d="M12.5 13 10 17h3l-2.5 4"/>',
   snow:'<path d="M12 3v18M4.2 7.5l15.6 9M19.8 7.5l-15.6 9M9.5 4.5 12 7l2.5-2.5M9.5 19.5 12 17l2.5 2.5"/>',
   plan:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h8V3M11 16v5M15 12h6"/>',
+  flame:'<path d="M12 22c4 0 7-3 7-7 0-5-5-7-5-12-3 2-6 6-6 9-1-1-2-2-2-4-2 2-3 4-3 7 0 4 4 7 9 7z"/>',
+  solar:'<circle cx="12" cy="6" r="2.6"/><path d="M12 1v1.2M16.8 3.2l-.9.9M7.2 3.2l.9.9M4 12h16l-2 9H6zM9 12l-.8 9M15 12l.8 9M5 16.5h14"/>',
+  pool:'<path d="M2 18c2 0 2-1.5 4-1.5S8 18 10 18s2-1.5 4-1.5 2 1.5 4 1.5 2-1.5 4-1.5M2 22c2 0 2-1.5 4-1.5S8 22 10 22s2-1.5 4-1.5 2 1.5 4 1.5 2-1.5 4-1.5M8 15V5a2 2 0 0 1 4 0M16 15V5a2 2 0 0 0-4 0M8 8h8M8 12h8"/>',
   laundry:'<rect x="4" y="2.5" width="16" height="19" rx="2.5"/><path d="M4 7h16"/><circle cx="12" cy="14" r="4.5"/><path d="M7 4.8h.01M10 4.8h.01"/>'
 };
 const ic = (n, cls='') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${P[n]||''}</svg>`;
@@ -1485,6 +1514,9 @@ const CATALOG = {
   laundry:{name:'Laundry', desc:'Washer and dryer with time left and a happy Done', icon:'laundry', size:'m', isNew:1, d:{title:'Laundry', machines:[
     {name:'Washer', kind:'washer', device:'', mode:'running', stage:'Rinsing', left:32},
     {name:'Dryer', kind:'dryer', device:'', mode:'done'}]}},
+  security:{name:'Security', desc:'Arm, disarm, open doors: for Alarmo and any alarm', icon:'shield', size:'m', isNew:1, d:{title:'Security', entity:'', mode:'disarmed', open:'Back Door'}},
+  powerflow:{name:'Energy flow', desc:'Solar, Powerwall, grid and home, live', icon:'solar', size:'m', isNew:1, d:{title:'Energy', solar:5.2, home:2.5, battery:-2.1, grid:-.6, level:72}},
+  pool:{name:'Pool', desc:'Water temp, heater, pump, lights and chemistry', icon:'pool', size:'m', isNew:1, d:{title:'Pool', temp:84, set:86, heating:true, pump:true, light:false, spa:false}},
   floorplan:{name:'Floor plan', desc:'Draw your rooms, tap to light them', icon:'plan', size:'m', d:{title:'Ground floor', rooms:[
     {name:'Living', x:0, y:0, w:6, h:5, light:'light.living_room', sensor:'sensor.living_room_temperature', on:true},
     {name:'Kitchen', x:6, y:0, w:4, h:3, light:'light.kitchen', sensor:'', on:true},
@@ -1519,7 +1551,10 @@ const FIELDS = {
   vehicle:[['title','Name'], ['vehicle','Car name in its entity IDs (optional)','my_model_y',1]],
   dualshade:[['title','Name'], ENT('entity','First shade','cover'), ['label1','First shade label'], ENT('entity2','Second shade','cover'), ['label2','Second shade label']],
   hub:[['title','Home name']],
-  laundry:[['title','Name']]
+  laundry:[['title','Name']],
+  security:[['title','Name'], ENT('entity','Alarm panel (optional: found by itself)','alarm_control_panel')],
+  powerflow:[['title','Name']],
+  pool:[['title','Name']]
 };
 
 function mk(type, over={}){
@@ -1958,6 +1993,8 @@ function act(b, a, el){
     case 'ds': { const k = 'pos' + el.dataset.n, v = el.dataset.v; if (v === 'up') b[k] = Math.min(100, (b[k] ?? 100) + 25); if (v === 'down') b[k] = Math.max(0, (b[k] ?? 100) - 25); break; }
     case 'dsp': { const pr = DS[b.style || 'daynight'].presets.find(x => x[0] === el.dataset.v); if (pr) { b.pos1 = pr[2]; b.pos2 = pr[3]; } break; }
     case 'cb-car': { const c = b.cars?.[+el.dataset.i]; if (c) c.home = !c.home; break; }
+    case 'sec': b.mode = el.dataset.m; break;
+    case 'pool': { const k = el.dataset.k; b[k] = !b[k]; break; }
     case 'lm-tap': { const m = (b.type === 'hub' ? b.lmach : b.machines)?.[+el.dataset.i]; if (m) m.mode = {running:'done', done:'idle'}[m.mode] || 'running'; break; }
     case 'cb-door': b.open = !b.open; break;
     case 'car': { const v = el.dataset.v, t = b.type === 'hub' ? b.car : b; if (!t) break;
@@ -2196,9 +2233,9 @@ const lib = $('lib');
 const LIB_GROUPS = [
   ['Start here', 'The basics most dashboards use', ['header','weather','light','climate','scenes']],
   ['Touchscreen & rooms', 'Whole-home and room views', ['hub','floorplan','room','people']],
-  ['Security', 'Locks, alarm and cameras', ['lock','alarm','camera','garage']],
-  ['Media & info', 'Music, TV, calendar and readings', ['media','calendar','sensor','energy','air']],
-  ['Around the house', 'Shades, robots, plants and cars', ['cover','dualshade','vacuum','plant','vehicle','carbay']]
+  ['Security', 'Locks, alarm and cameras', ['security','lock','alarm','camera','garage']],
+  ['Media & info', 'Music, TV, energy and readings', ['media','calendar','sensor','powerflow','energy','air']],
+  ['Around the house', 'Shades, laundry, pool, robots and cars', ['cover','dualshade','laundry','pool','vacuum','plant','vehicle','carbay']]
 ];
 const libOpen = new Set(['Start here']);
 const libItem = k => { const c = CATALOG[k]; return `<button class="lib-item" draggable="true" data-type="${k}" title="${esc(c.desc)}"><span class="ic">${ic(c.icon)}</span>${c.isNew ? '<span class="newtag">New</span>' : ''}<b>${c.name}</b><span>${c.desc}</span></button>`; };
@@ -3029,6 +3066,17 @@ function cardYaml(b){
     case 'alarm': return {type:'tile', entity:b.entity, name:b.title, features_position:'bottom', features:[{type:'alarm-modes', modes:['armed_home','armed_away','disarmed']}]};
     case 'plant': return {type:'tile', entity:b.entity, name:b.title, icon:'mdi:sprout'};
     case 'garage': return {type:'tile', entity:b.entity, name:b.title, icon:'mdi:garage', features_position:'bottom', features:[{type:'cover-open-close'}]};
+    case 'security': {
+      if (state.useCards) return {type:'custom:dashboard-studio-security', name:b.title, ...(b.entity ? {entity:b.entity} : {})};
+      const e = b.entity || state.entities.find(x => x.startsWith('alarm_control_panel.')) || 'alarm_control_panel.alarmo';
+      return {type:'alarm-panel', entity:e, name:b.title, states:['arm_home', 'arm_away', 'arm_night']};
+    }
+    case 'powerflow': return state.useCards ? {type:'custom:dashboard-studio-energy', name:b.title} : {type:'energy-distribution', title:b.title, link_dashboard:true};
+    case 'pool': {
+      if (state.useCards) return {type:'custom:dashboard-studio-pool', name:b.title};
+      const ents = state.entities.filter(x => /pool|spa/.test(x) && /^(sensor|switch|light|climate|water_heater)\./.test(x)).slice(0, 10);
+      return ents.length ? {type:'entities', title:b.title, entities:ents} : {type:'markdown', content:`### ${b.title}\nNo pool found yet. Turn on **Use the Dashboard Studio card** for the full pool card.`};
+    }
     case 'laundry': {
       const picked = (b.machines || []).filter(m => m.device);
       if (state.useCards) return {type:'custom:dashboard-studio-laundry', name:b.title, ...(picked.length ? {machines:picked.map(m => ({device:m.device, ...(m.sub ? {sub:m.sub} : {}), name:m.name, kind:m.kind}))} : {})};
@@ -3103,7 +3151,7 @@ const CRIT_FUNS = new Set(['duck','sakura','ocean','zoo','water','tropical','bea
 const critterTheme = () => themeKeysOut().some(k => CRIT_FUNS.has(getTheme(k).fun));
 /* auto follows whichever theme Home Assistant is showing, for the sunset and holiday switch */
 const crittersOut = () => state.critters === false || !critterTheme() ? null : switching() ? 'auto' : getTheme(state.theme).fun;
-const usesStudioCard = () => allBlocks().some(b => ['hub', 'dualshade', 'vehicle', 'carbay', 'laundry'].includes(b.type)) || fxActive() || !!crittersOut();
+const usesStudioCard = () => allBlocks().some(b => ['hub', 'dualshade', 'vehicle', 'carbay', 'laundry', 'security', 'powerflow', 'pool'].includes(b.type)) || fxActive() || !!crittersOut();
 function fxCardYaml(){
   if (!state.useCards || (!fxActive() && !crittersOut())) return [];
   const f = state.fx, w = allBlocks().find(b => b.type === 'weather');
@@ -4233,6 +4281,36 @@ function carDevices(){
 }
 const CHARGERS = [['auto','Find it'], ['supercharger','Supercharger'], ['wall_connector','Wall Connector'], ['none','Only the cable']];
 /* the car garage: a bay per car, the door slides over them */
+/* security: arm modes, open doors, armed state (tap a mode in the preview to try it) */
+R.security = b => {
+  const armed = b.mode && b.mode !== 'disarmed', lab = {disarmed:'Disarmed', home:'Armed home', away:'Armed away', night:'Armed night'}[b.mode] || 'Disarmed';
+  return `<div class="sec-top"><span class="sec-shield${armed ? ' armed' : ''}">${ic('shield')}</span><div><div class="d-name" style="font-size:calc(20px * var(--d-fs,1))">${lab}</div><div class="d-label">${armed ? 'Everything is protected' : b.open ? '1 open' : 'Everything is closed'}</div></div></div>
+    ${!armed && b.open ? `<div class="sec-open"><b>Open right now</b><span>${esc(b.open)}</span></div>` : ''}
+    <div class="d-row">${armed ? `<button class="d-pbtn on" data-act="sec" data-m="disarmed">Disarm</button>` : [['home','Home'], ['away','Away'], ['night','Night']].map(([k, l]) => `<button class="d-pbtn" data-act="sec" data-m="${k}">${l}</button>`).join('')}</div>`;
+};
+/* energy: the flow between solar, the grid, the home and the Powerwall */
+R.powerflow = b => {
+  const N = {solar:[160, 40], grid:[48, 132], home:[272, 132], battery:[160, 224]}, mid = [160, 132], f = v => `${Math.abs(v).toFixed(1)} kW`;
+  const flow = (k, kw, toMid, color) => { const [x, y] = N[k], d = `M${x} ${y} L${mid[0]} ${mid[1]}`;
+    return `<path d="${d}" stroke="currentColor" stroke-opacity=".12" stroke-width="4" stroke-linecap="round"/>${Math.abs(kw) > .05 ? `<path class="en-flow${toMid ? '' : ' rev'}" d="${d}" stroke="${color}"/>` : ''}`; };
+  const node = (k, icon, color, label, val) => { const [x, y] = N[k];
+    return `<circle cx="${x}" cy="${y}" r="26" fill="${color}" fill-opacity=".16" stroke="${color}" stroke-width="2"/><g transform="translate(${x - 11} ${y - 11}) scale(.92)" stroke="${color}" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${P[icon]}</g>
+      <text x="${x}" y="${y + (k === 'solar' ? -33 : 43)}" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--d-text)">${val}</text><text x="${x}" y="${y + (k === 'solar' ? -47 : 57)}" text-anchor="middle" font-size="10.5" fill="var(--d-muted)">${label}</text>`; };
+  const C = 2 * Math.PI * 31;
+  return `<div class="d-top"><div class="d-name">${esc(b.title)}</div><span class="d-label">Powerwall ${b.level}%</span></div>
+    <svg class="en-svg" viewBox="0 -20 320 312">${flow('solar', b.solar, true, '#f59e0b')}${flow('grid', b.grid, b.grid > 0, '#60a5fa')}${flow('home', b.home, false, 'var(--d-accent)')}${flow('battery', b.battery, b.battery > 0, '#22c55e')}
+      ${node('solar', 'solar', '#f59e0b', 'Solar', f(b.solar))}${node('grid', 'plug', '#60a5fa', b.grid < 0 ? 'Selling' : 'Buying', f(b.grid))}${node('home', 'home', 'var(--d-accent)', 'Home', f(b.home))}${node('battery', 'bolt', '#22c55e', b.battery < 0 ? 'Charging' : 'Powering home', `${b.level}% · ${f(b.battery)}`)}
+      <circle cx="160" cy="224" r="31" fill="none" stroke="#22c55e" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="${(C * b.level / 100).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 160 224)"/></svg>
+    <div class="d-label" style="text-align:center">Solar covers your whole home, charging your Powerwall</div>`;
+};
+/* pool: water, heater, buttons, chemistry */
+R.pool = b => {
+  const t = (k, l, icon, sub, on) => `<button class="pl-tile${on ? ' on' : ''}" data-act="pool" data-k="${k}">${ic(icon)}${l}<span>${sub || (on ? 'On' : 'Off')}</span></button>`;
+  return `<div class="pl-water"><i></i><div><b>${tC((b.temp - 32) * 5 / 9, 0)}°</b><span>${esc(b.title)} water${b.pump ? ' · pump running' : ''}</span></div></div>
+    <div class="pl-heat${b.heating ? ' on' : ''}">${ic('flame')}<div><b>${b.heating ? 'Heating' : 'Heater off'}</b><span>Set to ${tC((b.set - 32) * 5 / 9, 0)}°</span></div></div>
+    <div class="pl-tiles">${t('pump', 'Pump', 'fan', b.pump ? '2400 rpm' : '', b.pump)}${t('light', 'Lights', 'bulb', '', b.light)}${t('spa', 'Spa', 'drop', '', b.spa)}</div>
+    <div class="pl-chem"><span>pH <b>7.5</b></span><span>ORP <b>720 mV</b></span><span>Salt <b>3100 ppm</b></span></div>`;
+};
 /* laundry: the same washer drawing as the Home Assistant card */
 function laundryArt(kind, mode, prog, uid){
   const C = 2 * Math.PI * 27, dry = kind === 'dryer' || kind === 'combo-dry';
@@ -4567,8 +4645,11 @@ function openAutoHome(){
           const hub = mk('hub', {title:state.name || 'Home', scenes:[], rooms:[]});
           hubFill(hub);
           const w = state.entities.find(e => e.startsWith('weather.'));
-          const lm = laundryDevices();
-          pages.push({id:uid(), name:'Home', blocks:[mk('header'), ...(w ? [mk('weather', {entity:w, size:'xl'})] : []), hub, ...(lm.length ? [mk('laundry', {machines:lm.map(d => ({name:d.name, kind:d.kind, device:d.id, ...(d.sub ? {sub:d.sub} : {}), mode:'idle'}))})] : [])]});
+          const lm = laundryDevices(), has = re => state.entities.some(e => re.test(e));
+          const extra = [...(state.entities.some(e => e.startsWith('alarm_control_panel.')) ? [mk('security')] : []),
+            ...(has(/^sensor\..*(solar_power|battery_power|powerwall_(solar|battery)_now|grid_power)/) ? [mk('powerflow')] : []),
+            ...(has(/^(sensor|switch|climate|water_heater)\..*(pool|spa)/) ? [mk('pool')] : [])];
+          pages.push({id:uid(), name:'Home', blocks:[mk('header'), ...(w ? [mk('weather', {entity:w, size:'xl'})] : []), hub, ...extra, ...(lm.length ? [mk('laundry', {machines:lm.map(d => ({name:d.name, kind:d.kind, device:d.id, ...(d.sub ? {sub:d.sub} : {}), mode:'idle'}))})] : [])]});
         }
         picked.forEach(r => pages.push({id:uid(), name:r.name, blocks:roomBlocks(r.name, r.kinds)}));
         commit();

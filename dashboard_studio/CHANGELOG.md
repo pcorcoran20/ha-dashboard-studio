@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.15.0
+
+- New: a **Security** card for Alarmo and any alarm panel. It has a big status shield, a button for each arm mode, a keypad when a code is needed, a countdown ring while it arms, the doors and windows that are open, "Arm anyway" with Alarmo, and a red alert when it's triggered.
+- New: an **Energy flow** card for your Tesla Powerwall and solar. Power flows live between solar, the grid, your home and your Powerwall, with kW, your battery level, buying or selling, and an off-grid alert. It finds Tesla Fleet, Teslemetry, Tesla Powerwall and other power sensors by itself.
+- New: a **Pool** card. It shows the water temperature over a rippling pool, the heater with + and −, buttons for the pump (with its speed), lights, spa, cleaner and more, and pH, ORP, salt and chlorine with what's in range. It finds Pentair, Hayward, Jandy and anything named pool or spa.
+- All three are Studio blocks too, and Auto-build adds them to your Home page when your home has them.
+- Fix: the Laundry block now shows in the Studio's block list (under Around the house).
+
 ## 1.14.0
 
 - New: more than one dashboard. Tap the dashboards button next to the name at the top of the Studio to switch between them, start a new one, copy the one you're on, or delete one. Each installs as its own Home Assistant dashboard with its own web address, like a touchscreen one for the wall and a full one for your phone.
